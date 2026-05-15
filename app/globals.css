@@ -1,0 +1,230 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Primary accents */
+  --color-magenta: #FF0080;
+  --color-magenta-dim: rgba(255, 0, 128, 0.6);
+  --color-magenta-glow: rgba(255, 0, 128, 0.35);
+  --color-teal: #00F5D4;
+  --color-teal-dim: rgba(0, 245, 212, 0.6);
+  --color-teal-glow: rgba(0, 245, 212, 0.3);
+  /* Tertiary */
+  --color-purple: #8B00FF;
+  --color-gold: #FFD600;
+  --color-green: #00FF88;
+  /* Surfaces */
+  --color-panel: #07070F;
+  --color-panel-mid: #0C0C18;
+  --color-panel-border: rgba(255, 255, 255, 0.07);
+  --color-panel-border-bright: rgba(255, 255, 255, 0.14);
+  /* Legacy compat */
+  --color-teal-legacy: #00C4CC;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #000;
+  color: #fff;
+  overflow-x: hidden;
+}
+
+/* ─── Scrollbar ─────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 245, 212, 0.2);
+  border-radius: 2px;
+}
+
+/* ─── Constellation lines ─────────────────────────────────────────────── */
+.constellation-svg line {
+  stroke: rgba(0, 245, 212, 0.18);
+  stroke-width: 0.7;
+}
+.constellation-svg circle {
+  fill: rgba(0, 245, 212, 0.5);
+}
+
+/* ─── Inputs ──────────────────────────────────────────────────────────── */
+.input-dark {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-radius: 8px;
+  padding: 12px 18px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+}
+.input-dark::placeholder { color: rgba(255, 255, 255, 0.25); }
+.input-dark:focus {
+  border-color: rgba(0, 245, 212, 0.5);
+  box-shadow: 0 0 0 3px rgba(0, 245, 212, 0.06), 0 0 20px rgba(0, 245, 212, 0.08);
+}
+
+/* ─── Panels ──────────────────────────────────────────────────────────── */
+.panel {
+  background: var(--color-panel);
+  border-left: 1px solid var(--color-panel-border);
+}
+
+/* ─── Buttons ─────────────────────────────────────────────────────────── */
+.btn-teal {
+  background: var(--color-teal);
+  color: #000;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 13px 28px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  transition: opacity 0.15s, transform 0.1s, box-shadow 0.2s;
+  cursor: pointer;
+  border: none;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-space);
+}
+.btn-teal:hover { box-shadow: 0 0 24px rgba(0, 245, 212, 0.5); }
+.btn-teal:active { transform: scale(0.98); }
+
+.btn-magenta {
+  background: var(--color-magenta);
+  color: #fff;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 13px 28px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  transition: opacity 0.15s, transform 0.1s, box-shadow 0.2s;
+  cursor: pointer;
+  border: none;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-space);
+}
+.btn-magenta:hover { box-shadow: 0 0 24px rgba(255, 0, 128, 0.5); }
+.btn-magenta:active { transform: scale(0.98); }
+
+.btn-ghost {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  font-family: var(--font-space);
+}
+.btn-ghost:hover {
+  border-color: rgba(0, 245, 212, 0.4);
+  color: #fff;
+}
+
+/* ─── Labels ──────────────────────────────────────────────────────────── */
+.section-label {
+  font-size: 9px;
+  letter-spacing: 0.28em;
+  color: rgba(255, 255, 255, 0.3);
+  text-transform: uppercase;
+  font-family: var(--font-space);
+  margin-bottom: 6px;
+}
+
+/* ─── Neon text utilities ─────────────────────────────────────────────── */
+.neon-magenta {
+  color: var(--color-magenta);
+  text-shadow:
+    0 0 14px rgba(255, 0, 128, 0.9),
+    0 0 40px rgba(255, 0, 128, 0.5),
+    0 0 80px rgba(255, 0, 128, 0.25);
+}
+.neon-teal {
+  color: var(--color-teal);
+  text-shadow:
+    0 0 14px rgba(0, 245, 212, 0.9),
+    0 0 40px rgba(0, 245, 212, 0.5),
+    0 0 80px rgba(0, 245, 212, 0.25);
+}
+
+/* ─── Gradient wordmark ───────────────────────────────────────────────── */
+.gradient-wordmark {
+  background: linear-gradient(135deg, #FF0080 0%, #c060ff 40%, #00F5D4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Scan line ───────────────────────────────────────────────────────── */
+@keyframes scanDown {
+  0%   { top: -2px; opacity: 0; }
+  8%   { opacity: 1; }
+  92%  { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+.scan-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(0, 245, 212, 0.7) 50%, transparent 100%);
+  animation: scanDown 2.8s linear infinite;
+  pointer-events: none;
+}
+
+/* ─── Background grid ─────────────────────────────────────────────────── */
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+/* ─── Slot window ─────────────────────────────────────────────────────── */
+.slot-window {
+  overflow: hidden;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.slot-window::before,
+.slot-window::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 18px;
+  z-index: 1;
+  pointer-events: none;
+}
+.slot-window::before { top: 0; background: linear-gradient(to bottom, #000, transparent); }
+.slot-window::after  { bottom: 0; background: linear-gradient(to top, #000, transparent); }
+
+/* ─── Control badge ───────────────────────────────────────────────────── */
+.control-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-space);
+}

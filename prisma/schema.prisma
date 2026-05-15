@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  teacher
+  student
+}
+
+enum MissionStatus {
+  INACTIVE
+  ACTIVE
+  COMPLETED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  googleId  String   @unique @map("google_id")
+  email     String
+  name      String
+  role      Role
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  journeys         Journey[]
+  missionsCreated  Mission[]
+  plantsCreated    Plant[]
+
+  @@map("users")
+}
+
+model Journey {
+  id             String   @id @default(uuid())
+  googleCourseId String   @unique @map("google_course_id")
+  title          String
+  teacherId      String   @map("teacher_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  teacher  User      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  missions Mission[]
+
+  @@index([teacherId])
+  @@map("journeys")
+}
+
+model Mission {
+  id        String        @id @default(uuid())
+  journeyId String        @map("journey_id")
+  question  String
+  status    MissionStatus @default(INACTIVE)
+  startDate DateTime?     @map("start_date") @db.Date
+  endDate   DateTime?     @map("end_date") @db.Date
+  order     Int
+  createdBy String        @map("created_by")
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  journey Journey @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  creator User    @relation(fields: [createdBy], references: [id])
+  plants  Plant[]
+
+  @@index([journeyId])
+  @@map("missions")
+}
+
+model Plant {
+  id        String   @id @default(uuid())
+  missionId String   @map("mission_id")
+  title     String
+  content   String
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  mission Mission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  creator User    @relation(fields: [createdBy], references: [id])
+
+  @@index([missionId])
+  @@map("plants")
+}

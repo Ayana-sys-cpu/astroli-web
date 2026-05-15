@@ -1,0 +1,124 @@
+'use client';
+
+import { useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { getStudentId } from '@/lib/student-store';
+
+const BOT_URL = 'https://astorli-bot.vercel.app/api/bot';
+const FALLBACK_STUDENT_ID = '00000000-0000-0000-0000-000000000001';
+
+function screenFromPath(pathname: string): string {
+  if (pathname.startsWith('/onboarding')) return 'onboarding';
+  if (pathname.startsWith('/landscape'))  return 'plant_screen';
+  if (pathname.startsWith('/mission/brief') || pathname.startsWith('/mission/reveal')) return 'big_question';
+  if (pathname.startsWith('/mission'))    return 'mission_hub';
+  return 'mission_hub';
+}
+
+interface Message { role: 'user' | 'assistant'; content: string }
+
+export default function AvatarBot() {
+  const pathname = usePathname();
+  const [open, setOpen]       = useState(false);
+  const [input, setInput]     = useState('');
+  const [loading, setLoading] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
+
+  async function send() {
+    const text = input.trim();
+    if (!text || loading) return;
+    const studentId = getStudentId() ?? FALLBACK_STUDENT_ID;
+    const screen    = screenFromPath(pathname);
+
+    setMessages(prev => [...prev, { role: 'user', content: text }]);
+    setInput('');
+    setLoading(true);
+
+    try {
+      const res  = await fetch(BOT_URL, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ studentId, message: text, screen }),
+      });
+      const data = await res.json();
+      setMessages(prev => [...prev, { role: 'assistant', content: data.reply ?? '...' }]);
+    } catch {
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Signal lost — try again.' }]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+      {open && (
+        <div className="w-80 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+          style={{ background: 'rgba(10,10,20,0.95)', border: '1px solid rgba(139,92,246,0.3)', backdropFilter: 'blur(12px)' }}>
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3"
+            style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)' }}>
+            <div className="flex items-center gap-2">
+              <span className="text-lg">👾</span>
+              <span className="text-sm font-semibold text-white">Pip · Your Lumian Scout</span>
+            </div>
+            <button onClick={() => setOpen(false)}
+              className="text-white/60 hover:text-white text-xl leading-none transition-colors">×</button>
+          </div>
+
+          {/* Messages */}
+          <div className="flex flex-col gap-2 p-3 overflow-y-auto max-h-72 min-h-28">
+            {messages.length === 0 && (
+              <p className="text-center text-xs mt-6" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                Tap to sync with your alien companion...
+              </p>
+            )}
+            {messages.map((m, i) => (
+              <div key={i}
+                className={`px-3 py-2 rounded-xl text-xs max-w-[85%] leading-relaxed ${
+                  m.role === 'user'
+                    ? 'self-end text-white'
+                    : 'self-start text-white/90'
+                }`}
+                style={m.role === 'user'
+                  ? { background: 'rgba(79,70,229,0.8)' }
+                  : { background: 'rgba(255,255,255,0.08)' }}>
+                {m.content}
+              </div>
+            ))}
+            {loading && (
+              <div className="self-start px-3 py-2 rounded-xl text-xs"
+                style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.4)' }}>
+                syncing...
+              </div>
+            )}
+          </div>
+
+          {/* Input */}
+          <div className="flex gap-2 p-2" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+            <input
+              className="flex-1 rounded-lg px-3 py-1.5 text-xs text-white outline-none placeholder:text-white/30"
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+              placeholder="Say something..."
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && send()}
+            />
+            <button onClick={send} disabled={loading}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-40 transition-opacity"
+              style={{ background: 'rgba(79,70,229,0.8)' }}>
+              →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Trigger button */}
+      <button onClick={() => setOpen(o => !o)}
+        className="w-14 h-14 rounded-full flex items-center justify-center text-2xl shadow-lg transition-transform hover:scale-110 active:scale-95"
+        style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', boxShadow: '0 0 20px rgba(124,58,237,0.5)' }}
+        title="Talk to Pip">
+        👾
+      </button>
+    </div>
+  );
+}
