@@ -6,14 +6,14 @@ import StarField from '@/components/StarField';
 import { getStudentId, getFirstName, getInterest, markOnboardingComplete } from '@/lib/student-store';
 
 function pickBaseIndex(studentId: string): number {
-  const sum = [...studentId.replace(/-/g, '')].reduce((a, c) => a + c.charCodeAt(0), 0);
+  const sum = Array.from(studentId.replace(/-/g, '')).reduce((a, c) => a + c.charCodeAt(0), 0);
   return (sum % 10) + 1;
 }
 
 function generateAlienName(interest: string): string {
   const prefixes = ['Xylo', 'Kael', 'Zyr', 'Vor', 'Nexo', 'Ael', 'Crix', 'Thal', 'Grix', 'Oru'];
   const suffixes = ['-Vex', '-9', '-Flux', '-Prime', '-Zyx', '-Kael', '-Omni', '-Sol', '-Nix', '-Ren'];
-  const seed = [...interest].reduce((a, c) => a + c.charCodeAt(0), 0);
+  const seed = Array.from(interest).reduce((a, c) => a + c.charCodeAt(0), 0);
   return prefixes[seed % prefixes.length] + suffixes[(seed * 7) % suffixes.length];
 }
 
