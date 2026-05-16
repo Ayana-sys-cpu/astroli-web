@@ -14,7 +14,7 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
 // Picks a deterministic base image (1–10) from the student UUID
 function pickBaseIndex(studentId: string): number {
-  const sum = [...studentId.replace(/-/g, '')].reduce((a, c) => a + c.charCodeAt(0), 0);
+  const sum = Array.from(studentId.replace(/-/g, '')).reduce((a, c) => a + c.charCodeAt(0), 0);
   return (sum % 10) + 1;
 }
 
