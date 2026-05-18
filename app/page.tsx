@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import Script from 'next/script';
 import StarField from '@/components/StarField';
 import { saveStudent, cacheAvatarUrl } from '@/lib/student-store';
+import { saveTeacher, saveCourses } from '@/lib/teacher-store';
 
 const LINES: [number, number, number, number][] = [
   [8, 18, 28, 40], [28, 40, 50, 22], [50, 22, 72, 38],
@@ -30,11 +31,29 @@ export default function LoginPage() {
 
   const handleGoogleUser = async (accessToken: string) => {
     try {
-      const userRes = await fetch('https://www.googleapis.com/userinfo/v2/me', {
-        headers: { Authorization: `Bearer ${accessToken}` },
+      // Identify role via Google Classroom check (server-side)
+      const identifyRes = await fetch('/api/auth/identify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessToken }),
       });
-      if (!userRes.ok) throw new Error('Google user fetch failed');
-      const g = await userRes.json();
+      if (!identifyRes.ok) throw new Error('Identity check failed');
+      const identity = await identifyRes.json();
+
+      if (identity.role === 'teacher') {
+        saveTeacher({
+          teacherId: identity.userId,
+          email:     identity.email,
+          name:      identity.name,
+          googleId:  identity.googleId,
+        });
+        saveCourses(identity.courses ?? []);
+        router.push('/teacher');
+        return;
+      }
+
+      // ── Student path ──────────────────────────────────────────────────────
+      const g = { email: identity.email, name: identity.name, given_name: identity.name.split(' ')[0] };
 
       const studentRes = await fetch(`/api/student?email=${encodeURIComponent(g.email)}`);
       const record = studentRes.ok ? await studentRes.json() : null;
@@ -51,10 +70,8 @@ export default function LoginPage() {
         if (record.avatar_url && !record.avatar_url.startsWith('avatars/')) {
           cacheAvatarUrl(record.avatar_url);
         }
-        // Has avatar = completed onboarding → go straight to mission
-        router.push(record.avatar_url ? '/syncing' : '/onboarding/interest');
+        router.push('/syncing');
       } else {
-        // New student — register, then onboard
         const regRes = await fetch('/api/student', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -83,7 +100,7 @@ export default function LoginPage() {
     setError(null);
     const client = (window as any).google.accounts.oauth2.initTokenClient({
       client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-      scope: 'email profile',
+      scope: 'email profile https://www.googleapis.com/auth/classroom.courses.readonly',
       callback: (resp: any) => {
         if (resp.error || !resp.access_token) {
           setError("Couldn't sign you in. Please try again.");
