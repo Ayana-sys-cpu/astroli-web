@@ -33,13 +33,16 @@ export default function SyncingPage() {
     const delay = new Promise<void>((res) => setTimeout(res, 3200));
     const journeyCheck = fetch('/api/student/journey')
       .then((r) => r.json())
-      .then((d) => Boolean(d.hasActiveJourney))
-      .catch(() => false);
+      .catch(() => ({ hasActiveJourney: false, hasActiveVote: false }));
 
-    Promise.all([delay, journeyCheck]).then(([, hasJourney]) => {
+    Promise.all([delay, journeyCheck]).then(([, data]) => {
       if (!alive) return;
+      const hasJourney = Boolean(data.hasActiveJourney);
+      const hasVote    = Boolean(data.hasActiveVote);
       saveJourneyActive(hasJourney);
-      router.replace(hasJourney ? '/landscape' : '/pending-journey');
+      if (hasJourney) router.replace('/landscape');
+      else if (hasVote) router.replace('/vote');
+      else router.replace('/pending-journey');
     });
 
     return () => { alive = false; };

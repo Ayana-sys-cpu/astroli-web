@@ -43,14 +43,16 @@ export default function LandscapePage() {
     setFirstName(getFirstName() || MOCK_USER.firstName);
   }, []);
 
-  // Guard: redirect to pending-journey if no active mission exists.
+  // Guard: redirect away if no active mission exists.
   // Runs on every mount so direct URL access, bookmarks, and back-navigation
   // can't strand a student here when their journey isn't live yet.
   useEffect(() => {
     fetch('/api/student/journey')
       .then(r => r.json())
-      .then(({ hasActiveJourney }) => {
-        if (!hasActiveJourney) router.replace('/pending-journey');
+      .then(({ hasActiveJourney, hasActiveVote }) => {
+        if (!hasActiveJourney) {
+          router.replace(hasActiveVote ? '/vote' : '/pending-journey');
+        }
       })
       .catch(() => { /* stay on page — next poll will retry */ });
   }, [router]);

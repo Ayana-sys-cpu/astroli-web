@@ -22,3 +22,23 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({ journeys });
 }
+
+// PATCH /api/teacher/journeys
+// Body: { journeyId: string; voteEndsAt: string | null }
+// Sets or clears the vote_ends_at timestamp on a journey.
+export async function PATCH(req: NextRequest) {
+  try {
+    const { journeyId, voteEndsAt } = await req.json();
+    if (!journeyId) {
+      return NextResponse.json({ error: 'journeyId required' }, { status: 400 });
+    }
+    const journey = await prisma.journey.update({
+      where: { id: journeyId },
+      data: { voteEndsAt: voteEndsAt ? new Date(voteEndsAt) : null },
+      select: { id: true, voteEndsAt: true },
+    });
+    return NextResponse.json({ journey });
+  } catch {
+    return NextResponse.json({ error: 'Failed to update journey' }, { status: 500 });
+  }
+}

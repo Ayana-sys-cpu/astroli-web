@@ -76,6 +76,8 @@ model Journey {
   googleCourseId     String    @unique @map("google_course_id")
   title              String
   teacherId          String    @map("teacher_id")
+  // Set when a mission-selection vote is active; cleared when vote closes or teacher cancels.
+  voteEndsAt         DateTime? @map("vote_ends_at")
   // Phase 2: updated each time the GC materials sync job runs for this Journey.
   lastMaterialSyncAt DateTime? @map("last_material_sync_at")
   createdAt          DateTime  @default(now()) @map("created_at")

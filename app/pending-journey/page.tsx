@@ -86,13 +86,14 @@ export default function PendingJourneyPage() {
     return () => clearTimeout(t);
   }, [typingLive, charIndex]);
 
-  // Poll every 30 s — redirect the moment a journey becomes active
+  // Poll every 30 s — redirect the moment a journey or vote becomes active
   useEffect(() => {
     const id = setInterval(async () => {
       try {
         const res = await fetch('/api/student/journey');
-        const { hasActiveJourney } = await res.json();
+        const { hasActiveJourney, hasActiveVote } = await res.json();
         if (hasActiveJourney) router.replace('/landscape');
+        else if (hasActiveVote) router.replace('/vote');
       } catch { /* swallow — next tick will retry */ }
     }, 30_000);
     return () => clearInterval(id);

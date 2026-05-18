@@ -189,6 +189,12 @@ export default function TeacherDashboard() {
     try {
       localStorage.setItem(`voteEnd_${journeyId}`, voteEnd);
       setVoteActiveMap(prev => ({ ...prev, [journeyId]: voteEnd }));
+      // Persist to DB so students can detect the active vote
+      await fetch('/api/teacher/journeys', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ journeyId, voteEndsAt: voteEnd }),
+      });
     } finally {
       setStarting(false);
     }
