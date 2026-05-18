@@ -15,10 +15,13 @@ enum Role {
   student
 }
 
-enum MissionStatus {
-  INACTIVE
-  ACTIVE
-  COMPLETED
+enum MissionState {
+  locked
+  voting
+  pending_start
+  active
+  completed
+  skipped
 }
 
 // Tracks whether content was hand-authored, AI-generated, or written by the teacher.
@@ -109,7 +112,7 @@ model Mission {
   // Phase 1 addition: full project brief shown to students.
   projectDescription String @map("project_description") @db.Text
 
-  status    MissionStatus @default(INACTIVE)
+  state     MissionState  @default(locked)
   // Phase 2 scaffold: tag content origin. Phase 1 hardcoded = HARDCODED.
   source    ContentSource @default(HARDCODED)
 

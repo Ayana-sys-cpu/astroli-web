@@ -131,9 +131,9 @@ export default function ProgressMatrix() {
                     </div>
                     <div
                       className="mt-0.5 text-[8px] tracking-widest"
-                      style={{ color: m.status === 'ACTIVE' ? '#00D4FF' : 'rgba(232,232,240,0.2)' }}
+                      style={{ color: m.state === 'active' ? '#00D4FF' : 'rgba(232,232,240,0.2)' }}
                     >
-                      {m.status}
+                      {m.state}
                     </div>
                   </th>
                 ))}

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getTeacherId, getCourses, saveCourses, type CourseRecord } from '@/lib/teacher-store';
 
-type MissionStatus = 'INACTIVE' | 'ACTIVE' | 'COMPLETED';
+type MissionState = 'locked' | 'voting' | 'pending_start' | 'active' | 'completed' | 'skipped';
 
 interface Plant {
   id: string;
@@ -18,7 +18,7 @@ interface Mission {
   questionDescription?: string | null;
   projectTitle: string;
   projectDescription?: string | null;
-  status: MissionStatus;
+  state: MissionState;
   order: number;
   plants?: Plant[];
 }
@@ -30,10 +30,13 @@ interface Journey {
   missions: Mission[];
 }
 
-const STATUS_STYLES: Record<MissionStatus, { label: string; color: string; bg: string; dot: string }> = {
-  INACTIVE:  { label: 'INACTIVE',  color: 'rgba(232,232,240,0.35)', bg: 'rgba(232,232,240,0.06)', dot: 'rgba(232,232,240,0.3)' },
-  ACTIVE:    { label: 'LIVE',      color: '#00D4FF',                bg: 'rgba(0,212,255,0.1)',    dot: '#00D4FF' },
-  COMPLETED: { label: 'COMPLETE',  color: '#00F5A0',                bg: 'rgba(0,245,160,0.08)',   dot: '#00F5A0' },
+const STATUS_STYLES: Record<MissionState, { label: string; color: string; bg: string; dot: string }> = {
+  locked:        { label: 'LOCKED',   color: 'rgba(232,232,240,0.35)', bg: 'rgba(232,232,240,0.06)', dot: 'rgba(232,232,240,0.3)' },
+  voting:        { label: 'VOTING',   color: '#7C3AED',                bg: 'rgba(124,58,237,0.1)',   dot: '#7C3AED' },
+  pending_start: { label: 'PENDING',  color: '#FFD600',                bg: 'rgba(255,214,0,0.08)',   dot: '#FFD600' },
+  active:        { label: 'LIVE',     color: '#00D4FF',                bg: 'rgba(0,212,255,0.1)',    dot: '#00D4FF' },
+  completed:     { label: 'COMPLETE', color: '#00F5A0',                bg: 'rgba(0,245,160,0.08)',   dot: '#00F5A0' },
+  skipped:       { label: 'SKIPPED',  color: 'rgba(232,232,240,0.2)', bg: 'rgba(232,232,240,0.03)', dot: 'rgba(232,232,240,0.15)' },
 };
 
 function formatDT(d: Date): string {
@@ -112,42 +115,34 @@ export default function TeacherDashboard() {
   }, []);
 
   // Restore persisted vote end times from localStorage when journeys load.
-  // Rule: a mission must never be ACTIVE while a vote is running, and must
-  // never be ACTIVE if it was set by the old Phase-0 shortcut (no localStorage
-  // entry). Both cases reset the offending mission back to INACTIVE.
+  // Syncs localStorage → DB so students can detect active votes.
+  // Also cleans up stale 'voting' state on missions when no vote is stored.
   useEffect(() => {
     if (journeys.length === 0) return;
     const restored: Record<string, string> = {};
     journeys.forEach(j => {
       const stored = localStorage.getItem(`voteEnd_${j.id}`);
       const ms = fullMissions[j.id] ?? j.missions;
-      const activeMission = ms.find(m => m.status === 'ACTIVE');
       if (stored) {
         restored[j.id] = stored;
-        // Sync localStorage vote to DB so students can detect it.
-        // This covers votes started before DB persistence was deployed.
+        // Sync localStorage → DB (covers votes started before DB persistence was deployed).
+        // The journeys PATCH also transitions locked→voting on missions atomically.
         fetch('/api/teacher/journeys', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ journeyId: j.id, voteEndsAt: stored }),
-        }).catch(() => {});
-        // Vote is live — no mission may be ACTIVE during a vote
-        if (activeMission) {
-          fetch('/api/teacher/missions', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ missionId: activeMission.id, status: 'INACTIVE' }),
-          }).then(() => fetchJourneys()).catch(() => {});
-        }
+        }).then(() => fetchJourneys()).catch(() => {});
       } else {
-        // No active vote — reset any orphaned ACTIVE missions
-        if (activeMission) {
+        // No stored vote — if any missions are in 'voting' state, they are stale; reset to 'locked'.
+        const staleMissions = ms.filter(m => m.state === 'voting');
+        staleMissions.forEach(m => {
           fetch('/api/teacher/missions', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ missionId: activeMission.id, status: 'INACTIVE' }),
-          }).then(() => fetchJourneys()).catch(() => {});
-        }
+            body: JSON.stringify({ missionId: m.id, state: 'locked' }),
+          }).catch(() => {});
+        });
+        if (staleMissions.length > 0) fetchJourneys();
       }
     });
     if (Object.keys(restored).length > 0) {
@@ -164,19 +159,23 @@ export default function TeacherDashboard() {
 
   async function toggleMission(mission: Mission) {
     if (activating) return;
-    const nextStatus: MissionStatus =
-      mission.status === 'INACTIVE' ? 'ACTIVE' :
-      mission.status === 'ACTIVE'   ? 'COMPLETED' :
-      'INACTIVE';
+    // Only allow manual transitions for non-vote-controlled states
+    const nextState: MissionState | null =
+      mission.state === 'locked'        ? 'active' :
+      mission.state === 'active'        ? 'completed' :
+      mission.state === 'completed'     ? 'locked' :
+      mission.state === 'pending_start' ? 'active' :
+      null; // voting, skipped: controlled by vote system
+    if (!nextState) return;
     setActivating(mission.id);
     try {
       const r = await fetch('/api/teacher/missions', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ missionId: mission.id, status: nextStatus }),
+        body: JSON.stringify({ missionId: mission.id, state: nextState }),
       });
       if (!r.ok) throw new Error('Server error');
-      const update = (ms: Mission[]) => ms.map(m => m.id === mission.id ? { ...m, status: nextStatus } : m);
+      const update = (ms: Mission[]) => ms.map(m => m.id === mission.id ? { ...m, state: nextState } : m);
       setJourneys(prev => prev.map(j => ({ ...j, missions: update(j.missions) })));
       setFullMissions(prev => {
         const next: Record<string, Mission[]> = {};
@@ -235,9 +234,8 @@ export default function TeacherDashboard() {
         <div className="flex flex-col gap-10">
           {journeys.map((journey, ji) => {
             const missions    = fullMissions[journey.id] ?? journey.missions;
-            const allInactive = missions.every(m => m.status === 'INACTIVE');
-            const hasActive   = missions.some(m => m.status === 'ACTIVE');
-            const voteIsLive  = Boolean(voteActiveMap[journey.id]);
+            const allLocked  = missions.every(m => m.state === 'locked');
+            const voteIsLive = Boolean(voteActiveMap[journey.id]) || missions.some(m => m.state === 'voting');
 
             return (
               <motion.section
@@ -265,7 +263,7 @@ export default function TeacherDashboard() {
                 {/* Mission accordion */}
                 <div className="flex flex-col gap-3 mb-6">
                   {missions.map(mission => {
-                    const st    = STATUS_STYLES[mission.status];
+                    const st    = STATUS_STYLES[mission.state];
                     const isExp = expanded === mission.id;
 
                     return (
@@ -274,14 +272,18 @@ export default function TeacherDashboard() {
                         layout
                         className="relative rounded-xl overflow-hidden"
                         style={{
-                          background: mission.status === 'ACTIVE'
+                          background: mission.state === 'active'
                             ? 'linear-gradient(135deg, rgba(0,212,255,0.06) 0%, rgba(124,58,237,0.08) 100%)'
+                            : mission.state === 'voting'
+                            ? 'linear-gradient(135deg, rgba(124,58,237,0.06) 0%, rgba(255,0,128,0.04) 100%)'
                             : isExp
                             ? 'rgba(232,232,240,0.04)'
                             : 'rgba(232,232,240,0.03)',
                           border: `1px solid ${
-                            mission.status === 'ACTIVE'
+                            mission.state === 'active'
                               ? 'rgba(0,212,255,0.25)'
+                              : mission.state === 'voting'
+                              ? 'rgba(124,58,237,0.3)'
                               : isExp
                               ? 'rgba(232,232,240,0.13)'
                               : 'rgba(232,232,240,0.08)'
@@ -316,12 +318,12 @@ export default function TeacherDashboard() {
                             >
                               <span
                                 className="w-1.5 h-1.5 rounded-full"
-                                style={{ background: st.dot, boxShadow: mission.status === 'ACTIVE' ? `0 0 6px ${st.dot}` : 'none' }}
+                                style={{ background: st.dot, boxShadow: mission.state === 'active' || mission.state === 'voting' ? `0 0 6px ${st.dot}` : 'none' }}
                               />
                               {st.label}
                             </div>
                             {/* REVIEW for active */}
-                            {mission.status === 'ACTIVE' && (
+                            {mission.state === 'active' && (
                               <motion.button
                                 onClick={e => { e.stopPropagation(); router.push(`/teacher/mission/${mission.id}`); }}
                                 whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
@@ -332,7 +334,7 @@ export default function TeacherDashboard() {
                               </motion.button>
                             )}
                             {/* REOPEN for completed — blocked while vote is live */}
-                            {mission.status === 'COMPLETED' && (
+                            {mission.state === 'completed' && (
                               <motion.button
                                 onClick={e => { e.stopPropagation(); if (!voteIsLive) toggleMission(mission); }}
                                 whileHover={!voteIsLive && activating !== mission.id ? { scale: 1.04 } : undefined}
@@ -431,8 +433,8 @@ export default function TeacherDashboard() {
                           )}
                         </AnimatePresence>
 
-                        {/* Active glow stripe */}
-                        {mission.status === 'ACTIVE' && (
+                        {/* Active / voting glow stripe */}
+                        {(mission.state === 'active' || mission.state === 'voting') && (
                           <div className="absolute left-0 top-0 bottom-0 w-0.5" style={{ background: 'linear-gradient(180deg, #00D4FF, #7C3AED)' }} />
                         )}
                       </motion.div>
@@ -441,7 +443,7 @@ export default function TeacherDashboard() {
                 </div>
 
                 {/* Vote setup — active state (countdown + share) or setup form */}
-                {voteActiveMap[journey.id] ? (
+                {voteIsLive ? (
                   <motion.div
                     key="vote-active"
                     initial={{ opacity: 0, y: 8 }}
@@ -466,7 +468,7 @@ export default function TeacherDashboard() {
                         CLOSES IN
                       </p>
                       <p className="font-space font-black text-4xl tracking-wider" style={{ color: '#E8E8F0' }}>
-                        {voteActiveMap[journey.id] ? formatCountdown(voteActiveMap[journey.id]) : '—'}
+                        {voteActiveMap[journey.id] ? formatCountdown(voteActiveMap[journey.id]) : 'VOTE ACTIVE'}
                       </p>
                     </div>
 
@@ -510,7 +512,7 @@ export default function TeacherDashboard() {
                       </div>
                     </div>
                   </motion.div>
-                ) : allInactive ? (
+                ) : allLocked ? (
                   <motion.div
                     key="vote-setup"
                     initial={{ opacity: 0, y: 8 }}

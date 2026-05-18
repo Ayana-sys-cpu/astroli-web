@@ -29,15 +29,17 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ missions });
 }
 
+// PATCH /api/teacher/missions
+// Body: { missionId: string; state: MissionState }
 export async function PATCH(req: NextRequest) {
-  const { missionId, status } = await req.json();
-  if (!missionId || !status) {
-    return NextResponse.json({ error: 'missionId and status required' }, { status: 400 });
+  const { missionId, state } = await req.json();
+  if (!missionId || !state) {
+    return NextResponse.json({ error: 'missionId and state required' }, { status: 400 });
   }
 
   const mission = await prisma.mission.update({
     where: { id: missionId },
-    data: { status },
+    data: { state },
   });
 
   return NextResponse.json({ mission });
