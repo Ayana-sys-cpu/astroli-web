@@ -107,10 +107,10 @@ export default function TeacherDashboard() {
           className="font-space font-black tracking-[0.12em] mb-1"
           style={{ fontSize: 28, color: '#E8E8F0' }}
         >
-          MISSION CONTROL
+          CLASS SETUP
         </h1>
         <p className="font-inter text-sm" style={{ color: 'rgba(232,232,240,0.4)' }}>
-          Activate missions and manage your class journeys
+          Transform your Google Classroom courses into structured learning journeys
         </p>
       </motion.div>
 
@@ -327,7 +327,7 @@ function ConnectState({
           className="font-space font-black tracking-[0.12em] mb-2"
           style={{ fontSize: 20, color: '#E8E8F0' }}
         >
-          CONNECT YOUR CLASSES
+          BRING YOUR CLASSES TO ASTROLI
         </h2>
         <p className="font-inter text-sm" style={{ color: 'rgba(232,232,240,0.4)' }}>
           Select the Google Classroom courses you want to activate in Astroli.
