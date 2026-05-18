@@ -112,18 +112,28 @@ export default function TeacherDashboard() {
   }, []);
 
   // Restore persisted vote end times from localStorage when journeys load.
-  // If a mission is ACTIVE but no localStorage entry exists, it was set by the
-  // old Phase-0 shortcut (activate first mission immediately) — reset it.
+  // Rule: a mission must never be ACTIVE while a vote is running, and must
+  // never be ACTIVE if it was set by the old Phase-0 shortcut (no localStorage
+  // entry). Both cases reset the offending mission back to INACTIVE.
   useEffect(() => {
     if (journeys.length === 0) return;
     const restored: Record<string, string> = {};
     journeys.forEach(j => {
       const stored = localStorage.getItem(`voteEnd_${j.id}`);
+      const ms = fullMissions[j.id] ?? j.missions;
+      const activeMission = ms.find(m => m.status === 'ACTIVE');
       if (stored) {
         restored[j.id] = stored;
+        // Vote is live — no mission may be ACTIVE during a vote
+        if (activeMission) {
+          fetch('/api/teacher/missions', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ missionId: activeMission.id, status: 'INACTIVE' }),
+          }).then(() => fetchJourneys()).catch(() => {});
+        }
       } else {
-        const ms = fullMissions[j.id] ?? j.missions;
-        const activeMission = ms.find(m => m.status === 'ACTIVE');
+        // No active vote — reset any orphaned ACTIVE missions
         if (activeMission) {
           fetch('/api/teacher/missions', {
             method: 'PATCH',
@@ -211,9 +221,10 @@ export default function TeacherDashboard() {
       ) : (
         <div className="flex flex-col gap-10">
           {journeys.map((journey, ji) => {
-            const missions = fullMissions[journey.id] ?? journey.missions;
+            const missions    = fullMissions[journey.id] ?? journey.missions;
             const allInactive = missions.every(m => m.status === 'INACTIVE');
             const hasActive   = missions.some(m => m.status === 'ACTIVE');
+            const voteIsLive  = Boolean(voteActiveMap[journey.id]);
 
             return (
               <motion.section
@@ -307,14 +318,22 @@ export default function TeacherDashboard() {
                                 REVIEW →
                               </motion.button>
                             )}
-                            {/* REOPEN for completed */}
+                            {/* REOPEN for completed — blocked while vote is live */}
                             {mission.status === 'COMPLETED' && (
                               <motion.button
-                                onClick={e => { e.stopPropagation(); toggleMission(mission); }}
-                                whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-                                disabled={activating === mission.id}
+                                onClick={e => { e.stopPropagation(); if (!voteIsLive) toggleMission(mission); }}
+                                whileHover={!voteIsLive && activating !== mission.id ? { scale: 1.04 } : undefined}
+                                whileTap={!voteIsLive && activating !== mission.id ? { scale: 0.96 } : undefined}
+                                disabled={activating === mission.id || voteIsLive}
                                 className="px-4 py-2 rounded-lg text-[10px] font-space font-bold tracking-[0.12em]"
-                                style={{ background: 'rgba(232,232,240,0.06)', color: '#E8E8F0', border: '1px solid rgba(232,232,240,0.15)', opacity: activating === mission.id ? 0.5 : 1 }}
+                                style={{
+                                  background: 'rgba(232,232,240,0.06)',
+                                  color: voteIsLive ? 'rgba(232,232,240,0.2)' : '#E8E8F0',
+                                  border: '1px solid rgba(232,232,240,0.15)',
+                                  opacity: (activating === mission.id || voteIsLive) ? 0.4 : 1,
+                                  cursor: voteIsLive ? 'not-allowed' : 'pointer',
+                                }}
+                                title={voteIsLive ? 'Cannot change mission status while a vote is running' : undefined}
                               >
                                 {activating === mission.id ? '…' : 'REOPEN'}
                               </motion.button>
