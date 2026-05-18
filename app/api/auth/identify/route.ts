@@ -21,8 +21,9 @@ export async function POST(req: NextRequest) {
     const { id: googleId, email, name } = profile;
 
     // Check Google Classroom: does this user own/teach any courses?
+    // Include ACTIVE and PROVISIONED states (new courses start as PROVISIONED)
     const classroomRes = await fetch(
-      'https://classroom.googleapis.com/v1/courses?teacherId=me&courseStates=ACTIVE',
+      'https://classroom.googleapis.com/v1/courses?teacherId=me&courseStates=ACTIVE&courseStates=PROVISIONED',
       { headers: { Authorization: `Bearer ${accessToken}` } },
     );
 
@@ -33,6 +34,9 @@ export async function POST(req: NextRequest) {
       const data = await classroomRes.json();
       classroomCourses = data.courses ?? [];
       isTeacher = classroomCourses.length > 0;
+      console.log('[identify] classroom courses found:', classroomCourses.length, classroomCourses.map((c: any) => c.name));
+    } else {
+      console.log('[identify] classroom API status:', classroomRes.status);
     }
     // 403 means no Classroom access or not a teacher — treat as student
 

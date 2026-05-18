@@ -280,11 +280,18 @@ function ConnectState({
         className="flex flex-col items-center justify-center mt-28 gap-4"
       >
         <p className="font-space text-sm tracking-widest" style={{ color: 'rgba(232,232,240,0.4)' }}>
-          NO CLASSROOMS FOUND
+          NO CLASSROOMS DETECTED
         </p>
         <p className="font-inter text-xs text-center max-w-xs" style={{ color: 'rgba(232,232,240,0.25)' }}>
-          No active Google Classroom courses were detected on your account. Create a class at classroom.google.com and sign in again.
+          Your Google Classroom courses couldn&apos;t be loaded. Sign out and sign back in to try again.
         </p>
+        <button
+          onClick={() => { if (typeof window !== 'undefined') { localStorage.clear(); window.location.href = '/'; } }}
+          className="mt-2 px-5 py-2 rounded-lg font-space font-bold text-xs tracking-[0.12em]"
+          style={{ background: 'rgba(124,58,237,0.2)', color: '#A78BFA', border: '1px solid rgba(124,58,237,0.4)' }}
+        >
+          SIGN OUT &amp; RETRY
+        </button>
       </motion.div>
     );
   }
