@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getTeacherId, getCourses, type CourseRecord } from '@/lib/teacher-store';
+import { getTeacherId, getCourses, saveCourses, type CourseRecord } from '@/lib/teacher-store';
 
 type MissionStatus = 'INACTIVE' | 'ACTIVE' | 'COMPLETED';
 
@@ -45,8 +45,26 @@ export default function TeacherDashboard() {
   };
 
   useEffect(() => {
-    setCourses(getCourses());
+    const teacherId = getTeacherId();
+    const cached = getCourses();
+    if (cached.length > 0) {
+      setCourses(cached);
+      fetchJourneys();
+      return;
+    }
+    // Fallback: fetch from DB if localStorage is empty
+    if (teacherId) {
+      fetch(`/api/teacher/courses?teacherId=${teacherId}`)
+        .then(r => r.json())
+        .then(d => {
+          const fetched: CourseRecord[] = d.courses ?? [];
+          setCourses(fetched);
+          if (fetched.length > 0) saveCourses(fetched);
+        })
+        .catch(() => {});
+    }
     fetchJourneys();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function toggleMission(mission: Mission) {

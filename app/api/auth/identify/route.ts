@@ -41,12 +41,15 @@ export async function POST(req: NextRequest) {
     // 403 means no Classroom access or not a teacher — treat as student
 
     const role = isTeacher ? 'teacher' : 'student';
+    const gcCoursesJson = isTeacher
+      ? JSON.stringify(classroomCourses.map((c: any) => ({ id: c.id, name: c.name, section: c.section ?? null })))
+      : null;
 
     // Upsert user in Prisma with detected role
     const user = await prisma.user.upsert({
       where: { googleId },
-      update: { email, name, role },
-      create: { googleId, email, name, role },
+      update: { email, name, role, gcCourses: gcCoursesJson },
+      create: { googleId, email, name, role, gcCourses: gcCoursesJson },
     });
 
     return NextResponse.json({

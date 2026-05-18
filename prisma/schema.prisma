@@ -8,6 +8,8 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
 enum Role {
   teacher
   student
@@ -19,69 +21,244 @@ enum MissionStatus {
   COMPLETED
 }
 
+// Tracks whether content was hand-authored, AI-generated, or written by the teacher.
+// Phase 1: all content is HARDCODED.
+// Phase 2: AI pipeline writes AI_GENERATED; teacher edits produce TEACHER_CREATED.
+enum ContentSource {
+  HARDCODED
+  AI_GENERATED
+  TEACHER_CREATED
+}
+
+// Lifecycle of an AI generation run.
+// Phase 1: table is empty. Phase 2: one row per AI generation attempt.
+enum JobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+// Types of material that can exist in a Google Classroom course.
+// Used by CurriculumMaterial and as optional metadata on Plant.
+enum MaterialType {
+  ASSIGNMENT
+  MATERIAL
+  ANNOUNCEMENT
+  DRIVE_FILE
+  YOUTUBE
+  LINK
+  OTHER
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
 model User {
   id        String   @id @default(uuid())
   googleId  String   @unique @map("google_id")
   email     String
   name      String
   role      Role
+  gcCourses String?  @map("gc_courses") @db.Text
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  journeys         Journey[]
-  missionsCreated  Mission[]
-  plantsCreated    Plant[]
+  journeys        Journey[]
+  missionsCreated Mission[]
+  plantsCreated   Plant[]
+  generationJobs  GenerationJob[]
 
   @@map("users")
 }
 
 model Journey {
-  id             String   @id @default(uuid())
-  googleCourseId String   @unique @map("google_course_id")
-  title          String
-  teacherId      String   @map("teacher_id")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id                 String    @id @default(uuid())
+  googleCourseId     String    @unique @map("google_course_id")
+  title              String
+  teacherId          String    @map("teacher_id")
+  // Phase 2: updated each time the GC materials sync job runs for this Journey.
+  lastMaterialSyncAt DateTime? @map("last_material_sync_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
 
-  teacher  User      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  missions Mission[]
+  teacher             User                 @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  missions            Mission[]
+  curriculumMaterials CurriculumMaterial[]
+  generationJobs      GenerationJob[]
 
   @@index([teacherId])
   @@map("journeys")
 }
 
 model Mission {
-  id        String        @id @default(uuid())
-  journeyId String        @map("journey_id")
-  question  String
-  status    MissionStatus @default(INACTIVE)
-  startDate DateTime?     @map("start_date") @db.Date
-  endDate   DateTime?     @map("end_date") @db.Date
-  order     Int
-  createdBy String        @map("created_by")
-  createdAt DateTime      @default(now()) @map("created_at")
-  updatedAt DateTime      @updatedAt @map("updated_at")
+  id String @id @default(uuid())
 
-  journey Journey @relation(fields: [journeyId], references: [id], onDelete: Cascade)
-  creator User    @relation(fields: [createdBy], references: [id])
-  plants  Plant[]
+  journeyId String @map("journey_id")
+
+  // The big open-ended question — displayed as the Mission headline.
+  question String
+
+  // Phase 1 addition: orientation paragraph shown below the question.
+  questionDescription String @map("question_description") @db.Text
+
+  // Phase 1 addition: name of the student deliverable.
+  projectTitle String @map("project_title")
+
+  // Phase 1 addition: full project brief shown to students.
+  projectDescription String @map("project_description") @db.Text
+
+  status    MissionStatus @default(INACTIVE)
+  // Phase 2 scaffold: tag content origin. Phase 1 hardcoded = HARDCODED.
+  source    ContentSource @default(HARDCODED)
+
+  // Pip's first-entrance message shown the first time a student opens this Mission.
+  openingMessage String? @map("opening_message") @db.Text
+
+  startDate DateTime? @map("start_date") @db.Date
+  endDate   DateTime? @map("end_date") @db.Date
+  order     Int
+
+  // Phase 2 scaffold: links back to the AI run that generated this Mission.
+  // Null for all Phase 1 hardcoded content.
+  generationJobId String? @map("generation_job_id")
+
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  journey       Journey        @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  creator       User           @relation(fields: [createdBy], references: [id])
+  generationJob GenerationJob? @relation(fields: [generationJobId], references: [id])
+  plants        Plant[]
 
   @@index([journeyId])
   @@map("missions")
 }
 
 model Plant {
-  id        String   @id @default(uuid())
-  missionId String   @map("mission_id")
-  title     String
-  content   String
+  id        String @id @default(uuid())
+  missionId String @map("mission_id")
+
+  title   String
+  // Written text content. Phase 1: hand-authored. Phase 2: AI-generated or extracted from source material.
+  content String @db.Text
+
+  // Phase 2 scaffold: tag content origin. Phase 1 hardcoded = HARDCODED.
+  source ContentSource @default(HARDCODED)
+
+  // Pip's first-entrance message shown the first time a student opens this Plant.
+  openingMessage String? @map("opening_message") @db.Text
+
+  // Phase 2 scaffold: for plants that ARE a media resource (YouTube, Drive doc, link)
+  // rather than written text. Null for all Phase 1 text plants.
+  mediaUrl  String?      @map("media_url")
+  mediaType MaterialType? @map("media_type")
+
+  // Phase 2 scaffold: links back to the AI run that generated this Plant.
+  // Null for all Phase 1 hardcoded content.
+  generationJobId String? @map("generation_job_id")
+
   createdBy String   @map("created_by")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  mission Mission @relation(fields: [missionId], references: [id], onDelete: Cascade)
-  creator User    @relation(fields: [createdBy], references: [id])
+  mission         Mission        @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  creator         User           @relation(fields: [createdBy], references: [id])
+  generationJob   GenerationJob? @relation(fields: [generationJobId], references: [id])
+  // Phase 2 scaffold: which source materials informed this Plant.
+  // Empty for all Phase 1 hardcoded plants.
+  sourceMaterials PlantSource[]
 
   @@index([missionId])
   @@map("plants")
+}
+
+// Phase 2 scaffold: one row per Google Classroom course material.
+// Phase 1: table exists but is empty.
+// Phase 2: a sync job reads the teacher's GC course via the Classroom API
+// and writes one row per material (assignment, Drive file, YouTube video, link, etc.).
+// The AI generation pipeline reads this table to understand what content exists
+// in the teacher's course before generating Missions and Plants.
+model CurriculumMaterial {
+  id               String       @id @default(uuid())
+  journeyId        String       @map("journey_id")
+  // The material's ID in Google Classroom (courseworkId, materialId, etc.).
+  googleMaterialId String       @map("google_material_id")
+  type             MaterialType @default(OTHER)
+  title            String
+  description      String?      @db.Text
+  // Direct URL to the material in Google Classroom or Drive.
+  url              String?
+  // Phase 2: text extracted from the material (PDF text, Drive doc content, etc.)
+  // for the AI to read. Null until extraction runs.
+  extractedContent String?      @map("extracted_content") @db.Text
+  syncedAt         DateTime     @map("synced_at")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  journey      Journey       @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  plantSources PlantSource[]
+
+  // A material can only appear once per Journey.
+  @@unique([journeyId, googleMaterialId])
+  @@index([journeyId])
+  @@map("curriculum_materials")
+}
+
+// Phase 2 scaffold: join table linking AI-generated Plants back to
+// the specific CurriculumMaterials that the AI drew from to create them.
+// Provides traceability: teacher can see exactly which GC material each Plant came from.
+// Phase 1: table exists but is empty (hardcoded plants have no source materials).
+model PlantSource {
+  plantId    String @map("plant_id")
+  materialId String @map("material_id")
+
+  plant    Plant              @relation(fields: [plantId], references: [id], onDelete: Cascade)
+  material CurriculumMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@id([plantId, materialId])
+  @@map("plant_sources")
+}
+
+// Phase 2 scaffold: one row per AI generation run.
+// Tracks who triggered it, which AI model was used, current status, and outcome.
+// The teacher dashboard will use this to show generation progress and history.
+// Phase 1: table exists but is empty.
+model GenerationJob {
+  id          String    @id @default(uuid())
+  journeyId   String    @map("journey_id")
+  triggeredBy String    @map("triggered_by")
+  status      JobStatus @default(PENDING)
+  // Which AI model was used (e.g. "claude-opus-4-6"). Null until job starts.
+  model       String?
+  // Populated if status = FAILED.
+  errorMessage String?  @map("error_message") @db.Text
+  completedAt  DateTime? @map("completed_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  journey         Journey   @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  triggeredByUser User      @relation(fields: [triggeredBy], references: [id])
+  missions        Mission[]
+  plants          Plant[]
+
+  @@index([journeyId])
+  @@map("generation_jobs")
+}
+
+// One row per student vote per journey.
+// journeyId is the mobile app's string key (e.g. 'journey_history_pilot_01') — not a FK to journeys.id.
+// studentId is the student's Supabase Auth UUID from the mobile app — not a FK to users.id (teacher-only table).
+// The UNIQUE constraint enforces one vote per student per journey; upsert updates their choice.
+model Vote {
+  id        String   @id @default(uuid())
+  studentId String   @map("student_id")
+  journeyId String   @map("journey_id")
+  bigIdeaId String   @map("big_idea_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([studentId, journeyId])
+  @@index([journeyId])
+  @@map("votes")
 }
