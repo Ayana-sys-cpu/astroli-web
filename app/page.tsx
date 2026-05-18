@@ -29,6 +29,21 @@ export default function LoginPage() {
     return () => clearTimeout(t);
   }, []);
 
+  // Handle GIS script already cached — onLoad won't fire in that case
+  useEffect(() => {
+    if ((window as any).google?.accounts?.oauth2) {
+      setGisReady(true);
+      return;
+    }
+    const interval = setInterval(() => {
+      if ((window as any).google?.accounts?.oauth2) {
+        setGisReady(true);
+        clearInterval(interval);
+      }
+    }, 100);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleGoogleUser = async (accessToken: string) => {
     try {
       // Identify role via Google Classroom check (server-side)
