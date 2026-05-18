@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
-import { getStudentId, getFirstName, getInterest, markOnboardingComplete } from '@/lib/student-store';
+import { getStudentId, getFirstName, getInterest, markOnboardingComplete, saveBaseAvatarUrl, isOnboardingComplete } from '@/lib/student-store';
 
 function pickBaseIndex(studentId: string): number {
   const sum = Array.from(studentId.replace(/-/g, '')).reduce((a, c) => a + c.charCodeAt(0), 0);
@@ -31,6 +31,11 @@ export default function RevealPage() {
   const baseIndex = studentId ? pickBaseIndex(studentId) : 1;
   const baseUrl   = `/avatars/base/base-${String(baseIndex).padStart(2, '0')}.png`;
 
+  // Returning users (already onboarded) should never see this screen
+  useEffect(() => {
+    if (isOnboardingComplete()) router.replace('/landscape');
+  }, [router]);
+
   useEffect(() => {
     timerRef.current = setTimeout(() => setDisplayUrl(baseUrl), 2500);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
@@ -44,8 +49,9 @@ export default function RevealPage() {
   }, [displayUrl]);
 
   const handleBegin = () => {
+    saveBaseAvatarUrl(baseUrl);
     markOnboardingComplete();
-    router.push('/landscape');
+    router.push('/syncing');
   };
 
   const skipToReveal = () => {

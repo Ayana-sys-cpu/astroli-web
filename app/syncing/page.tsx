@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import StarField from '@/components/StarField';
+import { saveJourneyActive } from '@/lib/student-store';
 
 /* Constellation map nodes and edges */
 const NODES: [number, number][] = [
@@ -26,8 +27,22 @@ export default function SyncingPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const t = setTimeout(() => router.push('/landscape'), 3200);
-    return () => clearTimeout(t);
+    let alive = true;
+
+    // Race: wait for the animation (3.2s) AND the journey check, then route.
+    const delay = new Promise<void>((res) => setTimeout(res, 3200));
+    const journeyCheck = fetch('/api/student/journey')
+      .then((r) => r.json())
+      .then((d) => Boolean(d.hasActiveJourney))
+      .catch(() => false);
+
+    Promise.all([delay, journeyCheck]).then(([, hasJourney]) => {
+      if (!alive) return;
+      saveJourneyActive(hasJourney);
+      router.replace(hasJourney ? '/landscape' : '/pending-journey');
+    });
+
+    return () => { alive = false; };
   }, [router]);
 
   return (

@@ -4,14 +4,15 @@
  */
 
 const K = {
-  EMAIL:        'astroli_email',
-  STUDENT_ID:   'astroli_student_id',
-  FIRST_NAME:   'astroli_first_name',
-  BASE_AVATAR:  'astroli_base_avatar_url',
-  AVATAR_URL:   'astroli_avatar_url',
-  AVATAR_TS:    'astroli_avatar_fetched_at',
-  ONBOARDING:   'astroli_onboarding_complete',
-  INTEREST:     'astroli_interest',
+  EMAIL:          'astroli_email',
+  STUDENT_ID:     'astroli_student_id',
+  FIRST_NAME:     'astroli_first_name',
+  BASE_AVATAR:    'astroli_base_avatar_url',
+  AVATAR_URL:     'astroli_avatar_url',
+  AVATAR_TS:      'astroli_avatar_fetched_at',
+  ONBOARDING:     'astroli_onboarding_complete',
+  INTEREST:       'astroli_interest',
+  JOURNEY_ACTIVE: 'astroli_journey_active',
 } as const;
 
 // Signed URLs last 1 hour; we re-fetch after 50 min to stay fresh.
@@ -73,6 +74,10 @@ export function getCachedAvatarUrl(): string | null {
   return url;
 }
 
+export function saveBaseAvatarUrl(url: string): void {
+  ls()?.setItem(K.BASE_AVATAR, url);
+}
+
 export function saveInterest(interest: string): void {
   ls()?.setItem(K.INTEREST, interest);
 }
@@ -87,6 +92,14 @@ export function markOnboardingComplete(): void {
 
 export function isOnboardingComplete(): boolean {
   return ls()?.getItem(K.ONBOARDING) === '1';
+}
+
+export function saveJourneyActive(active: boolean): void {
+  ls()?.setItem(K.JOURNEY_ACTIVE, active ? '1' : '0');
+}
+
+export function isJourneyActive(): boolean {
+  return ls()?.getItem(K.JOURNEY_ACTIVE) === '1';
 }
 
 export function clearSession(): void {
