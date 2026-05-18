@@ -124,6 +124,13 @@ export default function TeacherDashboard() {
       const activeMission = ms.find(m => m.status === 'ACTIVE');
       if (stored) {
         restored[j.id] = stored;
+        // Sync localStorage vote to DB so students can detect it.
+        // This covers votes started before DB persistence was deployed.
+        fetch('/api/teacher/journeys', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ journeyId: j.id, voteEndsAt: stored }),
+        }).catch(() => {});
         // Vote is live — no mission may be ACTIVE during a vote
         if (activeMission) {
           fetch('/api/teacher/missions', {
