@@ -1,18 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { getStudentId } from '@/lib/student-store';
 
-const BOT_URL = 'https://astorli-bot.vercel.app/api/bot';
-const FALLBACK_STUDENT_ID = '00000000-0000-0000-0000-000000000001';
+const BOT_URL     = 'https://astorli-bot.vercel.app/api/bot';
+const OPENING_URL = 'https://astorli-bot.vercel.app/api/opening-message';
+const FALLBACK_ID = '00000000-0000-0000-0000-000000000001';
 
 function screenFromPath(pathname: string): string {
-  if (pathname.startsWith('/onboarding')) return 'onboarding';
-  if (pathname.startsWith('/landscape'))  return 'plant_screen';
+  if (pathname.startsWith('/onboarding'))                                           return 'onboarding';
+  if (pathname.startsWith('/landscape'))                                            return 'plant_screen';
   if (pathname.startsWith('/mission/brief') || pathname.startsWith('/mission/reveal')) return 'big_question';
-  if (pathname.startsWith('/mission'))    return 'mission_hub';
+  if (pathname.startsWith('/mission'))                                              return 'mission_hub';
   return 'mission_hub';
+}
+
+// Derive content type + ID from the URL so the floating bot can load opening messages.
+// landscape/[id] → plant  |  mission/brief → mission (default seed-mission-1 until real routing)
+function contentFromPath(pathname: string): { contentType: 'mission' | 'plant'; contentId: string } | null {
+  const plantMatch = pathname.match(/^\/landscape\/([^/]+)/);
+  if (plantMatch) return { contentType: 'plant', contentId: plantMatch[1] };
+
+  if (pathname.startsWith('/mission/brief')) return { contentType: 'mission', contentId: 'seed-mission-1' };
+
+  return null;
 }
 
 interface Message { role: 'user' | 'assistant'; content: string }
@@ -23,12 +35,34 @@ export default function AvatarBot() {
   const [input, setInput]     = useState('');
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
+  const openingFetched = useRef(false);
+
+  const screen  = screenFromPath(pathname);
+  const content = contentFromPath(pathname);
+
+  // When the panel opens for the first time on a mission/plant screen,
+  // fetch Pip's opening message from the shared bot API.
+  useEffect(() => {
+    if (!open || !content || openingFetched.current) return;
+    openingFetched.current = true;
+
+    const studentId = getStudentId() ?? FALLBACK_ID;
+    const { contentType, contentId } = content;
+
+    fetch(`${OPENING_URL}?type=${contentType}&contentId=${contentId}&studentId=${studentId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.message) {
+          setMessages([{ role: 'assistant', content: data.message }]);
+        }
+      })
+      .catch(() => {});
+  }, [open, content]);
 
   async function send() {
     const text = input.trim();
     if (!text || loading) return;
-    const studentId = getStudentId() ?? FALLBACK_STUDENT_ID;
-    const screen    = screenFromPath(pathname);
+    const studentId = getStudentId() ?? FALLBACK_ID;
 
     setMessages(prev => [...prev, { role: 'user', content: text }]);
     setInput('');
@@ -38,7 +72,12 @@ export default function AvatarBot() {
       const res  = await fetch(BOT_URL, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ studentId, message: text, screen }),
+        body:    JSON.stringify({
+          studentId,
+          message:      text,
+          screen,
+          currentPlant: content?.contentType === 'plant' ? content.contentId : undefined,
+        }),
       });
       const data = await res.json();
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply ?? '...' }]);
@@ -75,9 +114,7 @@ export default function AvatarBot() {
             {messages.map((m, i) => (
               <div key={i}
                 className={`px-3 py-2 rounded-xl text-xs max-w-[85%] leading-relaxed ${
-                  m.role === 'user'
-                    ? 'self-end text-white'
-                    : 'self-start text-white/90'
+                  m.role === 'user' ? 'self-end text-white' : 'self-start text-white/90'
                 }`}
                 style={m.role === 'user'
                   ? { background: 'rgba(79,70,229,0.8)' }

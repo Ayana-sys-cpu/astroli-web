@@ -59,7 +59,8 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
   const [activeTab, setActiveTab] = useState<Tab>('chat');
   const [savedIds, setSavedIds] = useState<number[]>([]);
   const [showReward, setShowReward] = useState(false);
-  const orin = useOrinChat('plant_screen');
+  // params.id is the plant DB id (e.g. 'seed-plant-1-1'). Mock plant IDs won't trigger opening messages.
+  const orin = useOrinChat('plant_screen', params.id, 'plant');
 
   const planet = PLANETS.find((p) => p.id === params.id);
   const detail = PLANET_DETAILS[params.id];

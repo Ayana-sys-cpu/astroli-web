@@ -1,9 +1,9 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import StarField from '@/components/StarField';
-import { getStudentId, getFirstName, saveInterest } from '@/lib/student-store';
+import { getStudentId, getFirstName, saveInterest, isOnboardingComplete } from '@/lib/student-store';
 
 const INTEREST_TAGS = [
   'Deep Sea', 'Basketball', 'Space', 'Music',
@@ -14,7 +14,14 @@ export default function InterestPage() {
   const router = useRouter();
   const [interest, setInterest] = useState('');
   const [submitted, setSubmitted] = useState(false);
-  const firstName = getFirstName();
+  const [firstName, setFirstName] = useState('');
+
+  useEffect(() => {
+    // Returning users (already onboarded) should never see this screen
+    if (isOnboardingComplete()) { router.replace('/landscape'); return; }
+    // Safe to read localStorage on client only
+    setFirstName(getFirstName());
+  }, [router]);
 
   const handleSubmit = () => {
     const trimmed = interest.trim();

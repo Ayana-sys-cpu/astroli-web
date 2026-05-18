@@ -17,7 +17,8 @@ export default function MissionBriefPage() {
   const [selectedMedium, setSelectedMedium] = useState<string | null>(null);
   const [conflictOpen, setConflictOpen] = useState(false);
   const [selectedConflict, setSelectedConflict] = useState<string | null>(null);
-  const orin = useOrinChat('big_question');
+  // 'seed-mission-1' is the active seeded mission; replace with a dynamic ID once real routing is wired.
+  const orin = useOrinChat('big_question', 'seed-mission-1', 'mission');
 
   const chosenMedium = MEDIUM_OPTIONS.find((m) => m.id === selectedMedium);
 

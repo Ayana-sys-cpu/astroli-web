@@ -1,17 +1,45 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getStudentId } from '@/lib/student-store';
 
-const BOT_URL    = 'https://astorli-bot.vercel.app/api/bot';
-const FALLBACK_ID = '00000000-0000-0000-0000-000000000001';
+const BOT_URL          = 'https://astorli-bot.vercel.app/api/bot';
+const OPENING_URL      = 'https://astorli-bot.vercel.app/api/opening-message';
+const FALLBACK_ID      = '00000000-0000-0000-0000-000000000001';
 
 export interface ChatMessage { role: 'user' | 'assistant'; content: string }
 
-export function useOrinChat(screen: string) {
+// screen      — which screen the student is on (big_question, plant_screen, etc.)
+// contentId   — the mission or plant DB id (e.g. 'seed-mission-1', 'seed-plant-2-3')
+// contentType — 'mission' | 'plant' — determines which table to query
+export function useOrinChat(
+  screen:       string,
+  contentId?:   string,
+  contentType?: 'mission' | 'plant'
+) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input,    setInput]    = useState('');
   const [loading,  setLoading]  = useState(false);
+  const openingFetched = useRef(false);
+
+  // Auto-load Pip's first-entrance opening message on mount.
+  useEffect(() => {
+    if (!contentId || !contentType || openingFetched.current) return;
+    openingFetched.current = true;
+
+    const studentId = getStudentId() ?? FALLBACK_ID;
+
+    fetch(`${OPENING_URL}?type=${contentType}&contentId=${contentId}&studentId=${studentId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.message) {
+          setMessages([{ role: 'assistant', content: data.message }]);
+        }
+      })
+      .catch(() => {
+        // Silently ignore — chat still works without the opening message
+      });
+  }, [contentId, contentType]);
 
   async function send(text?: string) {
     const msg = (text ?? input).trim();
@@ -26,7 +54,12 @@ export function useOrinChat(screen: string) {
       const res  = await fetch(BOT_URL, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ studentId, message: msg, screen }),
+        body:    JSON.stringify({
+          studentId,
+          message:      msg,
+          screen,
+          currentPlant: contentType === 'plant' ? contentId : undefined,
+        }),
       });
       const data = await res.json();
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply ?? 'Signal lost.' }]);

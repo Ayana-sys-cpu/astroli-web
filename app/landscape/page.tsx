@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
@@ -13,10 +13,10 @@ import { getFirstName } from '@/lib/student-store';
 import { useOrinChat } from '@/lib/useOrinChat';
 import { PLANETS, MOCK_USER, MOCK_MISSION } from '@/lib/mock-data';
 
-/* Constellation edges between planets */
-const EDGES: [number, number][] = [[0, 1], [0, 2], [1, 3], [3, 4], [2, 5]];
+/* Constellation edges between planets (indices into PLANETS array) */
+const EDGES: [number, number][] = [[0, 1], [0, 2], [1, 3], [2, 3]];
 
-const SUGGESTED = ['Gutenberg Bible', 'Royal Decree', 'Protest Pamphlet'];
+const SUGGESTED = ['The Church', 'Canossa', 'Ashkenaz'];
 
 const exploredCount = PLANETS.filter((p) => p.explored).length;
 const portalTasks = [
@@ -35,9 +35,13 @@ const portalTasks = [
 export default function LandscapePage() {
   const router = useRouter();
   const [orinOpen, setOrinOpen] = useState(true);
+  const [firstName, setFirstName] = useState('');
   const orin = useOrinChat('mission_hub');
   const avatar = useAvatar();
-  const firstName = getFirstName() || MOCK_USER.firstName;
+
+  useEffect(() => {
+    setFirstName(getFirstName() || MOCK_USER.firstName);
+  }, []);
 
   return (
     <motion.div
@@ -68,7 +72,7 @@ export default function LandscapePage() {
         ))}
       </svg>
 
-      <TopBar />
+      <TopBar left={`${MOCK_MISSION.label} · ${MOCK_MISSION.bigIdea.toUpperCase()}`} />
 
       {/* ── Main layout ───────────────────────────────────────────── */}
       <div className="flex flex-1 pt-14">

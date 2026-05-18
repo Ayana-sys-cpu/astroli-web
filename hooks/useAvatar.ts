@@ -16,6 +16,13 @@ export interface AvatarState {
   isPersonalized: boolean;
 }
 
+// Deterministic base image selection — matches the algorithm in the reveal page
+function baseAvatarUrl(studentId: string): string {
+  const sum = Array.from(studentId.replace(/-/g, '')).reduce((a, c) => a + c.charCodeAt(0), 0);
+  const index = (sum % 10) + 1;
+  return `/avatars/base/base-${String(index).padStart(2, '0')}.png`;
+}
+
 /**
  * Fetches the student's avatar from the same Supabase/Cloudinary pipeline
  * used by the mobile app. Mobile-generated avatars are immediately visible
@@ -24,8 +31,8 @@ export interface AvatarState {
  * Resolution order:
  *   1. In-memory TTL cache (avoids redundant API calls within 50 min)
  *   2. GET /api/avatar/status?student_id=... → signed Cloudinary URL
- *   3. base_avatar_url from localStorage (deterministic base image)
- *   4. null  (show SVG fallback in AvatarHero)
+ *   3. base_avatar_url from localStorage (set during onboarding reveal)
+ *   4. Deterministic base image computed from student ID
  */
 export function useAvatar(): AvatarState {
   const [state, setState] = useState<AvatarState>({
@@ -45,15 +52,14 @@ export function useAvatar(): AvatarState {
     const studentId = getStudentId();
     const student   = loadStudent();
 
-    // 2. No student_id yet (guest / not logged in) — fall back to base
+    // 2. No student_id yet (guest / not logged in)
     if (!studentId) {
-      setState({
-        url: student?.baseAvatarUrl ?? null,
-        loading: false,
-        isPersonalized: false,
-      });
+      setState({ url: null, loading: false, isPersonalized: false });
       return;
     }
+
+    // Deterministic base image — always available for any logged-in student
+    const fallback = student?.baseAvatarUrl ?? baseAvatarUrl(studentId);
 
     let cancelled = false;
 
@@ -63,25 +69,15 @@ export function useAvatar(): AvatarState {
         if (cancelled) return;
 
         if (data.ready && data.avatar_url) {
-          // Personalized avatar confirmed — cache + show
           cacheAvatarUrl(data.avatar_url);
           setState({ url: data.avatar_url, loading: false, isPersonalized: true });
         } else {
-          // Avatar not ready yet (still generating on mobile) — show base
-          setState({
-            url: student?.baseAvatarUrl ?? null,
-            loading: false,
-            isPersonalized: false,
-          });
+          setState({ url: fallback, loading: false, isPersonalized: false });
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setState({
-            url: student?.baseAvatarUrl ?? null,
-            loading: false,
-            isPersonalized: false,
-          });
+          setState({ url: fallback, loading: false, isPersonalized: false });
         }
       });
 

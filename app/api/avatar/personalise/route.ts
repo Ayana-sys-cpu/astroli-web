@@ -117,16 +117,13 @@ export async function POST(req: NextRequest) {
   }
 
   const publicId = `avatars/final/${student_id}`;
-  console.log(`[avatar/personalise] student=${student_id} interest="${area_of_interest}"`);
 
   await clearAvatarUrl(student_id);
 
   try {
     const personalisationDesc = await translateInterest(area_of_interest);
-    console.log(`[avatar/personalise] translated: "${personalisationDesc}"`);
 
     const baseImage = getBaseImageFile(student_id);
-    console.log(`[avatar/personalise] base: ${baseImage.name}`);
 
     const prompt =
       `Keep this cute baby alien creature's exact body shape, face, big sparkly eyes, soft fluffy fur, and overall character identical. ` +
@@ -159,7 +156,6 @@ export async function POST(req: NextRequest) {
     }
 
     await saveAvatarPublicId(student_id, publicId);
-    console.log(`[avatar/personalise] Done for student ${student_id}`);
     return NextResponse.json({
       success: true,
       student_id,
