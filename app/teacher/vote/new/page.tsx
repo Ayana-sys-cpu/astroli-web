@@ -46,6 +46,12 @@ function VoteSetupInner() {
       .then(r => r.json())
       .then(d => { setMissions(d.missions ?? []); setLoading(false); })
       .catch(() => setLoading(false));
+    // Restore active vote from localStorage if one exists
+    const stored = localStorage.getItem(`voteEnd_${journeyId}`);
+    if (stored && new Date(stored).getTime() > Date.now()) {
+      setVoteEndIso(stored);
+      setVoteActive(true);
+    }
   }, [journeyId]);
 
   useEffect(() => {
@@ -69,15 +75,23 @@ function VoteSetupInner() {
   }
 
   async function startVote() {
-    if (starting || missions.length === 0) return;
+    if (starting || missions.length === 0 || !journeyId) return;
     setStarting(true);
     try {
       const endMs =
         timerMode === 'countdown'
           ? Date.now() + duration * 60 * 1000
           : Date.now() + 48 * 60 * 60 * 1000;
-      setVoteEndIso(new Date(endMs).toISOString());
+      const endIso = new Date(endMs).toISOString();
+      setVoteEndIso(endIso);
       setVoteActive(true);
+      // Persist so students can detect the vote and teacher can restore state
+      localStorage.setItem(`voteEnd_${journeyId}`, endIso);
+      await fetch('/api/teacher/journeys', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ journeyId, voteEndsAt: endIso }),
+      });
     } finally {
       setStarting(false);
     }
