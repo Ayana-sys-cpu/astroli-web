@@ -7,7 +7,7 @@ interface Mission {
   id: string;
   question: string;
   projectTitle: string;
-  status: string;
+  state: string;
   order: number;
 }
 
