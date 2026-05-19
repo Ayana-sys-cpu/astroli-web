@@ -702,6 +702,7 @@ function ConnectState({
   courses: CourseRecord[];
   onConnected: () => void;
 }) {
+  const router = useRouter();
   const [selected,   setSelected]   = useState<string | null>(() => courses.length > 0 ? courses[0].id : null);
   const [connecting, setConnecting] = useState(false);
   const [error,      setError]      = useState<string | null>(null);
@@ -721,7 +722,11 @@ function ConnectState({
         }),
       });
       if (!res.ok) throw new Error('Server error');
+      const data = await res.json();
       onConnected();
+      if (data.journeyId) {
+        router.push(`/teacher/vote/new?journeyId=${data.journeyId}`);
+      }
     } catch {
       setError('Something went wrong. Please try again.');
       setConnecting(false);

@@ -1,4 +1,4 @@
-import { PrismaClient, MissionStatus, ContentSource } from '@prisma/client';
+import { PrismaClient, MissionState, ContentSource } from '@prisma/client';
 
 interface Course {
   id: string;
@@ -16,7 +16,8 @@ export async function provisionTeacherJourneys(
   teacherId: string,
   courses: Course[],
   prisma: PrismaClient,
-): Promise<void> {
+): Promise<string | null> {
+  let firstJourneyId: string | null = null;
   for (const course of courses) {
     const journey = await prisma.journey.upsert({
       where: { googleCourseId: course.id },
@@ -25,10 +26,12 @@ export async function provisionTeacherJourneys(
       include: { missions: { select: { id: true } } },
     });
 
+    if (!firstJourneyId) firstJourneyId = journey.id;
     if (journey.missions.length > 0) continue;
 
     await seedJourney(journey.id, teacherId, prisma);
   }
+  return firstJourneyId;
 }
 
 async function seedJourney(journeyId: string, teacherId: string, prisma: PrismaClient) {
@@ -37,7 +40,7 @@ async function seedJourney(journeyId: string, teacherId: string, prisma: PrismaC
     data: {
       journeyId,
       order: 1,
-      status: MissionStatus.INACTIVE,
+      state: MissionState.locked,
       source: ContentSource.HARDCODED,
       createdBy: teacherId,
       question: 'Who owns the truth — the establishment or the individual?',
@@ -154,7 +157,7 @@ Think about this: The Geonim created a system of authority that worked without a
     data: {
       journeyId,
       order: 2,
-      status: MissionStatus.INACTIVE,
+      state: MissionState.locked,
       source: ContentSource.HARDCODED,
       createdBy: teacherId,
       question: 'What happens when power expands beyond the reach of law?',
@@ -287,7 +290,7 @@ Think about this: Cities offered a different kind of bargain from the feudal one
     data: {
       journeyId,
       order: 3,
-      status: MissionStatus.INACTIVE,
+      state: MissionState.locked,
       source: ContentSource.HARDCODED,
       createdBy: teacherId,
       question: 'Who gets to define what\'s true — and what it costs to disagree?',

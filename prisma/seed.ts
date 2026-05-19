@@ -1,4 +1,4 @@
-import { PrismaClient, MissionStatus, ContentSource } from '@prisma/client'
+import { PrismaClient, MissionState, ContentSource } from '@prisma/client'
 
 // Seed script — Phase 1 Medieval History Journey
 // All content is tagged source: HARDCODED.
@@ -53,7 +53,7 @@ async function main() {
       id: 'seed-mission-1',
       journeyId: journey.id,
       order: 1,
-      status: MissionStatus.INACTIVE,
+      state: MissionState.locked,
       source: ContentSource.HARDCODED,
       // generationJobId: null — hardcoded content has no generation job
       createdBy: teacher.id,
@@ -228,7 +228,7 @@ Think about this: The Geonim created a system of authority that worked without a
       id: 'seed-mission-2',
       journeyId: journey.id,
       order: 2,
-      status: MissionStatus.INACTIVE,
+      state: MissionState.locked,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,
 
@@ -441,7 +441,7 @@ Think about this: Cities offered a different kind of bargain from the feudal one
       id: 'seed-mission-3',
       journeyId: journey.id,
       order: 3,
-      status: MissionStatus.INACTIVE,
+      state: MissionState.locked,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,
 

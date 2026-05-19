@@ -11,9 +11,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'teacherId and courses required' }, { status: 400 });
     }
 
-    await provisionTeacherJourneys(teacherId, courses, prisma);
+    const journeyId = await provisionTeacherJourneys(teacherId, courses, prisma);
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, journeyId });
   } catch (err) {
     console.error('[teacher/connect]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
