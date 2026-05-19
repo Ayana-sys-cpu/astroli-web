@@ -263,7 +263,7 @@ export default function TeacherDashboard() {
                 {/* Mission accordion */}
                 <div className="flex flex-col gap-3 mb-6">
                   {missions.map(mission => {
-                    const st    = STATUS_STYLES[mission.state];
+                    const st    = STATUS_STYLES[mission.state] ?? STATUS_STYLES['locked'];
                     const isExp = expanded === mission.id;
 
                     return (
