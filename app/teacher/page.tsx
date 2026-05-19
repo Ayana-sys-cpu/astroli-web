@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getTeacherId, getCourses, saveCourses, type CourseRecord } from '@/lib/teacher-store';
@@ -69,6 +69,7 @@ export default function TeacherDashboard() {
   const [voteActiveMap, setVoteActiveMap] = useState<Record<string, string>>({});
   const [copiedId,      setCopiedId]      = useState<string | null>(null);
   const [,              setTick]          = useState(0);
+  const syncedVoteRef = useRef(false);
 
   const fetchJourneys = () => {
     const teacherId = getTeacherId();
@@ -114,24 +115,25 @@ export default function TeacherDashboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Restore persisted vote end times from localStorage when journeys load.
+  // Restore persisted vote end times from localStorage when journeys first load.
   // Syncs localStorage → DB so students can detect active votes.
   // Also cleans up stale 'voting' state on missions when no vote is stored.
+  // syncedVoteRef ensures this runs only once — not on every fetchJourneys() update.
   useEffect(() => {
-    if (journeys.length === 0) return;
+    if (journeys.length === 0 || syncedVoteRef.current) return;
+    syncedVoteRef.current = true;
     const restored: Record<string, string> = {};
     journeys.forEach(j => {
       const stored = localStorage.getItem(`voteEnd_${j.id}`);
       const ms = fullMissions[j.id] ?? j.missions;
       if (stored) {
         restored[j.id] = stored;
-        // Sync localStorage → DB (covers votes started before DB persistence was deployed).
-        // The journeys PATCH also transitions locked→voting on missions atomically.
+        // Sync localStorage → DB. Missions are already 'voting' in DB from when the vote started.
         fetch('/api/teacher/journeys', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ journeyId: j.id, voteEndsAt: stored }),
-        }).then(() => fetchJourneys()).catch(() => {});
+        }).catch(() => {});
       } else {
         // No stored vote — if any missions are in 'voting' state, they are stale; reset to 'locked'.
         const staleMissions = ms.filter(m => m.state === 'voting');
@@ -142,7 +144,6 @@ export default function TeacherDashboard() {
             body: JSON.stringify({ missionId: m.id, state: 'locked' }),
           }).catch(() => {});
         });
-        if (staleMissions.length > 0) fetchJourneys();
       }
     });
     if (Object.keys(restored).length > 0) {
