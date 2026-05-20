@@ -14,6 +14,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
+// Map Supabase snake_case columns → camelCase shape the frontend expects.
+function toMission(m: any) {
+  return {
+    id:                  m.id,
+    journeyId:           m.journey_id,
+    question:            m.question,
+    questionDescription: m.question_description,
+    projectTitle:        m.project_title,
+    projectDescription:  m.project_description,
+    openingMessage:      m.opening_message,
+    state:               m.state,
+    order:               m.mission_order,
+    plants:              (m.plants ?? []).map((p: any) => ({
+      id:             p.id,
+      title:          p.title,
+      content:        p.content,
+      openingMessage: p.opening_message,
+      mediaUrl:       p.media_url,
+      mediaType:      p.media_type,
+    })),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // GET /api/teacher/missions?journeyId=   — list all missions for a journey
 // GET /api/teacher/missions?id=          — single mission with its plants
@@ -33,7 +56,7 @@ export async function GET(req: NextRequest) {
     if (error || !data) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
-    return NextResponse.json({ mission: data });
+    return NextResponse.json({ mission: toMission(data) });
   }
 
   // ── Mission list for a journey ────────────────────────────────────────────
@@ -53,7 +76,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ missions: data });
+  return NextResponse.json({ missions: (data ?? []).map(toMission) });
 }
 
 // ---------------------------------------------------------------------------
