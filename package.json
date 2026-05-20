@@ -11,10 +11,15 @@
     "seed": "ts-node prisma/seed.ts"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["@prisma/client", "@prisma/engines", "prisma"]
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "prisma"
+    ]
   },
   "dependencies": {
     "@prisma/client": "^5.0.0",
+    "@supabase/supabase-js": "^2.106.0",
     "cloudinary": "^2.10.0",
     "framer-motion": "^11.3.0",
     "next": "14.2.29",

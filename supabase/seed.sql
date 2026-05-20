@@ -1,0 +1,19 @@
+-- =============================================================================
+-- SEED FILE — NOT NEEDED
+--
+-- There is no manual seeding required for this platform.
+--
+-- HOW DATA GETS CREATED:
+--   1. Teacher signs in with Google OAuth.
+--   2. Teacher connects a Google Classroom course via the dashboard.
+--   3. POST /api/teacher/connect creates:
+--        - A teacher row (upserted by google_id)
+--        - A journey row for each connected course
+--        - 3 hardcoded missions + 16 hardcoded plants for each new journey
+--
+-- All hardcoded mission and plant content lives in:
+--   src/astroli-web/lib/hardcoded-missions.ts
+--
+-- That file is the single source of truth for Phase 1 content.
+-- To update mission or plant text, edit that file — not this one.
+-- =============================================================================
