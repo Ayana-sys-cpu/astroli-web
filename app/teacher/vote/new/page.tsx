@@ -16,7 +16,7 @@ interface Mission {
   projectTitle: string;
   projectDescription: string | null;
   order: number;
-  status: string;
+  state: string;
   plants: Plant[];
 }
 
@@ -39,6 +39,13 @@ function VoteSetupInner() {
   const [voteEndIso, setVoteEndIso] = useState('');
   const [copied,     setCopied]     = useState(false);
   const [,           setTick]       = useState(0);
+
+  // Vote management modals
+  const [editModalOpen,     setEditModalOpen]     = useState(false);
+  const [editEndIso,        setEditEndIso]        = useState('');
+  const [finishConfirmOpen, setFinishConfirmOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [manageLoading,     setManageLoading]     = useState(false);
 
   useEffect(() => {
     if (!journeyId) return;
@@ -72,6 +79,88 @@ function VoteSetupInner() {
 
   function toggleExpand(id: string) {
     setExpanded(prev => prev === id ? null : id);
+  }
+
+  async function handleUpdateVoteEnd() {
+    if (!editEndIso || !journeyId) return;
+    setManageLoading(true);
+    try {
+      localStorage.setItem(`voteEnd_${journeyId}`, editEndIso);
+      setVoteEndIso(editEndIso);
+      await fetch('/api/teacher/journeys', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ journeyId, voteEndsAt: editEndIso }),
+      });
+      setEditModalOpen(false);
+    } finally {
+      setManageLoading(false);
+    }
+  }
+
+  async function handleFinishVote() {
+    if (!journeyId) return;
+    setManageLoading(true);
+    try {
+      const winnerRes = await fetch(`/api/winner?journeyId=${journeyId}`);
+      const { winnerId } = await winnerRes.json();
+      const votingMissions = missions.filter(m => m.state === 'voting');
+      const resolvedWinnerId: string | null =
+        winnerId ?? (votingMissions.sort((a, b) => a.order - b.order)[0]?.id ?? null);
+
+      localStorage.removeItem(`voteEnd_${journeyId}`);
+
+      await Promise.all([
+        fetch('/api/teacher/journeys', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ journeyId, voteEndsAt: null }),
+        }),
+        ...votingMissions.map(m =>
+          fetch('/api/teacher/missions', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ missionId: m.id, state: m.id === resolvedWinnerId ? 'pending_start' : 'skipped' }),
+          })
+        ),
+      ]);
+
+      router.push('/teacher');
+    } finally {
+      setManageLoading(false);
+    }
+  }
+
+  async function handleDeleteVote() {
+    if (!journeyId) return;
+    setManageLoading(true);
+    try {
+      localStorage.removeItem(`voteEnd_${journeyId}`);
+
+      await Promise.all([
+        fetch('/api/teacher/journeys', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ journeyId, voteEndsAt: null }),
+        }),
+        ...missions.filter(m => m.state === 'voting').map(m =>
+          fetch('/api/teacher/missions', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ missionId: m.id, state: 'locked' }),
+          })
+        ),
+      ]);
+
+      setVoteActive(false);
+      setVoteEndIso('');
+      setDeleteConfirmOpen(false);
+      // Reload missions so the setup form shows fresh state
+      const md = await fetch(`/api/teacher/missions?journeyId=${journeyId}`).then(r => r.json());
+      setMissions(md.missions ?? []);
+    } finally {
+      setManageLoading(false);
+    }
   }
 
   async function startVote() {
@@ -318,6 +407,13 @@ function VoteSetupInner() {
             <p className="font-space text-[10px] tracking-[0.2em]" style={{ color: '#00D4FF' }}>
               VOTE IS LIVE
             </p>
+            <button
+              onClick={() => { setEditEndIso(voteEndIso); setEditModalOpen(true); }}
+              className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-lg font-space text-[10px] font-bold tracking-[0.12em] transition-all hover:opacity-80"
+              style={{ background: 'rgba(232,232,240,0.07)', color: 'rgba(232,232,240,0.5)', border: '1px solid rgba(232,232,240,0.12)' }}
+            >
+              ✎ EDIT
+            </button>
           </div>
 
           {/* Countdown */}
@@ -403,6 +499,176 @@ function VoteSetupInner() {
           </motion.button>
         </div>
       )}
+
+      {/* ── EDIT VOTE MODAL ── */}
+      <AnimatePresence>
+        {editModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center px-6"
+            style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
+            onClick={() => setEditModalOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.92, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.92, y: 16 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+              className="w-full max-w-sm rounded-2xl p-7 flex flex-col gap-5"
+              style={{ background: '#0d0d18', border: '1px solid rgba(0,212,255,0.25)', boxShadow: '0 24px 60px rgba(0,0,0,0.6)' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div>
+                <p className="font-space text-[10px] tracking-[0.2em] mb-2" style={{ color: '#00D4FF' }}>EDIT VOTE</p>
+                <h3 className="font-space font-black text-lg tracking-tight" style={{ color: '#E8E8F0' }}>Update End Date</h3>
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="font-space text-[9px] font-bold tracking-[0.15em]" style={{ color: 'rgba(232,232,240,0.4)' }}>
+                  NEW END DATE &amp; TIME
+                </label>
+                <input
+                  type="datetime-local"
+                  value={editEndIso}
+                  onChange={e => setEditEndIso(e.target.value)}
+                  className="w-full rounded-xl px-4 py-3 font-inter text-sm outline-none"
+                  style={{ background: 'rgba(0,212,255,0.05)', border: '1px solid rgba(0,212,255,0.3)', color: '#E8E8F0', colorScheme: 'dark' }}
+                />
+              </div>
+              <div className="flex flex-col gap-3 pt-1">
+                <motion.button
+                  onClick={handleUpdateVoteEnd}
+                  disabled={manageLoading || !editEndIso}
+                  whileHover={!manageLoading ? { scale: 1.02 } : undefined}
+                  whileTap={!manageLoading ? { scale: 0.97 } : undefined}
+                  className="w-full py-3 rounded-xl font-space font-bold text-sm tracking-[0.1em]"
+                  style={{ background: 'rgba(0,212,255,0.8)', color: '#0a0a0f', cursor: manageLoading ? 'default' : 'pointer' }}
+                >
+                  {manageLoading ? 'SAVING…' : 'SAVE NEW DATE'}
+                </motion.button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => { setEditModalOpen(false); setFinishConfirmOpen(true); }}
+                    className="flex-1 py-2.5 rounded-xl font-space text-[10px] font-bold tracking-[0.1em] transition-all hover:opacity-80"
+                    style={{ background: 'rgba(255,184,0,0.1)', color: '#FFB800', border: '1px solid rgba(255,184,0,0.3)' }}
+                  >
+                    ◼ FINISH VOTE
+                  </button>
+                  <button
+                    onClick={() => { setEditModalOpen(false); setDeleteConfirmOpen(true); }}
+                    className="flex-1 py-2.5 rounded-xl font-space text-[10px] font-bold tracking-[0.1em] transition-all hover:opacity-80"
+                    style={{ background: 'rgba(255,92,92,0.1)', color: '#FF5C5C', border: '1px solid rgba(255,92,92,0.3)' }}
+                  >
+                    🗑 DELETE
+                  </button>
+                </div>
+                <button
+                  onClick={() => setEditModalOpen(false)}
+                  className="w-full py-2.5 rounded-xl font-space text-[10px] font-bold tracking-[0.1em] transition-all hover:opacity-70"
+                  style={{ background: 'rgba(232,232,240,0.05)', color: 'rgba(232,232,240,0.4)', border: '1px solid rgba(232,232,240,0.1)' }}
+                >
+                  CANCEL
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── FINISH VOTE CONFIRM MODAL ── */}
+      <AnimatePresence>
+        {finishConfirmOpen && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center px-6"
+            style={{ background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(6px)' }}
+            onClick={() => setFinishConfirmOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.92, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.92, y: 16 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+              className="w-full max-w-sm rounded-2xl p-7 flex flex-col gap-5"
+              style={{ background: '#0d0d18', border: '1px solid rgba(255,184,0,0.3)', boxShadow: '0 24px 60px rgba(0,0,0,0.6)' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-center w-12 h-12 rounded-full mx-auto" style={{ background: 'rgba(255,184,0,0.1)', border: '1px solid rgba(255,184,0,0.35)' }}>
+                <span style={{ fontSize: 22 }}>◼</span>
+              </div>
+              <div className="text-center">
+                <h3 className="font-space font-black text-lg tracking-tight mb-2" style={{ color: '#E8E8F0' }}>End vote now?</h3>
+                <p className="font-inter text-sm leading-relaxed" style={{ color: 'rgba(232,232,240,0.5)' }}>
+                  Are you sure? Ending the vote now will finalize results before the original scheduled end time.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3">
+                <motion.button
+                  onClick={handleFinishVote}
+                  disabled={manageLoading}
+                  whileHover={!manageLoading ? { scale: 1.02 } : undefined}
+                  whileTap={!manageLoading ? { scale: 0.97 } : undefined}
+                  className="w-full py-3 rounded-xl font-space font-bold text-sm tracking-[0.1em]"
+                  style={{ background: 'rgba(255,184,0,0.85)', color: '#0a0a0f', cursor: manageLoading ? 'default' : 'pointer' }}
+                >
+                  {manageLoading ? 'ENDING…' : 'YES, END VOTE'}
+                </motion.button>
+                <button
+                  onClick={() => setFinishConfirmOpen(false)}
+                  className="w-full py-2.5 rounded-xl font-space text-[10px] font-bold tracking-[0.1em] transition-all hover:opacity-70"
+                  style={{ background: 'rgba(232,232,240,0.05)', color: 'rgba(232,232,240,0.4)', border: '1px solid rgba(232,232,240,0.1)' }}
+                >
+                  KEEP VOTE RUNNING
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── DELETE VOTE CONFIRM MODAL ── */}
+      <AnimatePresence>
+        {deleteConfirmOpen && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center px-6"
+            style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
+            onClick={() => setDeleteConfirmOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+              className="w-full max-w-sm rounded-2xl p-7 flex flex-col gap-5"
+              style={{ background: '#130808', border: '1.5px solid rgba(255,51,51,0.4)', boxShadow: '0 24px 60px rgba(255,51,51,0.15)' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-center w-14 h-14 rounded-full mx-auto" style={{ background: 'rgba(255,51,51,0.12)', border: '1px solid rgba(255,51,51,0.4)' }}>
+                <span style={{ fontSize: 26 }}>⚠</span>
+              </div>
+              <div className="text-center">
+                <h3 className="font-space font-black text-xl tracking-tight mb-3" style={{ color: '#FF5C5C' }}>Delete this vote?</h3>
+                <p className="font-inter text-sm leading-relaxed" style={{ color: 'rgba(232,232,240,0.5)' }}>
+                  Are you sure you want to delete this vote? This action cannot be undone and will remove the voting option for all students in the class.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3">
+                <motion.button
+                  onClick={handleDeleteVote}
+                  disabled={manageLoading}
+                  whileHover={!manageLoading ? { scale: 1.02 } : undefined}
+                  whileTap={!manageLoading ? { scale: 0.97 } : undefined}
+                  className="w-full py-3.5 rounded-xl font-space font-bold text-sm tracking-[0.15em]"
+                  style={{ background: '#FF3333', color: '#fff', cursor: manageLoading ? 'default' : 'pointer', boxShadow: '0 4px 20px rgba(255,51,51,0.35)' }}
+                >
+                  {manageLoading ? 'DELETING…' : 'DELETE VOTE'}
+                </motion.button>
+                <button
+                  onClick={() => setDeleteConfirmOpen(false)}
+                  className="w-full py-2.5 rounded-xl font-space text-[10px] font-bold tracking-[0.1em] transition-all hover:opacity-70"
+                  style={{ background: 'rgba(232,232,240,0.05)', color: 'rgba(232,232,240,0.4)', border: '1px solid rgba(232,232,240,0.1)' }}
+                >
+                  KEEP VOTE
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── STUDENT VIEW OVERLAY ── */}
       <AnimatePresence>
