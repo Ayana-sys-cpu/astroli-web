@@ -1,33 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { supabaseAdmin } from '@/lib/supabase';
 
-const prisma = new PrismaClient();
-
-// GET /api/winner?journeyId=
-// Tallies all votes for a journey and returns the winning big idea ID.
+// GET /api/winner?voteSessionId=
+// Tallies all votes for a session and returns the winning big idea ID.
 // Tie-break: alphabetically lowest ID wins — deterministic across all devices.
 // Returns { winnerId: string | null } — null if no votes have been cast yet.
 export async function GET(req: NextRequest) {
-  const journeyId = req.nextUrl.searchParams.get('journeyId');
-  if (!journeyId) {
-    return NextResponse.json({ error: 'journeyId is required' }, { status: 400 });
+  const voteSessionId = req.nextUrl.searchParams.get('voteSessionId');
+  if (!voteSessionId) {
+    return NextResponse.json({ error: 'voteSessionId is required' }, { status: 400 });
   }
 
-  try {
-    const rows = await prisma.vote.groupBy({
-      by: ['bigIdeaId'],
-      where: { journeyId },
-      _count: { bigIdeaId: true },
-      orderBy: [
-        { _count: { bigIdeaId: 'desc' } },
-        { bigIdeaId: 'asc' },  // deterministic tie-break
-      ],
-    });
+  const { data, error } = await supabaseAdmin
+    .from('vote_counts')
+    .select('big_idea_id, vote_count')
+    .eq('vote_session_id', voteSessionId)
+    .order('vote_count', { ascending: false })
+    .order('big_idea_id', { ascending: true });
 
-    const winnerId = rows[0]?.bigIdeaId ?? null;
-    return NextResponse.json({ winnerId });
-  } catch (err) {
-    console.error('[GET /api/winner]', err);
+  if (error) {
+    console.error('[GET /api/winner]', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+
+  const winnerId = (data ?? [])[0]?.big_idea_id ?? null;
+  return NextResponse.json({ winnerId });
 }

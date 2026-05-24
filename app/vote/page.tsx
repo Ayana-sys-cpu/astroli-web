@@ -18,6 +18,7 @@ interface VoteMission {
 interface JourneyState {
   hasActiveJourney: boolean;
   hasActiveVote: boolean;
+  voteSessionId: string | null;
   voteJourneyId: string | null;
   voteEndsAt: string | null;
   voteMissions: VoteMission[];
@@ -52,6 +53,7 @@ export default function VotePage() {
   const [tick, setTick] = useState(0);
   const [firstName] = useState(() => getFirstName() || 'Traveller');
   const [studentId] = useState(() => getStudentId() ?? '');
+  const [voteCounts, setVoteCounts] = useState<Record<string, number>>({});
 
   const load = useCallback(async () => {
     try {
@@ -62,6 +64,7 @@ export default function VotePage() {
       setState({
         hasActiveJourney: false,
         hasActiveVote: true,
+        voteSessionId: data.voteSessionId ?? null,
         voteJourneyId: data.voteJourneyId ?? null,
         voteEndsAt: data.voteEndsAt ?? null,
         voteMissions: data.voteMissions ?? [],
@@ -74,10 +77,10 @@ export default function VotePage() {
   // Initial load
   useEffect(() => { load(); }, [load]);
 
-  // Check if student already voted once state is loaded
+  // Check if student already voted in this session
   useEffect(() => {
-    if (!state?.voteJourneyId || !studentId) return;
-    fetch(`/api/votes?studentId=${studentId}&journeyId=${state.voteJourneyId}`)
+    if (!state?.voteSessionId || !studentId) return;
+    fetch(`/api/votes?studentId=${studentId}&voteSessionId=${state.voteSessionId}`)
       .then(r => r.json())
       .then(({ bigIdeaId }) => {
         if (bigIdeaId) {
@@ -87,7 +90,7 @@ export default function VotePage() {
         }
       })
       .catch(() => {});
-  }, [state?.voteJourneyId, studentId]);
+  }, [state?.voteSessionId, studentId]);
 
   // Countdown ticker
   useEffect(() => {
@@ -101,18 +104,37 @@ export default function VotePage() {
     return () => clearInterval(id);
   }, [load]);
 
+  // Fetch + refresh vote counts whenever session is known
+  const loadCounts = useCallback(async (sessionId: string) => {
+    try {
+      const res = await fetch(`/api/vote-counts?voteSessionId=${sessionId}`);
+      const data = await res.json();
+      if (data.counts) setVoteCounts(data.counts);
+    } catch {
+      // non-critical — counts just won't update
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!state?.voteSessionId) return;
+    loadCounts(state.voteSessionId);
+    const id = setInterval(() => loadCounts(state.voteSessionId!), 15_000);
+    return () => clearInterval(id);
+  }, [state?.voteSessionId, loadCounts]);
+
   async function submitVote() {
-    if (!selectedId || !state?.voteJourneyId || !studentId || submitting) return;
+    if (!selectedId || !state?.voteSessionId || !studentId || submitting) return;
     setSubmitting(true);
     try {
       const res = await fetch('/api/votes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId, journeyId: state.voteJourneyId, bigIdeaId: selectedId }),
+        body: JSON.stringify({ studentId, voteSessionId: state.voteSessionId, bigIdeaId: selectedId }),
       });
       if (res.ok) {
         setPreviousVoteId(selectedId);
         setConfirmed(true);
+        if (state?.voteSessionId) loadCounts(state.voteSessionId);
       }
     } catch {
       // swallow — let student retry
@@ -223,9 +245,12 @@ export default function VotePage() {
         {/* Mission cards */}
         <div className="flex flex-col gap-4 w-full">
           {state.voteMissions.map((mission, i) => {
-            const col = PLANET_COLORS[i % PLANET_COLORS.length];
-            const isSelected = selectedId === mission.id;
-            const wasVoted = previousVoteId === mission.id;
+            const totalVotes   = Object.values(voteCounts).reduce((s, n) => s + n, 0);
+            const col          = PLANET_COLORS[i % PLANET_COLORS.length];
+            const isSelected   = selectedId === mission.id;
+            const wasVoted     = previousVoteId === mission.id;
+            const missionVotes = voteCounts[mission.id] ?? 0;
+            const votePct      = totalVotes > 0 ? Math.round((missionVotes / totalVotes) * 100) : 0;
 
             return (
               <motion.button
@@ -272,11 +297,21 @@ export default function VotePage() {
                       >
                         MISSION {String(mission.order).padStart(2, '0')}
                       </p>
-                      {wasVoted && confirmed && (
-                        <span className="text-[9px] tracking-[0.14em] font-space uppercase" style={{ color: col.dot }}>
-                          YOUR VOTE ✦
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {wasVoted && confirmed && (
+                          <span className="text-[9px] tracking-[0.14em] font-space uppercase" style={{ color: col.dot }}>
+                            YOUR VOTE ✦
+                          </span>
+                        )}
+                        {totalVotes > 0 && (
+                          <span
+                            className="text-[9px] tracking-[0.1em] font-space tabular-nums"
+                            style={{ color: isSelected ? col.dot : 'rgba(255,255,255,0.3)' }}
+                          >
+                            {missionVotes} vote{missionVotes !== 1 ? 's' : ''} · {votePct}%
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <p
                       className="font-space font-bold text-sm leading-snug mb-2"
@@ -298,6 +333,17 @@ export default function VotePage() {
                     >
                       PROJECT: {mission.projectTitle}
                     </p>
+                    {totalVotes > 0 && (
+                      <div className="mt-3 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                        <motion.div
+                          className="h-full rounded-full"
+                          style={{ background: col.glow }}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${votePct}%` }}
+                          transition={{ duration: 0.6, ease: 'easeOut' }}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.button>

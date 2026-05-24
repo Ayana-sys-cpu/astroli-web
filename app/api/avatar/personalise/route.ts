@@ -28,7 +28,7 @@ function getBaseImageFile(studentId: string): File {
 
 // ── Helpers: Supabase ─────────────────────────────────────────────────────────
 
-async function clearAvatarUrl(studentId: string): Promise<void> {
+async function patchStudent(studentId: string, fields: Record<string, unknown>): Promise<void> {
   if (!SUPABASE_URL || !SUPABASE_KEY) return;
   await fetch(`${SUPABASE_URL}app_students?student_id=eq.${studentId}`, {
     method: 'PATCH',
@@ -38,22 +38,16 @@ async function clearAvatarUrl(studentId: string): Promise<void> {
       'Content-Type': 'application/json',
       Prefer: 'return=minimal',
     },
-    body: JSON.stringify({ avatar_url: null }),
+    body: JSON.stringify(fields),
   });
 }
 
+async function clearAvatarUrl(studentId: string): Promise<void> {
+  await patchStudent(studentId, { avatar_url: null });
+}
+
 async function saveAvatarPublicId(studentId: string, publicId: string): Promise<void> {
-  if (!SUPABASE_URL || !SUPABASE_KEY) return;
-  await fetch(`${SUPABASE_URL}app_students?student_id=eq.${studentId}`, {
-    method: 'PATCH',
-    headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`,
-      'Content-Type': 'application/json',
-      Prefer: 'return=minimal',
-    },
-    body: JSON.stringify({ avatar_url: publicId }),
-  });
+  await patchStudent(studentId, { avatar_url: publicId });
 }
 
 // ── Helpers: image ────────────────────────────────────────────────────────────
@@ -117,6 +111,11 @@ export async function POST(req: NextRequest) {
   }
 
   const publicId = `avatars/final/${student_id}`;
+
+  // Persist interest immediately — this is the server-side source of truth for
+  // "onboarding complete". Doing it here (before generation) ensures the DB is
+  // updated even if the avatar pipeline fails or times out.
+  await patchStudent(student_id, { area_of_interest });
 
   await clearAvatarUrl(student_id);
 

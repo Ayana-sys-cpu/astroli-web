@@ -1,11 +1,21 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
 import OrinOrb from '@/components/OrinOrb';
-import { PLANETS, PLANET_DETAILS, NOTEBOOK_INSIGHTS, MOCK_USER, type Message } from '@/lib/mock-data';
+import { getPlantMeta } from '@/lib/plant-meta';
+import { PLANET_EXPERIENCE, NOTEBOOK_INSIGHTS, type Message } from '@/lib/planet-experience';
 import { useOrinChat } from '@/lib/useOrinChat';
+import { getFirstName } from '@/lib/student-store';
+
+interface Plant {
+  id: string;
+  title: string;
+  label: string | null;
+  content: string;
+  openingMessage: string | null;
+}
 
 type Tab = 'chat' | 'notebook';
 
@@ -59,13 +69,27 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
   const [activeTab, setActiveTab] = useState<Tab>('chat');
   const [savedIds, setSavedIds] = useState<number[]>([]);
   const [showReward, setShowReward] = useState(false);
-  // params.id is the plant DB id (e.g. 'seed-plant-1-1'). Mock plant IDs won't trigger opening messages.
+  const [plant, setPlant] = useState<Plant | null>(null);
+  const [loading, setLoading] = useState(true);
+  const firstName = getFirstName() || 'Traveler';
   const orin = useOrinChat('plant_screen', params.id, 'plant');
 
-  const planet = PLANETS.find((p) => p.id === params.id);
-  const detail = PLANET_DETAILS[params.id];
+  useEffect(() => {
+    fetch(`/api/student/mission?plantId=${params.id}`)
+      .then(r => r.json())
+      .then(({ plant }) => { setPlant(plant); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [params.id]);
 
-  if (!planet || !detail) {
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <span className="w-5 h-5 rounded-full border-2 border-[#00C4CC]/30 border-t-[#00C4CC] animate-spin" />
+      </div>
+    );
+  }
+
+  if (!plant) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
@@ -78,6 +102,9 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
     );
   }
 
+  const label = plant.label ?? getPlantMeta(plant.title).label;
+  const experience = PLANET_EXPERIENCE[label] ?? null;
+
   const handleSave = (id: number) => {
     if (!savedIds.includes(id)) {
       setSavedIds((prev) => [...prev, id]);
@@ -86,12 +113,13 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
     }
   };
 
-  const allMessages: Message[] = detail.messages.map((m) => ({
+  const allMessages: Message[] = (experience?.messages ?? []).map((m) => ({
     ...m,
     saved: m.saved || savedIds.includes(m.id),
   }));
 
   const savedCount = NOTEBOOK_INSIGHTS.length + savedIds.length;
+  const displayName = (() => { const n = firstName; return n ? n[0].toUpperCase() + n.slice(1, 2) + '.' : 'A.'; })();
 
   return (
     <motion.div
@@ -102,29 +130,32 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
     >
       <StarField count={60} seed={params.id.length * 7} />
 
-      {/* Top bar (custom for planet view) */}
+      {/* Top bar */}
       <header className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-5 py-3 border-b border-white/5 bg-black/40 backdrop-blur-sm">
         <span className="text-[10px] tracking-[0.2em] text-white/35 font-space uppercase">
-          PLANET · {detail.location.toUpperCase()} · {detail.year}
+          {experience
+            ? `PLANET · ${experience.location.toUpperCase()} · ${experience.year}`
+            : `PLANET · ${label.toUpperCase()}`}
         </span>
-        <span className="text-[10px] tracking-wide text-[#00C4CC]/60 font-space flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#00C4CC] inline-block" />
-          {detail.figure} is presenting
-        </span>
+        {experience && (
+          <span className="text-[10px] tracking-wide text-[#00C4CC]/60 font-space flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#00C4CC] inline-block" />
+            {experience.figure} is presenting
+          </span>
+        )}
         <div className="flex items-center gap-2">
-          <span className="text-[11px] text-white/40 font-space">{MOCK_USER.displayName}</span>
+          <span className="text-[11px] text-white/40 font-space">{displayName}</span>
           <div className="w-6 h-6 rounded-full border border-[#00C4CC]/50 flex items-center justify-center bg-[#001820]">
             <span className="text-[9px] text-[#00C4CC] font-space font-bold">
-              {MOCK_USER.firstName[0]}
+              {firstName[0]?.toUpperCase() ?? 'A'}
             </span>
           </div>
         </div>
       </header>
 
       <div className="flex flex-1 pt-14 overflow-hidden h-screen">
-        {/* Left — Figure screen */}
+        {/* Left — Figure / content screen */}
         <div className="flex-1 flex flex-col items-center justify-center gap-6 px-10 relative">
-          {/* Figure frame */}
           <div
             className="relative w-full max-w-md aspect-video flex flex-col items-center justify-center rounded-lg border border-white/8"
             style={{
@@ -132,48 +163,56 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
               boxShadow: 'inset 0 0 40px rgba(0,0,0,0.8)',
             }}
           >
-            {/* Scanline decoration */}
             <div
               className="absolute inset-0 rounded-lg pointer-events-none opacity-10"
               style={{
                 backgroundImage: 'repeating-linear-gradient(0deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 3px)',
               }}
             />
-            <p className="text-[9px] tracking-[0.3em] text-white/25 font-space uppercase mb-6">
-              {detail.figure.split(' ')[0].toUpperCase()} · {detail.year}
-            </p>
-            <div
-              className="w-24 h-24 rounded-full border border-white/15 flex items-center justify-center mb-4"
-              style={{
-                background: 'radial-gradient(circle, #1a1a1a, #060606)',
-                boxShadow: '0 0 30px rgba(0,196,204,0.08)',
-              }}
-            >
-              <span className="text-3xl text-white/10 font-space font-bold">
-                {detail.figure.split(' ').map((w) => w[0]).join('')}
-              </span>
-            </div>
-            <p className="text-[10px] tracking-[0.15em] text-white/30 font-space uppercase">
-              {planet.name.toUpperCase()} · {detail.location.toUpperCase()}
-            </p>
+            {experience ? (
+              <>
+                <p className="text-[9px] tracking-[0.3em] text-white/25 font-space uppercase mb-6">
+                  {experience.figure.split(' ')[0].toUpperCase()} · {experience.year}
+                </p>
+                <div
+                  className="w-24 h-24 rounded-full border border-white/15 flex items-center justify-center mb-4"
+                  style={{
+                    background: 'radial-gradient(circle, #1a1a1a, #060606)',
+                    boxShadow: '0 0 30px rgba(0,196,204,0.08)',
+                  }}
+                >
+                  <span className="text-3xl text-white/10 font-space font-bold">
+                    {experience.figure.split(' ').map((w) => w[0]).join('')}
+                  </span>
+                </div>
+                <p className="text-[10px] tracking-[0.15em] text-white/30 font-space uppercase">
+                  {label.toUpperCase()} · {experience.location.toUpperCase()}
+                </p>
+              </>
+            ) : (
+              <p className="text-[10px] tracking-[0.3em] text-white/25 font-space uppercase">
+                {label.toUpperCase()}
+              </p>
+            )}
           </div>
 
-          {/* Speech bubble */}
+          {/* Greeting or opening message */}
           <div className="w-full max-w-md">
             <div className="px-4 py-3 rounded-lg border border-white/8 bg-white/3">
               <p className="text-sm font-caveat text-white/75 italic leading-snug">
-                "{detail.greeting}"
+                "{experience?.greeting ?? plant.openingMessage ?? plant.title}"
               </p>
             </div>
-            <p className="text-[10px] text-white/30 font-space mt-1.5 pl-1">
-              {detail.figure}
-            </p>
+            {experience && (
+              <p className="text-[10px] text-white/30 font-space mt-1.5 pl-1">
+                {experience.figure}
+              </p>
+            )}
           </div>
         </div>
 
         {/* Right — Chat / Notebook panel */}
         <aside className="panel w-[320px] flex-shrink-0 flex flex-col overflow-hidden">
-          {/* Tabs */}
           <div className="flex border-b border-white/5">
             {(['chat', 'notebook'] as Tab[]).map((tab) => (
               <button
@@ -208,7 +247,6 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
                 exit={{ opacity: 0 }}
                 className="flex-1 flex flex-col overflow-hidden"
               >
-                {/* Chat header */}
                 <div className="px-4 py-2.5 border-b border-white/5">
                   <p className="text-[10px] tracking-wide text-white/35 font-space">
                     Live conversation · hover any message to{' '}
@@ -216,31 +254,36 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
                   </p>
                 </div>
 
-                {/* Messages */}
                 <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
+                  {/* Orin intro — from DB plant opening_message */}
+                  {plant.openingMessage && (
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[9px] tracking-[0.2em] text-[#00C4CC]/50 font-space uppercase">ORIN · GUIDE</span>
+                      <div className="px-3 py-2.5 rounded-lg border border-[#00C4CC]/15" style={{ background: 'rgba(0,196,204,0.04)' }}>
+                        <p className="text-xs text-white/60 font-inter leading-relaxed whitespace-pre-line">{plant.openingMessage}</p>
+                      </div>
+                    </div>
+                  )}
+
                   {allMessages.map((msg) => (
                     <ChatMessage key={msg.id} msg={msg} onSave={handleSave} />
                   ))}
-                  <div className="text-[10px] text-white/20 font-inter italic text-center mt-2">
-                    {detail.figure} is typing...
-                  </div>
+
+                  {orin.messages.map((m, i) => (
+                    <ChatMessage
+                      key={`live-${i}`}
+                      msg={{ id: 9000 + i, sender: m.role === 'user' ? 'you' : 'figure', text: m.content, time: 'now', saved: false }}
+                      onSave={() => {}}
+                    />
+                  ))}
+
+                  {orin.loading && (
+                    <div className="text-[10px] text-white/20 font-inter italic text-center mt-2">
+                      {experience ? `${experience.figure} is typing...` : 'thinking...'}
+                    </div>
+                  )}
                 </div>
 
-                {/* Live bot messages */}
-                {orin.messages.map((m, i) => (
-                  <ChatMessage
-                    key={`live-${i}`}
-                    msg={{ id: 9000 + i, sender: m.role === 'user' ? 'you' : 'figure', text: m.content, time: 'now', saved: false }}
-                    onSave={() => {}}
-                  />
-                ))}
-                {orin.loading && (
-                  <div className="text-[10px] text-white/20 font-inter italic text-center mt-2">
-                    {detail.figure} is typing...
-                  </div>
-                )}
-
-                {/* Send input */}
                 <div className="px-4 py-3 border-t border-white/5 flex gap-2">
                   <input
                     className="input-dark text-xs flex-1"
@@ -264,24 +307,25 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
                 exit={{ opacity: 0 }}
                 className="flex-1 flex flex-col overflow-hidden"
               >
-                {/* Notebook header */}
                 <div className="px-4 py-2.5 border-b border-white/5">
                   <p className="text-[9px] tracking-[0.18em] text-white/30 font-space uppercase">
-                    {savedCount} SAVED · {detail.location.toUpperCase()} · {detail.year}
+                    {savedCount} SAVED
+                    {experience ? ` · ${experience.location.toUpperCase()} · ${experience.year}` : ''}
                   </p>
-                  <div className="flex gap-3 mt-2">
-                    {['ALL', 'BY ' + detail.figure.split(' ')[0].toUpperCase(), 'YOURS'].map((tab) => (
-                      <button
-                        key={tab}
-                        className="text-[9px] tracking-wide font-space text-white/35 hover:text-white/70 transition-colors first:text-white/70"
-                      >
-                        {tab}
-                      </button>
-                    ))}
-                  </div>
+                  {experience && (
+                    <div className="flex gap-3 mt-2">
+                      {['ALL', 'BY ' + experience.figure.split(' ')[0].toUpperCase(), 'YOURS'].map((tab) => (
+                        <button
+                          key={tab}
+                          className="text-[9px] tracking-wide font-space text-white/35 hover:text-white/70 transition-colors first:text-white/70"
+                        >
+                          {tab}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                {/* Insights */}
                 <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-2.5">
                   {NOTEBOOK_INSIGHTS.map((insight) => (
                     <div
@@ -294,9 +338,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
                         </span>
                         <span className="text-[9px] text-white/20 font-inter">{insight.time}</span>
                       </div>
-                      <p className="text-[12px] text-white/65 font-inter leading-relaxed">
-                        {insight.text}
-                      </p>
+                      <p className="text-[12px] text-white/65 font-inter leading-relaxed">{insight.text}</p>
                       {insight.tag && (
                         <span className="mt-1.5 inline-block text-[8px] tracking-widest font-space text-[#00C4CC]/40 border border-[#00C4CC]/20 rounded px-1.5 py-0.5">
                           {insight.tag}
@@ -306,7 +348,6 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
                   ))}
                 </div>
 
-                {/* Bottom actions */}
                 <div className="px-4 py-3 border-t border-white/5 flex items-center gap-2">
                   <button
                     onClick={() => setActiveTab('chat')}
@@ -322,7 +363,6 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
             )}
           </AnimatePresence>
 
-          {/* Orin orb footer */}
           <div className="flex justify-center py-3 border-t border-white/5">
             <OrinOrb size={32} pulse={false} />
           </div>
@@ -332,7 +372,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
       {/* Bottom timeline bar */}
       <div className="absolute bottom-0 left-0 right-[320px] h-11 border-t border-white/6 bg-black/80 backdrop-blur-sm flex items-center justify-between px-5">
         <span className="text-[9px] tracking-[0.18em] text-white/30 font-space uppercase">
-          TEMPORAL LINK · {detail.year} CE
+          {experience ? `TEMPORAL LINK · ${experience.year} CE` : `PLANET · ${label.toUpperCase()}`}
         </span>
         <div className="flex items-center gap-3">
           <button className="text-white/25 hover:text-white/60 transition-colors text-xs">←</button>
@@ -346,7 +386,6 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
         </button>
       </div>
 
-      {/* Unobtrusive reward notification */}
       <AnimatePresence>
         {showReward && (
           <motion.div

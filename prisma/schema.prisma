@@ -145,6 +145,12 @@ model Plant {
   missionId String @map("mission_id")
 
   title   String
+  // One-word display label shown on the planet card (e.g. "Church", "Canossa").
+  label         String?
+  // Short display title for the planet (e.g. "The Medieval Church").
+  shortTitle    String? @map("short_title")
+  // The guiding question students explore on this planet.
+  planetQuestion String? @map("planet_question") @db.Text
   // Written text content. Phase 1: hand-authored. Phase 2: AI-generated or extracted from source material.
   content String @db.Text
 

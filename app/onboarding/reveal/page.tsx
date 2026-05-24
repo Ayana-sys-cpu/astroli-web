@@ -3,18 +3,11 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
-import { getStudentId, getFirstName, getInterest, markOnboardingComplete, saveBaseAvatarUrl, isOnboardingComplete } from '@/lib/student-store';
+import { getStudentId, getFirstName, getInterest, markOnboardingComplete, saveBaseAvatarUrl, saveAlienName, getAlienName, getBaseAvatarUrl, generateAlienName, isOnboardingComplete } from '@/lib/student-store';
 
 function pickBaseIndex(studentId: string): number {
   const sum = Array.from(studentId.replace(/-/g, '')).reduce((a, c) => a + c.charCodeAt(0), 0);
   return (sum % 10) + 1;
-}
-
-function generateAlienName(interest: string): string {
-  const prefixes = ['Xylo', 'Kael', 'Zyr', 'Vor', 'Nexo', 'Ael', 'Crix', 'Thal', 'Grix', 'Oru'];
-  const suffixes = ['-Vex', '-9', '-Flux', '-Prime', '-Zyx', '-Kael', '-Omni', '-Sol', '-Nix', '-Ren'];
-  const seed = Array.from(interest).reduce((a, c) => a + c.charCodeAt(0), 0);
-  return prefixes[seed % prefixes.length] + suffixes[(seed * 7) % suffixes.length];
 }
 
 export default function RevealPage() {
@@ -27,9 +20,12 @@ export default function RevealPage() {
   const studentId = getStudentId() ?? '';
   const firstName = getFirstName();
   const interest  = getInterest();
-  const alienName = interest ? generateAlienName(interest) : 'Xylo-Vex';
-  const baseIndex = studentId ? pickBaseIndex(studentId) : 1;
-  const baseUrl   = `/avatars/base/base-${String(baseIndex).padStart(2, '0')}.png`;
+  // Use the identity generated at signup (stored in localStorage by page.tsx).
+  // Fall back to the deterministic algorithm for users who signed up before this change.
+  const alienName = getAlienName() ?? (interest ? generateAlienName(interest) : 'Xylo-Vex');
+  const storedBase = getBaseAvatarUrl();
+  const baseIndex  = studentId ? pickBaseIndex(studentId) : 1;
+  const baseUrl    = storedBase ?? `/avatars/base/base-${String(baseIndex).padStart(2, '0')}.png`;
 
   // Returning users (already onboarded) should never see this screen
   useEffect(() => {
@@ -50,7 +46,20 @@ export default function RevealPage() {
 
   const handleBegin = () => {
     saveBaseAvatarUrl(baseUrl);
+    saveAlienName(alienName);
     markOnboardingComplete();
+
+    // Persist alien name and avatar URL to Supabase so every screen
+    // can always load them from the DB rather than recomputing them.
+    const student_id = studentId;
+    if (student_id) {
+      fetch('/api/student', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ student_id, alien_name: alienName, base_avatar_url: baseUrl }),
+      }).catch(() => {});
+    }
+
     router.push('/syncing');
   };
 

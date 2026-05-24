@@ -4,15 +4,17 @@
  */
 
 const K = {
-  EMAIL:          'astroli_email',
-  STUDENT_ID:     'astroli_student_id',
-  FIRST_NAME:     'astroli_first_name',
-  BASE_AVATAR:    'astroli_base_avatar_url',
-  AVATAR_URL:     'astroli_avatar_url',
-  AVATAR_TS:      'astroli_avatar_fetched_at',
-  ONBOARDING:     'astroli_onboarding_complete',
-  INTEREST:       'astroli_interest',
-  JOURNEY_ACTIVE: 'astroli_journey_active',
+  EMAIL:              'astroli_email',
+  STUDENT_ID:         'astroli_student_id',
+  FIRST_NAME:         'astroli_first_name',
+  BASE_AVATAR:        'astroli_base_avatar_url',
+  AVATAR_URL:         'astroli_avatar_url',
+  AVATAR_TS:          'astroli_avatar_fetched_at',
+  ONBOARDING:         'astroli_onboarding_complete',
+  INTEREST:           'astroli_interest',
+  ALIEN_NAME:         'astroli_alien_name',
+  JOURNEY_ACTIVE:     'astroli_journey_active',
+  MISSION_REVEALED:   'astroli_mission_revealed_id',
 } as const;
 
 // Signed URLs last 1 hour; we re-fetch after 50 min to stay fresh.
@@ -78,12 +80,24 @@ export function saveBaseAvatarUrl(url: string): void {
   ls()?.setItem(K.BASE_AVATAR, url);
 }
 
+export function getBaseAvatarUrl(): string | null {
+  return ls()?.getItem(K.BASE_AVATAR) ?? null;
+}
+
 export function saveInterest(interest: string): void {
   ls()?.setItem(K.INTEREST, interest);
 }
 
 export function getInterest(): string {
   return ls()?.getItem(K.INTEREST) ?? '';
+}
+
+export function saveAlienName(name: string): void {
+  ls()?.setItem(K.ALIEN_NAME, name);
+}
+
+export function getAlienName(): string | null {
+  return ls()?.getItem(K.ALIEN_NAME) ?? null;
 }
 
 export function markOnboardingComplete(): void {
@@ -102,7 +116,38 @@ export function isJourneyActive(): boolean {
   return ls()?.getItem(K.JOURNEY_ACTIVE) === '1';
 }
 
+export function getRevealedMissionId(): string | null {
+  return ls()?.getItem(K.MISSION_REVEALED) ?? null;
+}
+
+export function markMissionRevealed(missionId: string): void {
+  ls()?.setItem(K.MISSION_REVEALED, missionId);
+}
+
 export function clearSession(): void {
   const s = ls(); if (!s) return;
   Object.values(K).forEach((k) => s.removeItem(k));
+}
+
+// ── Bot identity ─────────────────────────────────────────────────────────────
+
+// Deterministic algorithm shared with the mobile app (FloatingBot.tsx) and
+// the onboarding reveal page. Same input → same name, every time.
+export function generateAlienName(interest: string): string {
+  const prefixes = ['Xylo', 'Kael', 'Zyr', 'Vor', 'Nexo', 'Ael', 'Crix', 'Thal', 'Grix', 'Oru'];
+  const suffixes = ['-Vex', '-9', '-Flux', '-Prime', '-Zyx', '-Kael', '-Omni', '-Sol', '-Nix', '-Ren'];
+  const seed = Array.from(interest).reduce((a, c) => a + c.charCodeAt(0), 0);
+  return prefixes[seed % prefixes.length] + suffixes[(seed * 7) % suffixes.length];
+}
+
+/**
+ * Returns the student's bot companion name.
+ * Priority: Supabase-persisted name (saved at onboarding) → computed from interest → 'Pip'.
+ * The Supabase value is cached in localStorage so this is always synchronous.
+ */
+export function getBotName(): string {
+  const stored = getAlienName();
+  if (stored) return stored;
+  const interest = getInterest();
+  return interest ? generateAlienName(interest) : 'Pip';
 }

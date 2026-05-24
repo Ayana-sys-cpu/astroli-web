@@ -181,7 +181,7 @@ html, body {
   right: 0;
   height: 1px;
   background: linear-gradient(90deg, transparent 0%, rgba(0, 245, 212, 0.7) 50%, transparent 100%);
-  animation: scanDown 2.8s linear infinite;
+  animation: scanDown 2.8s linear 1 forwards;
   pointer-events: none;
 }
 

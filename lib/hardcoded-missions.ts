@@ -10,6 +10,7 @@
 
 export interface PlantSeed {
   title:           string;
+  label:           string;
   content:         string;
   opening_message: string;
 }
@@ -58,6 +59,7 @@ Before we go deeper — I need your first instinct: is it even possible for two 
     plants: [
       {
         title: 'The Central Role of the Catholic Church in Medieval Society',
+        label: 'Church',
         opening_message: `Traveler. Before you go in — I need you to understand the scale of what you're scanning.
 
 This isn't just about religion. The Church ran the hospitals. The schools. The courts. The calendar. If you were born in medieval Europe, the Church was involved in literally every major moment of your life — from baptism to burial.
@@ -73,6 +75,7 @@ Think about this: If the Church controlled education, law, spiritual salvation, 
       },
       {
         title: 'The Pope vs. The Emperor: The Investiture Controversy',
+        label: 'Canossa',
         opening_message: `A sitting Pope excommunicated a Holy Roman Emperor.
 
 The Emperor — one of the most powerful men in the world — ended up standing barefoot in the snow outside a castle for three days, begging forgiveness. It actually happened. 1077 CE.
@@ -90,6 +93,7 @@ Think about this: Both the Pope and the Emperor believed they were defending God
       },
       {
         title: 'The Jewish Community in Ashkenaz: Rabbenu Gershom and Rashi',
+        label: 'Ashkenaz',
         opening_message: `Here's something that doesn't add up at first, Traveler.
 
 A community with no army, no castle, and no political power in the Christian world — and yet they built a system of law and leadership that lasted a thousand years and is still in use today.
@@ -105,6 +109,7 @@ Think about this: How did Jewish communities maintain their own system of law, t
       },
       {
         title: 'The Geonim of Babylonia: Jewish Leadership in Exile',
+        label: 'Babylonia',
         opening_message: `The Jewish people had no homeland, no Temple, and no king.
 
 And yet, from academies in Babylonia — modern-day Iraq — they ran a legal system that served Jewish communities from Spain to Persia. People wrote questions. They wrote back. And communities across the world treated those answers as binding law.
@@ -152,6 +157,7 @@ The question your mission is asking — how much freedom would you trade for saf
     plants: [
       {
         title: 'The Fall of Rome and the Conditions That Created Feudalism',
+        label: 'Rome',
         opening_message: `Rome didn't fall on a single day, Traveler. It unravelled.
 
 And what went with it wasn't just an emperor or a capital city. It was roads, law, a professional army — the entire infrastructure that made safety possible. When that collapsed, there was no emergency number to call.
@@ -169,6 +175,7 @@ Think about this: If there were no police, no army, and no government — and ra
       },
       {
         title: 'The Feudal Hierarchy: Kings, Nobles, Vassals, and Serfs',
+        label: 'Hierarchy',
         opening_message: `You've probably seen the pyramid diagram. King at the top, peasants at the bottom. Forget it for a second.
 
 Feudalism wasn't really a pyramid. It was a web of personal promises — each one individually sworn, each one binding. Every level had obligations running in both directions. Break your oath and you weren't just breaking a rule — you were breaking a sacred bond.
@@ -184,6 +191,7 @@ Think about this: Every level of this hierarchy had obligations running in both 
       },
       {
         title: 'The Three Orders: Those Who Pray, Those Who Fight, Those Who Work',
+        label: 'Orders',
         opening_message: `Every society tells itself a story about why things are the way they are.
 
 Medieval Europe's story was this: God designed three kinds of people — those who pray, those who fight, and those who work. Each has its role. Each is sacred. Accepting your place in that system isn't just a social norm — it's a religious duty.
@@ -199,6 +207,7 @@ Think about this: When a social hierarchy is described as God's design, what eff
       },
       {
         title: 'Daily Life in Feudal Society',
+        label: 'Serfdom',
         opening_message: `We've been talking about systems and hierarchies. Now let's talk about a person.
 
 Someone who was born on a manor, works the same fields their parents worked, owes the lord a portion of every harvest, and cannot leave without permission. Not as a prisoner — as a serf. That was a legal category. A normal life.
@@ -214,6 +223,7 @@ Think about this: Based on what you've learned about daily life, was the Feudal 
       },
       {
         title: 'The Rise of Cities and Urban Autonomy: Guilds and Universities',
+        label: 'Cities',
         opening_message: `Feudalism had a plan for three kinds of people: clergy, nobles, peasants.
 
 Then a fourth kind appeared. Merchants. Craftspeople. Scholars. People who didn't fit any of the three categories — and who were quietly accumulating wealth and influence the system hadn't anticipated.
@@ -260,6 +270,7 @@ Here's what I want to know before we start. When you think about two cultures cl
     plants: [
       {
         title: 'Judaism in the Christian Worldview: How the Medieval Church Saw Jews',
+        label: 'Toleration',
         opening_message: `Here's a contradiction I need you to hold in your head, Traveler.
 
 The medieval Church officially said Jews should be allowed to live and worship. Popes issued decrees protecting them. And at the same time — the same Church, the same era — mobs burned Jewish neighbourhoods while bishops looked the other way.
@@ -277,6 +288,7 @@ Think about this: How is it possible for an institution to simultaneously protec
       },
       {
         title: 'The Foundations of Islam: Core Beliefs and Connections to Judaism and Christianity',
+        label: 'Islam',
         opening_message: `Before this mission makes sense, you need to understand something that surprises most people.
 
 Islam, Judaism, and Christianity don't just share some overlap — they share the same prophets. Abraham. Moses. Jesus. Islam sees them all as authentic, and Muhammad as the final one in that chain.
@@ -292,6 +304,7 @@ Think about this: Islam, Judaism, and Christianity all claim the same God and ma
       },
       {
         title: 'The Spread of Islam and the Concept of Jihad',
+        label: 'Jihad',
         opening_message: `Traveler. One hundred years after Muhammad died, Islam had spread from Arabia to Spain, Persia, and the borders of India.
 
 That is one of the fastest territorial expansions in human history. And it's also one of the most misread. The word you're going to encounter in here — Jihad — has been used and abused so much that almost nobody knows what it actually means in Islamic theology.
@@ -307,6 +320,7 @@ Think about this: Religious expansion and political expansion were completely in
       },
       {
         title: 'Jews Under Islamic Rule: The Dhimmi System and the Pact of Umar',
+        label: 'Dhimmi',
         opening_message: `Here's a question to carry into this one: can a system be both tolerant and discriminatory at the same time?
 
 The Dhimmi system — the legal framework for Jewish and Christian life under Islamic rule — is one of history's clearest answers to that question. By the standards of medieval Christian Europe, it offered Jewish communities something remarkable. By modern standards, it was structured inequality.
@@ -322,6 +336,7 @@ Think about this: The Dhimmi system offered genuine protection alongside genuine
       },
       {
         title: 'The Golden Age of Muslim Culture: Science, Philosophy, and Art',
+        label: 'Baghdad',
         opening_message: `While much of Europe was trying not to collapse, something extraordinary was happening in Baghdad.
 
 The Abbasid Caliphate built what might have been the greatest concentration of scholarship in the world at that time — translating Greek, Persian, and Indian knowledge into Arabic, and then pushing it further.
@@ -337,6 +352,7 @@ Think about this: The scientific knowledge that eventually powered the European 
       },
       {
         title: 'The Crusades: Origins, Conflict, and the Jewish Experience',
+        label: 'Crusades',
         opening_message: `The Crusaders hadn't even reached the Middle East yet.
 
 They were still in the Rhine Valley in Germany — on their way to Jerusalem — when they turned on Jewish communities in Worms, Mainz, and Cologne. Thousands killed.
@@ -352,6 +368,7 @@ Think about this: The Crusaders believed they were doing God's work. The communi
       },
       {
         title: 'The Crusader Kingdom of Jerusalem: Structure and Lasting Legacy',
+        label: 'Jerusalem',
         opening_message: `Here's something that doesn't fit the simple narrative.
 
 After the Crusaders conquered Jerusalem in 1099, they ruled it — and the surrounding territory — for nearly 200 years. A tiny European minority governing a region where they were surrounded by Muslim and Eastern Christian populations they had just fought. And during that time, they traded with them. Adopted their customs. Negotiated truces.

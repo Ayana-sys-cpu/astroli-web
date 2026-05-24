@@ -1,0 +1,2 @@
+ALTER TABLE plants ADD COLUMN IF NOT EXISTS short_title TEXT;
+ALTER TABLE plants ADD COLUMN IF NOT EXISTS planet_question TEXT;

@@ -128,6 +128,7 @@ async function seedJourney(journeyId: string, teacherId: string): Promise<void> 
         missionSeed.plants.map(p => ({
           mission_id:      mission.id,
           title:           p.title,
+          label:           p.label,
           content:         p.content,
           opening_message: p.opening_message,
           source:          'HARDCODED',

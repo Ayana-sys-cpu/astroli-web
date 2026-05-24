@@ -90,7 +90,13 @@ export default function PendingJourneyPage() {
   useEffect(() => {
     const id = setInterval(async () => {
       try {
-        const res = await fetch('/api/student/journey');
+        const studentId = typeof window !== 'undefined'
+          ? window.localStorage.getItem('astroli_student_id')
+          : null;
+        const url = studentId
+          ? `/api/student/journey?studentId=${studentId}`
+          : '/api/student/journey';
+        const res = await fetch(url);
         const { hasActiveJourney, hasActiveVote } = await res.json();
         if (hasActiveJourney) router.replace('/landscape');
         else if (hasActiveVote) router.replace('/vote');

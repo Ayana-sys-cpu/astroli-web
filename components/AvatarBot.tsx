@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { getStudentId } from '@/lib/student-store';
+import { getStudentId, getBotName, getCachedAvatarUrl, loadStudent } from '@/lib/student-store';
 
 const BOT_URL     = 'https://astorli-bot.vercel.app/api/bot';
 const OPENING_URL = 'https://astorli-bot.vercel.app/api/opening-message';
@@ -17,12 +17,13 @@ function screenFromPath(pathname: string): string {
 }
 
 // Derive content type + ID from the URL so the floating bot can load opening messages.
-// landscape/[id] → plant  |  mission/brief → mission (default seed-mission-1 until real routing)
+// landscape/[id] → plant  |  mission/[id] → mission (ID extracted from URL segment)
 function contentFromPath(pathname: string): { contentType: 'mission' | 'plant'; contentId: string } | null {
   const plantMatch = pathname.match(/^\/landscape\/([^/]+)/);
   if (plantMatch) return { contentType: 'plant', contentId: plantMatch[1] };
 
-  if (pathname.startsWith('/mission/brief')) return { contentType: 'mission', contentId: 'seed-mission-1' };
+  const missionMatch = pathname.match(/^\/mission\/([^/]+)/);
+  if (missionMatch) return { contentType: 'mission', contentId: missionMatch[1] };
 
   return null;
 }
@@ -35,7 +36,14 @@ export default function AvatarBot() {
   const [input, setInput]     = useState('');
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [botName, setBotName] = useState('Pip');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const openingFetched = useRef(false);
+
+  useEffect(() => {
+    setBotName(getBotName());
+    setAvatarUrl(getCachedAvatarUrl() ?? loadStudent()?.baseAvatarUrl ?? null);
+  }, []);
 
   const screen  = screenFromPath(pathname);
   const content = contentFromPath(pathname);
@@ -96,10 +104,7 @@ export default function AvatarBot() {
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3"
             style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)' }}>
-            <div className="flex items-center gap-2">
-              <span className="text-lg">👾</span>
-              <span className="text-sm font-semibold text-white">Pip · Your Lumian Scout</span>
-            </div>
+            <span className="text-sm font-semibold text-white">{botName} · Your Lumian Scout</span>
             <button onClick={() => setOpen(false)}
               className="text-white/60 hover:text-white text-xl leading-none transition-colors">×</button>
           </div>
@@ -151,10 +156,12 @@ export default function AvatarBot() {
 
       {/* Trigger button */}
       <button onClick={() => setOpen(o => !o)}
-        className="w-14 h-14 rounded-full flex items-center justify-center text-2xl shadow-lg transition-transform hover:scale-110 active:scale-95"
+        className="w-14 h-14 rounded-full flex items-center justify-center text-2xl shadow-lg transition-transform hover:scale-110 active:scale-95 overflow-hidden"
         style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', boxShadow: '0 0 20px rgba(124,58,237,0.5)' }}
-        title="Talk to Pip">
-        👾
+        title={`Talk to ${botName}`}>
+        {avatarUrl
+          ? <img src={avatarUrl} alt={botName} className="w-14 h-14 object-cover" />
+          : <span>👾</span>}
       </button>
     </div>
   );

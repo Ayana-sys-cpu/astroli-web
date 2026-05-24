@@ -28,6 +28,7 @@ interface Journey {
   title: string;
   googleCourseId: string;
   missions: Mission[];
+  activeVoteSession: { id: string; endsAt: string } | null;
 }
 
 const STATUS_STYLES: Record<MissionState, { label: string; color: string; bg: string; dot: string }> = {
@@ -66,10 +67,30 @@ export default function TeacherDashboard() {
   const [voteStart,    setVoteStart]    = useState(() => formatDT(new Date()));
   const [voteEnd,      setVoteEnd]      = useState(() => formatDT(new Date(Date.now() + 48 * 60 * 60 * 1000)));
   const [starting,     setStarting]     = useState(false);
-  const [voteActiveMap, setVoteActiveMap] = useState<Record<string, string>>({});
+  const [voteActiveMap,  setVoteActiveMap]  = useState<Record<string, string>>({});
+  // Maps journeyId → sessionId for API calls (vote-counts, winner).
+  // Persists after conclusion so results remain visible on the dashboard.
+  const [voteSessionMap, setVoteSessionMap] = useState<Record<string, string>>({});
+  const [voteCounts,     setVoteCounts]     = useState<Record<string, Record<string, number>>>({});
   const [copiedId,      setCopiedId]      = useState<string | null>(null);
   const [,              setTick]          = useState(0);
   const syncedVoteRef = useRef(false);
+
+  // Teacher manage-vote modals
+  const [editVoteJourneyId,   setEditVoteJourneyId]   = useState<string | null>(null);
+  const [editVoteEnd,         setEditVoteEnd]          = useState('');
+  const [finishConfirmId,     setFinishConfirmId]      = useState<string | null>(null);
+  const [deleteConfirmId,     setDeleteConfirmId]      = useState<string | null>(null);
+  const [manageLoading,       setManageLoading]        = useState(false);
+
+  const fetchVoteCounts = (journeyId: string, sessionId: string) => {
+    fetch(`/api/vote-counts?voteSessionId=${sessionId}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.counts) setVoteCounts(prev => ({ ...prev, [journeyId]: d.counts }));
+      })
+      .catch(() => {});
+  };
 
   const fetchJourneys = () => {
     const teacherId = getTeacherId();
@@ -81,11 +102,32 @@ export default function TeacherDashboard() {
         const loaded: Journey[] = d.journeys ?? [];
         setJourneys(loaded);
         setLoading(false);
+
+        // Populate voteActiveMap and voteSessionMap from server-provided session data.
+        loaded.forEach(journey => {
+          if (journey.activeVoteSession) {
+            setVoteActiveMap(prev => ({ ...prev, [journey.id]: journey.activeVoteSession!.endsAt }));
+            setVoteSessionMap(prev => ({ ...prev, [journey.id]: journey.activeVoteSession!.id }));
+            localStorage.setItem(`voteEnd_${journey.id}`, journey.activeVoteSession.endsAt);
+            localStorage.setItem(`voteSessionId_${journey.id}`, journey.activeVoteSession.id);
+          } else {
+            // No active session — restore concluded session ID from localStorage for results display.
+            const storedSessionId = localStorage.getItem(`voteSessionId_${journey.id}`);
+            if (storedSessionId) {
+              setVoteSessionMap(prev => ({ ...prev, [journey.id]: storedSessionId }));
+            }
+          }
+        });
+
         loaded.forEach(journey => {
           fetch(`/api/teacher/missions?journeyId=${journey.id}`)
             .then(r => r.json())
             .then(md => {
-              setFullMissions(prev => ({ ...prev, [journey.id]: md.missions ?? [] }));
+              const ms: Mission[] = md.missions ?? [];
+              setFullMissions(prev => ({ ...prev, [journey.id]: ms }));
+              const hasConcluded = ms.some(m => m.state === 'pending_start' || m.state === 'skipped');
+              const sessionId = journey.activeVoteSession?.id ?? localStorage.getItem(`voteSessionId_${journey.id}`);
+              if (hasConcluded && sessionId) fetchVoteCounts(journey.id, sessionId);
             })
             .catch(() => {});
         });
@@ -115,27 +157,17 @@ export default function TeacherDashboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Restore persisted vote end times from localStorage when journeys first load.
-  // Syncs localStorage → DB so students can detect active votes.
-  // Also cleans up stale 'voting' state on missions when no vote is stored.
-  // syncedVoteRef ensures this runs only once — not on every fetchJourneys() update.
+  // On first load, clean up any missions stuck in 'voting' state that have no
+  // corresponding open session in the DB (e.g. server restarted mid-vote).
+  // The server is now the source of truth for active sessions — no localStorage→DB sync needed.
   useEffect(() => {
     if (journeys.length === 0 || syncedVoteRef.current) return;
+    const allLoaded = journeys.every(j => Boolean(fullMissions[j.id]));
+    if (!allLoaded) return;
     syncedVoteRef.current = true;
-    const restored: Record<string, string> = {};
     journeys.forEach(j => {
-      const stored = localStorage.getItem(`voteEnd_${j.id}`);
-      const ms = fullMissions[j.id] ?? j.missions;
-      if (stored) {
-        restored[j.id] = stored;
-        // Sync localStorage → DB. Missions are already 'voting' in DB from when the vote started.
-        fetch('/api/teacher/journeys', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ journeyId: j.id, voteEndsAt: stored }),
-        }).catch(() => {});
-      } else {
-        // No stored vote — if any missions are in 'voting' state, they are stale; reset to 'locked'.
+      if (!j.activeVoteSession) {
+        const ms = fullMissions[j.id] ?? j.missions;
         const staleMissions = ms.filter(m => m.state === 'voting');
         staleMissions.forEach(m => {
           fetch('/api/teacher/missions', {
@@ -144,19 +176,31 @@ export default function TeacherDashboard() {
             body: JSON.stringify({ missionId: m.id, state: 'locked' }),
           }).catch(() => {});
         });
+        localStorage.removeItem(`voteEnd_${j.id}`);
       }
     });
-    if (Object.keys(restored).length > 0) {
-      setVoteActiveMap(prev => ({ ...prev, ...restored }));
-    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [journeys]);
+  }, [journeys, fullMissions]);
 
   useEffect(() => {
     if (Object.keys(voteActiveMap).length === 0) return;
     const id = setInterval(() => setTick(t => t + 1), 1000);
     return () => clearInterval(id);
   }, [voteActiveMap]);
+
+  // Poll vote counts every 15 s while any vote is live so the teacher sees a live tally.
+  useEffect(() => {
+    const liveJourneyIds = Object.keys(voteActiveMap);
+    if (liveJourneyIds.length === 0) return;
+    const fetch15s = () => liveJourneyIds.forEach(jid => {
+      const sid = voteSessionMap[jid];
+      if (sid) fetchVoteCounts(jid, sid);
+    });
+    fetch15s();
+    const id = setInterval(fetch15s, 15_000);
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voteActiveMap, voteSessionMap]);
 
   async function toggleMission(mission: Mission) {
     if (activating) return;
@@ -190,20 +234,153 @@ export default function TeacherDashboard() {
     }
   }
 
-  async function startVote(journeyId: string) {
+  async function startVote(journeyId: string, missions: Mission[]) {
     if (starting) return;
+    // Voting gate: ≥2 non-completed/active/skipped missions, no active mission
+    const votable   = missions.filter(m => !['completed', 'active', 'skipped'].includes(m.state));
+    const hasActive = missions.some(m => m.state === 'active');
+    if (votable.length < 2 || hasActive) return;
     setStarting(true);
     try {
-      localStorage.setItem(`voteEnd_${journeyId}`, voteEnd);
-      setVoteActiveMap(prev => ({ ...prev, [journeyId]: voteEnd }));
-      // Persist to DB so students can detect the active vote
+      const startIso = new Date(voteStart).toISOString();
+      const endIso   = new Date(voteEnd).toISOString();
+      const res = await fetch('/api/teacher/journeys', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ journeyId, voteStartsAt: startIso, voteEndsAt: endIso }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      localStorage.setItem(`voteEnd_${journeyId}`, endIso);
+      setVoteActiveMap(prev => ({ ...prev, [journeyId]: endIso }));
+      if (data.sessionId) {
+        localStorage.setItem(`voteSessionId_${journeyId}`, data.sessionId);
+        setVoteSessionMap(prev => ({ ...prev, [journeyId]: data.sessionId }));
+      }
+      const md = await fetch(`/api/teacher/missions?journeyId=${journeyId}`).then(r => r.json());
+      const ms: Mission[] = md.missions ?? [];
+      setFullMissions(prev => ({ ...prev, [journeyId]: ms }));
+      setJourneys(prev => prev.map(j =>
+        j.id === journeyId ? { ...j, missions: ms.map(m => ({ id: m.id, question: m.question, projectTitle: m.projectTitle, state: m.state, order: m.order })) } : j
+      ));
+    } finally {
+      setStarting(false);
+    }
+  }
+
+  async function handleUpdateVoteEnd(journeyId: string) {
+    if (!editVoteEnd) return;
+    setManageLoading(true);
+    try {
+      localStorage.setItem(`voteEnd_${journeyId}`, editVoteEnd);
+      setVoteActiveMap(prev => ({ ...prev, [journeyId]: editVoteEnd }));
       await fetch('/api/teacher/journeys', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ journeyId, voteEndsAt: voteEnd }),
+        body: JSON.stringify({ journeyId, voteEndsAt: editVoteEnd }),
       });
+      setEditVoteJourneyId(null);
     } finally {
-      setStarting(false);
+      setManageLoading(false);
+    }
+  }
+
+  async function handleFinishVote(journeyId: string) {
+    setManageLoading(true);
+    try {
+      const sessionId = voteSessionMap[journeyId];
+      const winnerRes = await fetch(`/api/winner?voteSessionId=${sessionId}`);
+      const { winnerId } = await winnerRes.json();
+      const ms = fullMissions[journeyId] ?? journeys.find(j => j.id === journeyId)?.missions ?? [];
+      const votingMissions = ms.filter(m => m.state === 'voting');
+      // If no votes were cast, pick the first mission by order as winner
+      const resolvedWinnerId: string | null = winnerId ?? (votingMissions.sort((a, b) => a.order - b.order)[0]?.id ?? null);
+
+      localStorage.removeItem(`voteEnd_${journeyId}`);
+      setVoteActiveMap(prev => {
+        const next = { ...prev };
+        delete next[journeyId];
+        return next;
+      });
+
+      await Promise.all([
+        fetch('/api/teacher/journeys', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ journeyId, voteEndsAt: null }),
+        }),
+        ...votingMissions.map(m =>
+          fetch('/api/teacher/missions', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ missionId: m.id, state: m.id === resolvedWinnerId ? 'pending_start' : 'skipped' }),
+          })
+        ),
+      ]);
+
+      const update = (missions: Mission[]) =>
+        missions.map(m => {
+          if (m.state !== 'voting') return m;
+          return { ...m, state: (m.id === resolvedWinnerId ? 'pending_start' : 'skipped') as MissionState };
+        });
+      setJourneys(prev => prev.map(j => j.id === journeyId ? { ...j, missions: update(j.missions) } : j));
+      setFullMissions(prev => {
+        const next: Record<string, Mission[]> = {};
+        Object.entries(prev).forEach(([jid, missions]) => { next[jid] = jid === journeyId ? update(missions) : missions; });
+        return next;
+      });
+
+      // Fetch vote counts to display results on cards
+      const sid = voteSessionMap[journeyId];
+      if (sid) fetchVoteCounts(journeyId, sid);
+      setFinishConfirmId(null);
+    } finally {
+      setManageLoading(false);
+    }
+  }
+
+  async function handleDeleteVote(journeyId: string) {
+    setManageLoading(true);
+    try {
+      localStorage.removeItem(`voteEnd_${journeyId}`);
+      localStorage.removeItem(`voteSessionId_${journeyId}`);
+      setVoteActiveMap(prev => {
+        const next = { ...prev };
+        delete next[journeyId];
+        return next;
+      });
+      setVoteSessionMap(prev => {
+        const next = { ...prev };
+        delete next[journeyId];
+        return next;
+      });
+      // Reset all voting missions back to locked
+      const ms = fullMissions[journeyId] ?? journeys.find(j => j.id === journeyId)?.missions ?? [];
+      await Promise.all([
+        fetch('/api/teacher/journeys', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ journeyId, voteEndsAt: null }),
+        }),
+        ...ms.filter(m => m.state === 'voting').map(m =>
+          fetch('/api/teacher/missions', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ missionId: m.id, state: 'locked' }),
+          })
+        ),
+      ]);
+      const update = (missions: Mission[]) =>
+        missions.map(m => m.state === 'voting' ? { ...m, state: 'locked' as MissionState } : m);
+      setJourneys(prev => prev.map(j => j.id === journeyId ? { ...j, missions: update(j.missions) } : j));
+      setFullMissions(prev => {
+        const next: Record<string, Mission[]> = {};
+        Object.entries(prev).forEach(([jid, missions]) => { next[jid] = jid === journeyId ? update(missions) : missions; });
+        return next;
+      });
+      setDeleteConfirmId(null);
+    } finally {
+      setManageLoading(false);
     }
   }
 
@@ -234,9 +411,15 @@ export default function TeacherDashboard() {
       ) : (
         <div className="flex flex-col gap-10">
           {journeys.map((journey, ji) => {
-            const missions    = fullMissions[journey.id] ?? journey.missions;
-            const allLocked  = missions.every(m => m.state === 'locked');
-            const voteIsLive = Boolean(voteActiveMap[journey.id]) || missions.some(m => m.state === 'voting');
+            const missions        = fullMissions[journey.id] ?? journey.missions;
+            const allLocked       = missions.every(m => m.state === 'locked');
+            const voteIsLive      = Boolean(voteActiveMap[journey.id]) || missions.some(m => m.state === 'voting');
+            const votableMissions = missions.filter(m => !['completed', 'active', 'skipped'].includes(m.state));
+            const hasActiveMission = missions.some(m => m.state === 'active');
+            const canStartVote    = votableMissions.length >= 2 && !hasActiveMission;
+            const hasPendingStart = missions.some(m => m.state === 'pending_start');
+            const voteEndTs = voteActiveMap[journey.id];
+            const isVoteExpired = Boolean(voteEndTs) && new Date(voteEndTs).getTime() <= Date.now();
 
             return (
               <motion.section
@@ -277,6 +460,10 @@ export default function TeacherDashboard() {
                             ? 'linear-gradient(135deg, rgba(0,212,255,0.06) 0%, rgba(124,58,237,0.08) 100%)'
                             : mission.state === 'voting'
                             ? 'linear-gradient(135deg, rgba(124,58,237,0.06) 0%, rgba(255,0,128,0.04) 100%)'
+                            : mission.state === 'pending_start'
+                            ? 'linear-gradient(135deg, rgba(255,214,0,0.07) 0%, rgba(255,140,0,0.04) 100%)'
+                            : mission.state === 'skipped'
+                            ? 'rgba(232,232,240,0.015)'
                             : isExp
                             ? 'rgba(232,232,240,0.04)'
                             : 'rgba(232,232,240,0.03)',
@@ -285,10 +472,15 @@ export default function TeacherDashboard() {
                               ? 'rgba(0,212,255,0.25)'
                               : mission.state === 'voting'
                               ? 'rgba(124,58,237,0.3)'
+                              : mission.state === 'pending_start'
+                              ? 'rgba(255,214,0,0.3)'
+                              : mission.state === 'skipped'
+                              ? 'rgba(232,232,240,0.05)'
                               : isExp
                               ? 'rgba(232,232,240,0.13)'
                               : 'rgba(232,232,240,0.08)'
                           }`,
+                          opacity: mission.state === 'skipped' ? 0.6 : 1,
                           transition: 'border-color 0.2s, background 0.2s',
                         }}
                       >
@@ -307,11 +499,35 @@ export default function TeacherDashboard() {
                             <p className="font-inter text-[11px] mb-1" style={{ color: 'rgba(232,232,240,0.4)' }}>
                               {mission.projectTitle}
                             </p>
-                            <p className="font-space font-bold text-sm leading-snug truncate" style={{ color: '#E8E8F0' }}>
+                            <p className="font-space font-bold text-sm leading-snug truncate" style={{
+                              color: mission.state === 'skipped' ? 'rgba(232,232,240,0.3)' : '#E8E8F0',
+                            }}>
                               {mission.question}
                             </p>
+                            {(mission.state === 'pending_start' || mission.state === 'skipped') && voteCounts[journey.id] && (
+                              <p className="font-space text-[9px] font-bold tracking-[0.1em] mt-1" style={{
+                                color: mission.state === 'pending_start' ? 'rgba(255,214,0,0.75)' : 'rgba(232,232,240,0.2)',
+                              }}>
+                                {voteCounts[journey.id][mission.id] ?? 0}{' '}
+                                {(voteCounts[journey.id][mission.id] ?? 0) === 1 ? 'VOTE' : 'VOTES'}
+                              </p>
+                            )}
                           </div>
                           <div className="flex items-center gap-3 flex-shrink-0">
+                            {/* WINNER badge for pending_start */}
+                            {mission.state === 'pending_start' && (
+                              <div
+                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-space font-bold tracking-[0.15em]"
+                                style={{
+                                  background: 'rgba(255,214,0,0.12)',
+                                  color: '#FFD600',
+                                  border: '1px solid rgba(255,214,0,0.35)',
+                                  boxShadow: '0 0 12px rgba(255,214,0,0.15)',
+                                }}
+                              >
+                                ✦ WINNER
+                              </div>
+                            )}
                             {/* Status badge */}
                             <div
                               className="flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-space font-bold tracking-[0.15em]"
@@ -332,6 +548,25 @@ export default function TeacherDashboard() {
                                 style={{ background: 'rgba(0,212,255,0.15)', color: '#00D4FF', border: '1px solid rgba(0,212,255,0.4)' }}
                               >
                                 REVIEW →
+                              </motion.button>
+                            )}
+                            {/* ACTIVATE for pending_start — winner of concluded vote */}
+                            {mission.state === 'pending_start' && (
+                              <motion.button
+                                onClick={e => { e.stopPropagation(); toggleMission(mission); }}
+                                whileHover={activating !== mission.id ? { scale: 1.04 } : undefined}
+                                whileTap={activating !== mission.id ? { scale: 0.96 } : undefined}
+                                disabled={activating === mission.id}
+                                className="px-4 py-2 rounded-lg text-[10px] font-space font-bold tracking-[0.12em]"
+                                style={{
+                                  background: 'rgba(255,214,0,0.15)',
+                                  color: '#FFD600',
+                                  border: '1px solid rgba(255,214,0,0.4)',
+                                  opacity: activating === mission.id ? 0.4 : 1,
+                                  cursor: activating === mission.id ? 'default' : 'pointer',
+                                }}
+                              >
+                                {activating === mission.id ? '…' : 'ACTIVATE'}
                               </motion.button>
                             )}
                             {/* REOPEN for completed — blocked while vote is live */}
@@ -434,9 +669,16 @@ export default function TeacherDashboard() {
                           )}
                         </AnimatePresence>
 
-                        {/* Active / voting glow stripe */}
-                        {(mission.state === 'active' || mission.state === 'voting') && (
-                          <div className="absolute left-0 top-0 bottom-0 w-0.5" style={{ background: 'linear-gradient(180deg, #00D4FF, #7C3AED)' }} />
+                        {/* Active / voting / pending glow stripe */}
+                        {(mission.state === 'active' || mission.state === 'voting' || mission.state === 'pending_start') && (
+                          <div
+                            className="absolute left-0 top-0 bottom-0 w-0.5"
+                            style={{
+                              background: mission.state === 'pending_start'
+                                ? 'linear-gradient(180deg, #FFD600, #FF8C00)'
+                                : 'linear-gradient(180deg, #00D4FF, #7C3AED)',
+                            }}
+                          />
                         )}
                       </motion.div>
                     );
@@ -450,68 +692,125 @@ export default function TeacherDashboard() {
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="rounded-xl p-6"
-                    style={{ background: 'rgba(0,212,255,0.05)', border: '1px solid rgba(0,212,255,0.2)' }}
+                    style={{
+                      background: isVoteExpired ? 'rgba(255,140,0,0.05)' : 'rgba(0,212,255,0.05)',
+                      border: `1px solid ${isVoteExpired ? 'rgba(255,140,0,0.3)' : 'rgba(0,212,255,0.2)'}`,
+                    }}
                   >
-                    {/* Live badge */}
+                    {/* Live / expired badge */}
                     <div className="flex items-center gap-2 mb-5">
                       <span
-                        className="w-2 h-2 rounded-full animate-pulse"
-                        style={{ background: '#00D4FF', boxShadow: '0 0 8px #00D4FF' }}
+                        className={`w-2 h-2 rounded-full${isVoteExpired ? '' : ' animate-pulse'}`}
+                        style={{
+                          background: isVoteExpired ? '#FF8C00' : '#00D4FF',
+                          boxShadow: `0 0 8px ${isVoteExpired ? '#FF8C00' : '#00D4FF'}`,
+                        }}
                       />
-                      <p className="font-space text-[10px] tracking-[0.2em]" style={{ color: '#00D4FF' }}>
-                        VOTE IS LIVE
+                      <p className="font-space text-[10px] tracking-[0.2em]" style={{ color: isVoteExpired ? '#FF8C00' : '#00D4FF' }}>
+                        {isVoteExpired ? 'VOTE EXPIRED' : 'VOTE IS LIVE'}
                       </p>
+                      <button
+                        onClick={() => {
+                          setEditVoteEnd(voteActiveMap[journey.id] ?? '');
+                          setEditVoteJourneyId(journey.id);
+                        }}
+                        className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-lg font-space text-[10px] font-bold tracking-[0.12em] transition-all hover:opacity-80"
+                        style={{
+                          background: isVoteExpired ? 'rgba(255,140,0,0.12)' : 'rgba(0,212,255,0.12)',
+                          color: isVoteExpired ? '#FF8C00' : '#00D4FF',
+                          border: `1px solid ${isVoteExpired ? 'rgba(255,140,0,0.4)' : 'rgba(0,212,255,0.35)'}`,
+                        }}
+                        title="Edit vote deadline"
+                      >
+                        ✎ EDIT
+                      </button>
                     </div>
 
                     {/* Countdown */}
                     <div className="text-center mb-6">
                       <p className="font-space text-[9px] tracking-[0.2em] mb-2" style={{ color: 'rgba(232,232,240,0.35)' }}>
-                        CLOSES IN
+                        {isVoteExpired ? 'ENDED' : 'CLOSES IN'}
                       </p>
-                      <p className="font-space font-black text-4xl tracking-wider" style={{ color: '#E8E8F0' }}>
+                      <p className="font-space font-black text-4xl tracking-wider" style={{ color: isVoteExpired ? '#FF8C00' : '#E8E8F0' }}>
                         {voteActiveMap[journey.id] ? formatCountdown(voteActiveMap[journey.id]) : 'VOTE ACTIVE'}
                       </p>
                     </div>
 
-                    {/* Share button with tooltip */}
-                    <div className="relative group">
+                    {/* Action: FINISH VOTE when expired, SHARE when live */}
+                    {isVoteExpired ? (
                       <motion.button
-                        onClick={() => {
-                          const msg = `Hey students! Please download the app using the link below and vote on what you want to do in our upcoming class!\n\nDownload link: [INSERT_LINK_PLACEHOLDER]`;
-                          navigator.clipboard.writeText(msg).catch(() => {});
-                          setCopiedId(journey.id);
-                          setTimeout(() => setCopiedId(id => id === journey.id ? null : id), 2500);
-                        }}
+                        onClick={() => setFinishConfirmId(journey.id)}
                         whileHover={{ scale: 1.015 }}
                         whileTap={{ scale: 0.975 }}
                         className="w-full py-3.5 rounded-xl font-space font-bold text-sm tracking-[0.12em] flex items-center justify-center gap-2"
                         style={{
-                          background: copiedId === journey.id
-                            ? 'linear-gradient(120deg, rgba(0,245,160,0.7), rgba(0,212,255,0.5))'
-                            : 'linear-gradient(120deg, rgba(37,211,102,0.7), rgba(0,212,255,0.5))',
-                          color: '#E8E8F0',
-                          border: `1px solid ${copiedId === journey.id ? 'rgba(0,245,160,0.5)' : 'rgba(37,211,102,0.5)'}`,
-                          boxShadow: '0 4px 20px rgba(37,211,102,0.2)',
+                          background: 'linear-gradient(120deg, rgba(255,140,0,0.85), rgba(255,184,0,0.6))',
+                          color: '#0a0a0f',
+                          border: '1px solid rgba(255,140,0,0.55)',
+                          boxShadow: '0 4px 20px rgba(255,140,0,0.25)',
                           cursor: 'pointer',
                         }}
                       >
-                        {copiedId === journey.id ? '✓ COPIED!' : '📲 SHARE WITH STUDENTS'}
+                        ◼ FINISH VOTE &amp; SEE RESULTS
                       </motion.button>
+                    ) : (
+                      <div className="relative group">
+                        <motion.button
+                          onClick={() => {
+                            const msg = `Hey students! Please download the app using the link below and vote on what you want to do in our upcoming class!\n\nDownload link: [INSERT_LINK_PLACEHOLDER]`;
+                            navigator.clipboard.writeText(msg).catch(() => {});
+                            setCopiedId(journey.id);
+                            setTimeout(() => setCopiedId(id => id === journey.id ? null : id), 2500);
+                          }}
+                          whileHover={{ scale: 1.015 }}
+                          whileTap={{ scale: 0.975 }}
+                          className="w-full py-3.5 rounded-xl font-space font-bold text-sm tracking-[0.12em] flex items-center justify-center gap-2"
+                          style={{
+                            background: copiedId === journey.id
+                              ? 'linear-gradient(120deg, rgba(0,245,160,0.7), rgba(0,212,255,0.5))'
+                              : 'linear-gradient(120deg, rgba(37,211,102,0.7), rgba(0,212,255,0.5))',
+                            color: '#E8E8F0',
+                            border: `1px solid ${copiedId === journey.id ? 'rgba(0,245,160,0.5)' : 'rgba(37,211,102,0.5)'}`,
+                            boxShadow: '0 4px 20px rgba(37,211,102,0.2)',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {copiedId === journey.id ? '✓ COPIED!' : '📲 SHARE WITH STUDENTS'}
+                        </motion.button>
 
-                      {/* Tooltip shown on hover */}
-                      <div
-                        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-lg font-inter text-xs whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                        style={{
-                          background: 'rgba(10,10,20,0.96)',
-                          border: '1px solid rgba(232,232,240,0.12)',
-                          color: 'rgba(232,232,240,0.85)',
-                          boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-                          zIndex: 10,
-                        }}
-                      >
-                        Share this with your students on WhatsApp.
+                        {/* Tooltip shown on hover */}
+                        <div
+                          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-lg font-inter text-xs whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                          style={{
+                            background: 'rgba(10,10,20,0.96)',
+                            border: '1px solid rgba(232,232,240,0.12)',
+                            color: 'rgba(232,232,240,0.85)',
+                            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                            zIndex: 10,
+                          }}
+                        >
+                          Share this with your students on WhatsApp.
+                        </div>
                       </div>
+                    )}
+                  </motion.div>
+                ) : hasPendingStart ? (
+                  <motion.div
+                    key="vote-concluded"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="rounded-xl p-5"
+                    style={{ background: 'rgba(255,214,0,0.04)', border: '1px solid rgba(255,214,0,0.2)' }}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="w-2 h-2 rounded-full" style={{ background: '#FFD600' }} />
+                      <p className="font-space text-[10px] tracking-[0.2em]" style={{ color: '#FFD600' }}>
+                        VOTE CONCLUDED
+                      </p>
                     </div>
+                    <p className="font-inter text-xs leading-relaxed" style={{ color: 'rgba(232,232,240,0.4)' }}>
+                      Results are in. Click <span style={{ color: '#FFD600' }}>ACTIVATE</span> next to the winning mission to start it for your class.
+                    </p>
                   </motion.div>
                 ) : allLocked ? (
                   <motion.div
@@ -562,22 +861,34 @@ export default function TeacherDashboard() {
                       </div>
                     </div>
 
-                    <p className="font-inter text-[11px] mb-5" style={{ color: 'rgba(232,232,240,0.3)' }}>
-                      Default: 48 hours from now · Ties are broken randomly
+                    <p className="font-inter text-[11px] mb-4" style={{ color: 'rgba(232,232,240,0.3)' }}>
+                      Default: opens today, closes 48 h later · Ties broken randomly
                     </p>
 
+                    {!canStartVote && (
+                      <div className="rounded-lg px-3 py-2.5 mb-4" style={{ background: 'rgba(255,184,0,0.07)', border: '1px solid rgba(255,184,0,0.2)' }}>
+                        <p className="font-inter text-xs leading-relaxed" style={{ color: 'rgba(255,184,0,0.85)' }}>
+                          {hasActiveMission
+                            ? '⚠️ A mission is already active. End it before starting a vote.'
+                            : `⚠️ Need at least 2 available missions to vote. Currently ${votableMissions.length}.`}
+                        </p>
+                      </div>
+                    )}
+
                     <motion.button
-                      onClick={() => startVote(journey.id)}
-                      disabled={starting}
-                      whileHover={!starting ? { scale: 1.015 } : undefined}
-                      whileTap={!starting ? { scale: 0.975 } : undefined}
+                      onClick={() => startVote(journey.id, missions)}
+                      disabled={starting || !canStartVote}
+                      whileHover={!starting && canStartVote ? { scale: 1.015 } : undefined}
+                      whileTap={!starting && canStartVote ? { scale: 0.975 } : undefined}
                       className="w-full py-3.5 rounded-xl font-space font-bold text-sm tracking-[0.12em]"
                       style={{
-                        background: 'linear-gradient(120deg, rgba(124,58,237,0.8), rgba(0,212,255,0.5))',
-                        color: '#E8E8F0',
-                        border: '1px solid rgba(124,58,237,0.5)',
-                        boxShadow: '0 4px 20px rgba(124,58,237,0.25)',
-                        cursor: starting ? 'default' : 'pointer',
+                        background: canStartVote
+                          ? 'linear-gradient(120deg, rgba(124,58,237,0.8), rgba(0,212,255,0.5))'
+                          : 'rgba(232,232,240,0.05)',
+                        color: canStartVote ? '#E8E8F0' : 'rgba(232,232,240,0.2)',
+                        border: canStartVote ? '1px solid rgba(124,58,237,0.5)' : '1px solid rgba(232,232,240,0.08)',
+                        boxShadow: canStartVote ? '0 4px 20px rgba(124,58,237,0.25)' : 'none',
+                        cursor: starting || !canStartVote ? 'default' : 'pointer',
                       }}
                     >
                       {starting ? (
@@ -686,6 +997,198 @@ export default function TeacherDashboard() {
                   style={{ background: 'rgba(232,232,240,0.05)', color: 'rgba(232,232,240,0.5)', border: '1px solid rgba(232,232,240,0.1)' }}
                 >
                   CLOSE PREVIEW
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Edit Vote End Date modal ─────────────────────────────────────────── */}
+      <AnimatePresence>
+        {editVoteJourneyId && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center px-6"
+            style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
+            onClick={() => setEditVoteJourneyId(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.92, y: 16 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.92, y: 16 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+              className="w-full max-w-sm rounded-2xl p-7 flex flex-col gap-5"
+              style={{ background: '#0d0d18', border: '1px solid rgba(0,212,255,0.25)', boxShadow: '0 24px 60px rgba(0,0,0,0.6)' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div>
+                <p className="font-space text-[10px] tracking-[0.2em] mb-2" style={{ color: '#00D4FF' }}>EDIT VOTE</p>
+                <h3 className="font-space font-black text-lg tracking-tight" style={{ color: '#E8E8F0' }}>Update End Date</h3>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="font-space text-[9px] font-bold tracking-[0.15em]" style={{ color: 'rgba(232,232,240,0.4)' }}>
+                  NEW END DATE &amp; TIME
+                </label>
+                <input
+                  type="datetime-local"
+                  value={editVoteEnd}
+                  onChange={e => setEditVoteEnd(e.target.value)}
+                  className="w-full rounded-xl px-4 py-3 font-inter text-sm outline-none"
+                  style={{ background: 'rgba(0,212,255,0.05)', border: '1px solid rgba(0,212,255,0.3)', color: '#E8E8F0', colorScheme: 'dark' }}
+                />
+                <p className="font-inter text-[11px]" style={{ color: 'rgba(232,232,240,0.28)' }}>
+                  The countdown timer will update immediately for all students.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3 pt-1">
+                <motion.button
+                  onClick={() => handleUpdateVoteEnd(editVoteJourneyId)}
+                  disabled={manageLoading || !editVoteEnd}
+                  whileHover={!manageLoading ? { scale: 1.02 } : undefined}
+                  whileTap={!manageLoading ? { scale: 0.97 } : undefined}
+                  className="w-full py-3 rounded-xl font-space font-bold text-sm tracking-[0.1em]"
+                  style={{ background: 'rgba(0,212,255,0.8)', color: '#0a0a0f', cursor: manageLoading ? 'default' : 'pointer' }}
+                >
+                  {manageLoading ? 'SAVING…' : 'SAVE NEW DATE'}
+                </motion.button>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => { setEditVoteJourneyId(null); setFinishConfirmId(editVoteJourneyId); }}
+                    className="flex-1 py-2.5 rounded-xl font-space text-[10px] font-bold tracking-[0.1em] transition-all hover:opacity-80"
+                    style={{ background: 'rgba(255,184,0,0.1)', color: '#FFB800', border: '1px solid rgba(255,184,0,0.3)' }}
+                  >
+                    ◼ FINISH VOTE
+                  </button>
+                  <button
+                    onClick={() => { setEditVoteJourneyId(null); setDeleteConfirmId(editVoteJourneyId); }}
+                    className="flex-1 py-2.5 rounded-xl font-space text-[10px] font-bold tracking-[0.1em] transition-all hover:opacity-80"
+                    style={{ background: 'rgba(255,92,92,0.1)', color: '#FF5C5C', border: '1px solid rgba(255,92,92,0.3)' }}
+                  >
+                    🗑 DELETE
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => setEditVoteJourneyId(null)}
+                  className="w-full py-2.5 rounded-xl font-space text-[10px] font-bold tracking-[0.1em] transition-all hover:opacity-70"
+                  style={{ background: 'rgba(232,232,240,0.05)', color: 'rgba(232,232,240,0.4)', border: '1px solid rgba(232,232,240,0.1)' }}
+                >
+                  CANCEL
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Finish Vote confirmation modal ───────────────────────────────────── */}
+      <AnimatePresence>
+        {finishConfirmId && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center px-6"
+            style={{ background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(6px)' }}
+            onClick={() => setFinishConfirmId(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.92, y: 16 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.92, y: 16 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+              className="w-full max-w-sm rounded-2xl p-7 flex flex-col gap-5"
+              style={{ background: '#0d0d18', border: '1px solid rgba(255,184,0,0.3)', boxShadow: '0 24px 60px rgba(0,0,0,0.6)' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-center w-12 h-12 rounded-full mx-auto" style={{ background: 'rgba(255,184,0,0.1)', border: '1px solid rgba(255,184,0,0.35)' }}>
+                <span style={{ fontSize: 22 }}>◼</span>
+              </div>
+              <div className="text-center">
+                <h3 className="font-space font-black text-lg tracking-tight mb-2" style={{ color: '#E8E8F0' }}>End vote now?</h3>
+                <p className="font-inter text-sm leading-relaxed" style={{ color: 'rgba(232,232,240,0.5)' }}>
+                  Are you sure? Ending the vote now will finalize results before the original scheduled end time.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3">
+                <motion.button
+                  onClick={() => handleFinishVote(finishConfirmId)}
+                  disabled={manageLoading}
+                  whileHover={!manageLoading ? { scale: 1.02 } : undefined}
+                  whileTap={!manageLoading ? { scale: 0.97 } : undefined}
+                  className="w-full py-3 rounded-xl font-space font-bold text-sm tracking-[0.1em]"
+                  style={{ background: 'rgba(255,184,0,0.85)', color: '#0a0a0f', cursor: manageLoading ? 'default' : 'pointer' }}
+                >
+                  {manageLoading ? 'ENDING…' : 'YES, END VOTE'}
+                </motion.button>
+                <button
+                  onClick={() => setFinishConfirmId(null)}
+                  className="w-full py-2.5 rounded-xl font-space text-[10px] font-bold tracking-[0.1em] transition-all hover:opacity-70"
+                  style={{ background: 'rgba(232,232,240,0.05)', color: 'rgba(232,232,240,0.4)', border: '1px solid rgba(232,232,240,0.1)' }}
+                >
+                  KEEP VOTE RUNNING
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Delete Vote high-visibility modal ───────────────────────────────── */}
+      <AnimatePresence>
+        {deleteConfirmId && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center px-6"
+            style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
+            onClick={() => setDeleteConfirmId(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+              className="w-full max-w-sm rounded-2xl p-7 flex flex-col gap-5"
+              style={{ background: '#130808', border: '1.5px solid rgba(255,51,51,0.4)', boxShadow: '0 24px 60px rgba(255,51,51,0.15)' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div
+                className="flex items-center justify-center w-14 h-14 rounded-full mx-auto"
+                style={{ background: 'rgba(255,51,51,0.12)', border: '1px solid rgba(255,51,51,0.4)' }}
+              >
+                <span style={{ fontSize: 26 }}>⚠</span>
+              </div>
+              <div className="text-center">
+                <h3 className="font-space font-black text-xl tracking-tight mb-3" style={{ color: '#FF5C5C' }}>Delete this vote?</h3>
+                <p className="font-inter text-sm leading-relaxed" style={{ color: 'rgba(232,232,240,0.5)' }}>
+                  Are you sure you want to delete this vote? This action cannot be undone and will remove the voting option for all students in the class.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3">
+                <motion.button
+                  onClick={() => handleDeleteVote(deleteConfirmId)}
+                  disabled={manageLoading}
+                  whileHover={!manageLoading ? { scale: 1.02 } : undefined}
+                  whileTap={!manageLoading ? { scale: 0.97 } : undefined}
+                  className="w-full py-3.5 rounded-xl font-space font-bold text-sm tracking-[0.15em]"
+                  style={{ background: '#FF3333', color: '#fff', cursor: manageLoading ? 'default' : 'pointer', boxShadow: '0 4px 20px rgba(255,51,51,0.35)' }}
+                >
+                  {manageLoading ? 'DELETING…' : 'DELETE VOTE'}
+                </motion.button>
+                <button
+                  onClick={() => setDeleteConfirmId(null)}
+                  className="w-full py-2.5 rounded-xl font-space text-[10px] font-bold tracking-[0.1em] transition-all hover:opacity-70"
+                  style={{ background: 'rgba(232,232,240,0.05)', color: 'rgba(232,232,240,0.4)', border: '1px solid rgba(232,232,240,0.1)' }}
+                >
+                  KEEP VOTE
                 </button>
               </div>
             </motion.div>

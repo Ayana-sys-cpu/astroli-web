@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Script from 'next/script';
 import StarField from '@/components/StarField';
-import { saveStudent, cacheAvatarUrl } from '@/lib/student-store';
+import { saveStudent, cacheAvatarUrl, markOnboardingComplete, saveAlienName, saveBaseAvatarUrl } from '@/lib/student-store';
 import { saveTeacher, saveCourses } from '@/lib/teacher-store';
 
 const LINES: [number, number, number, number][] = [
@@ -70,36 +70,55 @@ export default function LoginPage() {
       // ── Student path ──────────────────────────────────────────────────────
       const g = { email: identity.email, name: identity.name, given_name: identity.name.split(' ')[0] };
 
-      const studentRes = await fetch(`/api/student?email=${encodeURIComponent(g.email)}`);
-      const record = studentRes.ok ? await studentRes.json() : null;
+      // Server-side routing gate: resolves the student's onboarding state from
+      // the DB. A non-2xx here means a real server error — surface it rather
+      // than silently treating the user as new (which caused the regression).
+      const statusRes = await fetch('/api/auth/student-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessToken }),
+      });
+      if (!statusRes.ok) {
+        const err = await statusRes.json().catch(() => ({}));
+        throw new Error(`Identity check failed (${statusRes.status}): ${err.error ?? 'unknown'}`);
+      }
+      const status = await statusRes.json();
 
-      // NOTE: Do not auto-create Journeys here. Journey creation requires explicit teacher
-      // activation. See docs/architecture/DB_ARCHITECTURE.md section 4.2.
-      if (record?.student_id) {
+      if (status.exists) {
+        // ── Existing user ─────────────────────────────────────────────────
         saveStudent({
-          studentId:     record.student_id,
-          email:         record.email ?? g.email,
-          firstName:     record.first_name ?? g.given_name,
-          baseAvatarUrl: record.base_avatar_url ?? null,
+          studentId:    status.studentId,
+          email:        g.email,
+          firstName:    status.firstName ?? g.given_name,
+          baseAvatarUrl: status.baseAvatarUrl ?? null,
         });
-        if (record.avatar_url && !record.avatar_url.startsWith('avatars/')) {
-          cacheAvatarUrl(record.avatar_url);
+        if (status.avatarUrl && !status.avatarUrl.startsWith('avatars/')) {
+          cacheAvatarUrl(status.avatarUrl);
         }
-        router.push('/syncing');
+        if (status.alienName)    saveAlienName(status.alienName);
+        if (status.baseAvatarUrl) saveBaseAvatarUrl(status.baseAvatarUrl);
+        if (status.onboardingComplete) markOnboardingComplete();
+
+        // NOTE: Do not auto-create Journeys here. Journey creation requires
+        // explicit teacher activation (docs/architecture/DB_ARCHITECTURE.md §4.2).
+        router.push(status.onboardingComplete ? '/syncing' : '/onboarding/interest');
       } else {
+        // ── New user: register then onboard ──────────────────────────────
         const regRes = await fetch('/api/student', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: g.email, full_name: g.name, first_name: g.given_name }),
+          body: JSON.stringify({ email: g.email, full_name: g.name, first_name: g.given_name, accessToken }),
         });
         if (!regRes.ok) throw new Error('Registration failed');
         const reg = await regRes.json();
         saveStudent({
-          studentId:     reg.student_id,
-          email:         g.email,
-          firstName:     g.given_name,
-          baseAvatarUrl: null,
+          studentId:    reg.student_id,
+          email:        g.email,
+          firstName:    g.given_name,
+          baseAvatarUrl: reg.base_avatar_url ?? null,
         });
+        if (reg.alien_name)    saveAlienName(reg.alien_name);
+        if (reg.base_avatar_url) saveBaseAvatarUrl(reg.base_avatar_url);
         router.push('/onboarding/interest');
       }
     } catch (err) {

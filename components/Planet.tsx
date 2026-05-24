@@ -16,8 +16,9 @@ const FALLBACK = { core: '#0a0a14', glow: '#00F5D4', rgb: '0,245,212', orbitRgb:
 interface PlanetProps {
   id: string;
   name: string;
+  shortTitle: string;
   number: string;
-  question: string;
+  planetQuestion: string;
   x: number;
   y: number;
   explored?: boolean;
@@ -26,7 +27,7 @@ interface PlanetProps {
 
 const PLANET_SIZE = 58;
 
-export default function Planet({ id, name, number, question, x, y, explored = false, onClick }: PlanetProps) {
+export default function Planet({ id, name, shortTitle, number, planetQuestion, x, y, explored = false, onClick }: PlanetProps) {
   const [hovered, setHovered] = useState(false);
   const theme = THEMES[id] ?? FALLBACK;
 
@@ -43,29 +44,29 @@ export default function Planet({ id, name, number, question, x, y, explored = fa
             animate={{ opacity: 1, scale: 1, x: 0 }}
             exit={{ opacity: 0, scale: 0.9 }}
             transition={{ duration: 0.18 }}
-            className="absolute left-[calc(100%+18px)] top-1/2 -translate-y-1/2 rounded-xl p-3.5 z-30"
+            className="absolute left-[calc(100%+18px)] top-1/2 -translate-y-1/2 rounded-xl p-5 z-30"
             style={{
-              width: 220,
+              width: 270,
               background: '#07070F',
               border: `1px solid rgba(${theme.rgb},0.25)`,
-              boxShadow: `0 0 20px rgba(${theme.rgb},0.15)`,
+              boxShadow: `0 0 24px rgba(${theme.rgb},0.18)`,
             }}
           >
             <p
-              className="text-[8px] tracking-[0.22em] font-space uppercase mb-1.5"
-              style={{ color: `rgba(${theme.rgb},0.7)` }}
+              className="text-[11px] tracking-[0.22em] font-space uppercase mb-2"
+              style={{ color: `rgba(${theme.rgb},0.75)` }}
             >
-              PLANET {number} · {name.toUpperCase()}
+              PLANET {number}
             </p>
-            <p className="text-[13px] font-caveat leading-snug italic text-white/85">
-              "{question}"
+            <p className="text-[15px] font-inter leading-snug text-white/90">
+              "{planetQuestion}"
             </p>
-            <div className="mt-2 flex items-center gap-1.5">
+            <div className="mt-3 flex items-center gap-2">
               <div
-                className="w-1 h-1 rounded-full"
-                style={{ background: theme.glow, boxShadow: `0 0 4px ${theme.glow}` }}
+                className="w-1.5 h-1.5 rounded-full"
+                style={{ background: theme.glow, boxShadow: `0 0 6px ${theme.glow}` }}
               />
-              <span className="text-[8px] tracking-wider font-space text-white/25 uppercase">
+              <span className="text-[11px] tracking-wider font-space text-white/40 uppercase">
                 {explored ? 'EXPLORED' : 'UNEXPLORED'}
               </span>
             </div>
@@ -80,8 +81,8 @@ export default function Planet({ id, name, number, question, x, y, explored = fa
         onMouseLeave={() => setHovered(false)}
         className="relative flex items-center justify-center cursor-pointer"
         style={{ width: PLANET_SIZE + 20, height: PLANET_SIZE + 20 }}
-        title={name}
-        aria-label={name}
+        title={shortTitle}
+        aria-label={shortTitle}
       >
         {/* Orbital ring */}
         <motion.div
@@ -159,7 +160,7 @@ export default function Planet({ id, name, number, question, x, y, explored = fa
               : 'rgba(255,255,255,0.28)',
           }}
         >
-          {name}
+          {shortTitle}
         </span>
       </button>
     </div>

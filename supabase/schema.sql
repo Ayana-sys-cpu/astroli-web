@@ -19,11 +19,13 @@
 
 -- Drop in reverse dependency order so foreign keys don't block the drops.
 -- Safe to re-run — these are new tables with no production data yet.
-DROP TABLE IF EXISTS votes     CASCADE;
-DROP TABLE IF EXISTS plants    CASCADE;
-DROP TABLE IF EXISTS missions  CASCADE;
-DROP TABLE IF EXISTS journeys  CASCADE;
-DROP TABLE IF EXISTS teachers  CASCADE;
+DROP TABLE IF EXISTS student_journeys CASCADE;
+DROP TABLE IF EXISTS votes            CASCADE;
+DROP TABLE IF EXISTS vote_sessions    CASCADE;
+DROP TABLE IF EXISTS plants           CASCADE;
+DROP TABLE IF EXISTS missions         CASCADE;
+DROP TABLE IF EXISTS journeys         CASCADE;
+DROP TABLE IF EXISTS teachers         CASCADE;
 
 
 -- -----------------------------------------------------------------------------
@@ -58,15 +60,13 @@ CREATE TRIGGER teachers_updated_at
 -- -----------------------------------------------------------------------------
 -- JOURNEYS
 -- One journey per Google Classroom course linked to a teacher.
--- vote_ends_at is null when no vote is running; set by teacher to open a vote.
--- Setting vote_ends_at to a future timestamp opens a vote; clearing it closes it.
+-- Vote state is managed via the vote_sessions table — no vote_ends_at here.
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS journeys (
   id                     UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
   google_course_id       TEXT        UNIQUE NOT NULL,
   title                  TEXT        NOT NULL,
   teacher_id             UUID        NOT NULL REFERENCES teachers(teacher_id) ON DELETE CASCADE,
-  vote_ends_at           TIMESTAMPTZ,
   last_material_sync_at  TIMESTAMPTZ,
   created_at             TIMESTAMPTZ DEFAULT now(),
   updated_at             TIMESTAMPTZ DEFAULT now()
@@ -76,6 +76,32 @@ CREATE INDEX IF NOT EXISTS journeys_teacher_id_idx ON journeys(teacher_id);
 
 CREATE TRIGGER journeys_updated_at
   BEFORE UPDATE ON journeys
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+
+-- -----------------------------------------------------------------------------
+-- VOTE SESSIONS
+-- Each time a teacher opens a class vote it creates one row here.
+-- A journey can have many sessions over its lifetime (e.g. round 1, round 2).
+-- status: 'open' while voting is in progress; 'concluded' once closed.
+-- winner_id records which mission.id won (set when the teacher finishes the vote).
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS vote_sessions (
+  id          UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  journey_id  UUID        NOT NULL REFERENCES journeys(id) ON DELETE CASCADE,
+  ends_at     TIMESTAMPTZ,
+  winner_id   TEXT,
+  status      TEXT        NOT NULL DEFAULT 'open',
+  CONSTRAINT vote_sessions_status_check CHECK (status IN ('open', 'concluded')),
+  created_at  TIMESTAMPTZ DEFAULT now(),
+  updated_at  TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS vote_sessions_journey_id_idx ON vote_sessions(journey_id);
+CREATE INDEX IF NOT EXISTS vote_sessions_status_idx     ON vote_sessions(status);
+
+CREATE TRIGGER vote_sessions_updated_at
+  BEFORE UPDATE ON vote_sessions
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 
@@ -135,6 +161,9 @@ CREATE TABLE IF NOT EXISTS plants (
   id               UUID         DEFAULT gen_random_uuid() PRIMARY KEY,
   mission_id       UUID         NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
   title            TEXT         NOT NULL,
+  label            TEXT,
+  short_title      TEXT,
+  planet_question  TEXT,
   content          TEXT         NOT NULL,
   source           TEXT         NOT NULL DEFAULT 'HARDCODED',
   opening_message  TEXT,
@@ -158,23 +187,47 @@ CREATE TRIGGER plants_updated_at
 
 -- -----------------------------------------------------------------------------
 -- VOTES
--- One row per student per journey vote window.
--- student_id references app_students — the existing student UUID system.
+-- One row per student per vote session.
+-- vote_session_id ties each vote to a specific round — supporting multiple vote
+-- rounds per journey without old votes colliding with new ones.
+-- journey_id is denormalized here so Realtime subscriptions can filter by
+-- journey without joining vote_sessions on every event.
 -- big_idea_id is the mission.id the student voted for (TEXT, no FK, to remain
--- compatible with both web (UUID) and mobile (legacy string IDs) until mobile
--- switches to UUID-based mission IDs in a future sprint).
--- The UNIQUE constraint enforces one vote per student per journey; the API uses
+-- compatible with both web (UUID) and mobile (legacy string IDs)).
+-- The UNIQUE constraint enforces one vote per student per session; the API uses
 -- upsert so a student changing their vote updates the existing row.
---
 -- -----------------------------------------------------------------------------
-CREATE TABLE votes (
-  id           UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+-- -----------------------------------------------------------------------------
+-- STUDENT_JOURNEYS
+-- Join table linking students to the journeys they are enrolled in.
+-- Populated automatically on student sign-in: we call Google Classroom with
+-- the student's access token, match their course IDs against journeys.google_course_id,
+-- and upsert here. Safe to call on every sign-in (idempotent).
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS student_journeys (
   student_id   UUID        NOT NULL REFERENCES app_students(student_id) ON DELETE CASCADE,
   journey_id   UUID        NOT NULL REFERENCES journeys(id) ON DELETE CASCADE,
-  big_idea_id  TEXT        NOT NULL,   -- mission UUID (web) or legacy string ID (mobile)
-  created_at   TIMESTAMPTZ DEFAULT now(),
-  updated_at   TIMESTAMPTZ DEFAULT now(),
-  UNIQUE (student_id, journey_id)
+  enrolled_at  TIMESTAMPTZ DEFAULT now(),
+  PRIMARY KEY (student_id, journey_id)
+);
+
+CREATE INDEX IF NOT EXISTS student_journeys_student_id_idx ON student_journeys(student_id);
+CREATE INDEX IF NOT EXISTS student_journeys_journey_id_idx ON student_journeys(journey_id);
+
+CREATE TRIGGER student_journeys_enrolled_at
+  BEFORE UPDATE ON student_journeys
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+
+CREATE TABLE votes (
+  id               UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  student_id       UUID        NOT NULL REFERENCES app_students(student_id) ON DELETE CASCADE,
+  vote_session_id  UUID        NOT NULL REFERENCES vote_sessions(id) ON DELETE CASCADE,
+  journey_id       UUID        NOT NULL REFERENCES journeys(id) ON DELETE CASCADE,
+  big_idea_id      TEXT        NOT NULL,
+  created_at       TIMESTAMPTZ DEFAULT now(),
+  updated_at       TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (student_id, vote_session_id)
 );
 
 CREATE INDEX IF NOT EXISTS votes_journey_id_idx ON votes(journey_id);
@@ -191,11 +244,13 @@ CREATE TRIGGER votes_updated_at
 -- from the browser use the anon key and must pass these policies).
 -- =============================================================================
 
-ALTER TABLE teachers   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE journeys   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE missions   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE plants     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE votes      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE teachers         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE journeys         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vote_sessions    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE missions         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE plants           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE votes            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE student_journeys ENABLE ROW LEVEL SECURITY;
 
 -- Teachers: public reads (needed for Realtime on teacher dashboard)
 CREATE POLICY "teachers_select" ON teachers
@@ -203,6 +258,10 @@ CREATE POLICY "teachers_select" ON teachers
 
 -- Journeys: public reads (Realtime subscriptions need this)
 CREATE POLICY "journeys_select" ON journeys
+  FOR SELECT USING (true);
+
+-- Vote sessions: public reads (students need to discover active vote sessions).
+CREATE POLICY "vote_sessions_select" ON vote_sessions
   FOR SELECT USING (true);
 
 -- Missions: public reads — this is what drives the Realtime state machine.
@@ -220,6 +279,11 @@ CREATE POLICY "plants_select" ON plants
 CREATE POLICY "votes_own_select" ON votes
   FOR SELECT USING (true);   -- aggregate-only reads; individual rows are safe
                               -- since student_id is a UUID with no PII attached
+
+-- Student journeys: public reads — student_id is a UUID with no PII attached.
+-- All writes go through the service role (server-side API routes).
+CREATE POLICY "student_journeys_select" ON student_journeys
+  FOR SELECT USING (true);
 
 
 -- =============================================================================
@@ -245,10 +309,11 @@ CREATE POLICY "votes_own_select" ON votes
 
 CREATE OR REPLACE VIEW vote_counts AS
   SELECT
+    vote_session_id,
     journey_id,
     big_idea_id,
     COUNT(*) AS vote_count
   FROM votes
-  GROUP BY journey_id, big_idea_id;
+  GROUP BY vote_session_id, journey_id, big_idea_id;
 
 GRANT SELECT ON vote_counts TO anon, authenticated;

@@ -20,7 +20,10 @@ interface Mission {
   plants: Plant[];
 }
 
-type TimerMode = 'countdown' | 'manual';
+function toDatetimeLocal(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 function VoteSetupInner() {
   const router       = useRouter();
@@ -32,8 +35,8 @@ function VoteSetupInner() {
   const [expanded,   setExpanded]   = useState<string | null>(null);
   const [studentViewMission, setStudentViewMission] = useState<Mission | null>(null);
 
-  const [timerMode,  setTimerMode]  = useState<TimerMode>('countdown');
-  const [duration,   setDuration]   = useState(3);
+  const [startDate,  setStartDate]  = useState(() => toDatetimeLocal(new Date()));
+  const [endDate,    setEndDate]    = useState(() => toDatetimeLocal(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)));
   const [starting,   setStarting]   = useState(false);
   const [voteActive, setVoteActive] = useState(false);
   const [voteEndIso, setVoteEndIso] = useState('');
@@ -53,7 +56,8 @@ function VoteSetupInner() {
       .then(r => r.json())
       .then(d => { setMissions(d.missions ?? []); setLoading(false); })
       .catch(() => setLoading(false));
-    // Restore active vote from localStorage if one exists
+    // Restore active vote state from localStorage.
+    // The session was created server-side; localStorage is just a UI cache.
     const stored = localStorage.getItem(`voteEnd_${journeyId}`);
     if (stored && new Date(stored).getTime() > Date.now()) {
       setVoteEndIso(stored);
@@ -102,7 +106,8 @@ function VoteSetupInner() {
     if (!journeyId) return;
     setManageLoading(true);
     try {
-      const winnerRes = await fetch(`/api/winner?journeyId=${journeyId}`);
+      const sessionId = localStorage.getItem(`voteSessionId_${journeyId}`);
+      const winnerRes = await fetch(`/api/winner?voteSessionId=${sessionId}`);
       const { winnerId } = await winnerRes.json();
       const votingMissions = missions.filter(m => m.state === 'voting');
       const resolvedWinnerId: string | null =
@@ -136,6 +141,7 @@ function VoteSetupInner() {
     setManageLoading(true);
     try {
       localStorage.removeItem(`voteEnd_${journeyId}`);
+      localStorage.removeItem(`voteSessionId_${journeyId}`);
 
       await Promise.all([
         fetch('/api/teacher/journeys', {
@@ -163,24 +169,30 @@ function VoteSetupInner() {
     }
   }
 
+  // Voting gate: need ≥2 votable missions (not completed/active/skipped) and no active mission.
+  const votableMissions = missions.filter(m => !['completed', 'active', 'skipped'].includes(m.state));
+  const hasActiveMission = missions.some(m => m.state === 'active');
+  const canStartVote = votableMissions.length >= 2 && !hasActiveMission;
+
   async function startVote() {
-    if (starting || missions.length === 0 || !journeyId) return;
+    if (starting || !canStartVote || !journeyId) return;
     setStarting(true);
     try {
-      const endMs =
-        timerMode === 'countdown'
-          ? Date.now() + duration * 60 * 1000
-          : Date.now() + 48 * 60 * 60 * 1000;
-      const endIso = new Date(endMs).toISOString();
-      setVoteEndIso(endIso);
-      setVoteActive(true);
-      // Persist so students can detect the vote and teacher can restore state
-      localStorage.setItem(`voteEnd_${journeyId}`, endIso);
-      await fetch('/api/teacher/journeys', {
+      const startIso = new Date(startDate).toISOString();
+      const endIso   = new Date(endDate).toISOString();
+      const res = await fetch('/api/teacher/journeys', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ journeyId, voteEndsAt: endIso }),
+        body: JSON.stringify({ journeyId, voteStartsAt: startIso, voteEndsAt: endIso }),
       });
+      if (!res.ok) { setStarting(false); return; }
+      const data = await res.json();
+      setVoteEndIso(endIso);
+      setVoteActive(true);
+      localStorage.setItem(`voteEnd_${journeyId}`, endIso);
+      if (data.sessionId) {
+        localStorage.setItem(`voteSessionId_${journeyId}`, data.sessionId);
+      }
     } finally {
       setStarting(false);
     }
@@ -337,41 +349,35 @@ function VoteSetupInner() {
         </div>
       </div>
 
-      {/* ── STEP 2: TIMER ── */}
+      {/* ── STEP 2: VOTE DURATION ── */}
       <div className={`max-w-sm mb-8${voteActive ? ' opacity-0 pointer-events-none select-none h-0 overflow-hidden mb-0' : ''}`}>
         <p className="font-space text-[10px] tracking-[0.2em] mb-3" style={{ color: 'rgba(232,232,240,0.35)' }}>
           STEP 2 — VOTE DURATION
         </p>
-        <div className="rounded-xl overflow-hidden" style={{ background: 'rgba(232,232,240,0.03)', border: '1px solid rgba(232,232,240,0.08)' }}>
-          {/* Countdown */}
-          <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid rgba(232,232,240,0.06)' }}>
-            <button className="flex items-center gap-2 text-left" onClick={() => setTimerMode('countdown')}>
-              <div className="flex items-center justify-center" style={{ width: 15, height: 15, borderRadius: '50%', border: `1.5px solid ${timerMode === 'countdown' ? '#7C3AED' : 'rgba(232,232,240,0.2)'}`, background: timerMode === 'countdown' ? 'rgba(124,58,237,0.18)' : 'transparent' }}>
-                {timerMode === 'countdown' && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#7C3AED' }} />}
-              </div>
-              <div>
-                <p className="font-space font-bold text-xs" style={{ color: '#E8E8F0' }}>Countdown timer</p>
-                <p className="font-inter text-[10px]" style={{ color: 'rgba(232,232,240,0.35)' }}>Closes automatically</p>
-              </div>
-            </button>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setDuration(d => Math.max(1, d - 1))} className="w-6 h-6 rounded font-bold text-sm flex items-center justify-center" style={{ background: 'rgba(232,232,240,0.06)', border: '1px solid rgba(232,232,240,0.1)', color: 'rgba(232,232,240,0.6)' }}>−</button>
-              <span className="font-space font-bold text-sm w-6 text-center" style={{ color: '#E8E8F0' }}>{duration}</span>
-              <button onClick={() => setDuration(d => Math.min(10, d + 1))} className="w-6 h-6 rounded font-bold text-sm flex items-center justify-center" style={{ background: 'rgba(232,232,240,0.06)', border: '1px solid rgba(232,232,240,0.1)', color: 'rgba(232,232,240,0.6)' }}>+</button>
-              <span className="font-inter text-[10px]" style={{ color: 'rgba(232,232,240,0.35)' }}>min</span>
-            </div>
+        <div className="rounded-xl overflow-hidden flex flex-col gap-0" style={{ background: 'rgba(232,232,240,0.03)', border: '1px solid rgba(232,232,240,0.08)' }}>
+          <div className="flex flex-col gap-1 px-4 py-3" style={{ borderBottom: '1px solid rgba(232,232,240,0.06)' }}>
+            <label className="font-space text-[9px] font-bold tracking-[0.15em]" style={{ color: 'rgba(232,232,240,0.4)' }}>
+              START DATE
+            </label>
+            <input
+              type="datetime-local"
+              value={startDate}
+              onChange={e => setStartDate(e.target.value)}
+              className="w-full rounded-lg px-3 py-2 font-inter text-sm outline-none"
+              style={{ background: 'rgba(232,232,240,0.05)', border: '1px solid rgba(232,232,240,0.1)', color: '#E8E8F0', colorScheme: 'dark' }}
+            />
           </div>
-          {/* Manual */}
-          <div className="px-4 py-3">
-            <button className="flex items-center gap-2 text-left" onClick={() => setTimerMode('manual')}>
-              <div className="flex items-center justify-center" style={{ width: 15, height: 15, borderRadius: '50%', border: `1.5px solid ${timerMode === 'manual' ? '#7C3AED' : 'rgba(232,232,240,0.2)'}`, background: timerMode === 'manual' ? 'rgba(124,58,237,0.18)' : 'transparent' }}>
-                {timerMode === 'manual' && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#7C3AED' }} />}
-              </div>
-              <div>
-                <p className="font-space font-bold text-xs" style={{ color: '#E8E8F0' }}>Manual close</p>
-                <p className="font-inter text-[10px]" style={{ color: 'rgba(232,232,240,0.35)' }}>You close it yourself</p>
-              </div>
-            </button>
+          <div className="flex flex-col gap-1 px-4 py-3">
+            <label className="font-space text-[9px] font-bold tracking-[0.15em]" style={{ color: 'rgba(232,232,240,0.4)' }}>
+              END DATE
+            </label>
+            <input
+              type="datetime-local"
+              value={endDate}
+              onChange={e => setEndDate(e.target.value)}
+              className="w-full rounded-lg px-3 py-2 font-inter text-sm outline-none"
+              style={{ background: 'rgba(232,232,240,0.05)', border: '1px solid rgba(232,232,240,0.1)', color: '#E8E8F0', colorScheme: 'dark' }}
+            />
           </div>
         </div>
       </div>
@@ -383,8 +389,11 @@ function VoteSetupInner() {
       >
         <p className="font-inter text-xs leading-relaxed" style={{ color: 'rgba(232,232,240,0.55)' }}>
           🗳️ <span style={{ color: '#E8E8F0', fontWeight: 600 }}>Ready to open the vote.</span>{' '}
-          All {missions.length} missions will appear as options. Students vote and the winning mission becomes Mission 1 of the journey.
-          {' '}Timer: <span style={{ color: '#E8E8F0', fontWeight: 600 }}>{timerMode === 'countdown' ? `${duration} min countdown` : 'manual close'}</span>.
+          {votableMissions.length} missions will appear as options. Students vote and the winning mission becomes Mission 1 of the journey.
+          {startDate && new Date(startDate) > new Date()
+            ? <>{' '}Opens on <span style={{ color: '#E8E8F0', fontWeight: 600 }}>{new Date(startDate).toLocaleString()}</span>.</>
+            : ' Opens immediately.'}
+          {' '}Closes on <span style={{ color: '#E8E8F0', fontWeight: 600 }}>{endDate ? new Date(endDate).toLocaleString() : '—'}</span>.
           {' '}Ties are broken randomly.
         </p>
       </div>
@@ -467,36 +476,50 @@ function VoteSetupInner() {
           </div>
         </motion.div>
       ) : (
-        <div className="flex gap-4">
-          <button
-            onClick={() => router.back()}
-            className="px-6 py-3 rounded-xl font-space font-bold text-sm tracking-[0.1em]"
-            style={{ background: 'rgba(232,232,240,0.04)', color: 'rgba(232,232,240,0.4)', border: '1px solid rgba(232,232,240,0.08)' }}
-          >
-            CANCEL
-          </button>
-          <motion.button
-            onClick={startVote}
-            disabled={starting || missions.length === 0}
-            whileHover={!starting && missions.length > 0 ? { scale: 1.02 } : undefined}
-            whileTap={!starting && missions.length > 0 ? { scale: 0.97 } : undefined}
-            className="flex-1 py-3 rounded-xl font-space font-bold text-sm tracking-[0.12em]"
-            style={{
-              background: 'linear-gradient(120deg, rgba(124,58,237,0.8), rgba(0,212,255,0.5))',
-              color: '#E8E8F0',
-              border: '1px solid rgba(124,58,237,0.5)',
-              cursor: starting ? 'default' : 'pointer',
-            }}
-          >
-            {starting ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                STARTING VOTE…
-              </span>
-            ) : (
-              '🗳️ START VOTE NOW'
-            )}
-          </motion.button>
+        <div className="flex flex-col gap-3">
+          {/* Voting gate warning */}
+          {!canStartVote && (
+            <div className="rounded-xl px-4 py-3" style={{ background: 'rgba(255,184,0,0.07)', border: '1px solid rgba(255,184,0,0.2)' }}>
+              <p className="font-inter text-xs leading-relaxed" style={{ color: 'rgba(255,184,0,0.85)' }}>
+                {hasActiveMission
+                  ? '⚠️ A mission is already active. End the current mission before starting a vote.'
+                  : `⚠️ Voting requires at least 2 available missions. Currently ${votableMissions.length} available.`}
+              </p>
+            </div>
+          )}
+          <div className="flex gap-4">
+            <button
+              onClick={() => router.back()}
+              className="px-6 py-3 rounded-xl font-space font-bold text-sm tracking-[0.1em]"
+              style={{ background: 'rgba(232,232,240,0.04)', color: 'rgba(232,232,240,0.4)', border: '1px solid rgba(232,232,240,0.08)' }}
+            >
+              CANCEL
+            </button>
+            <motion.button
+              onClick={startVote}
+              disabled={starting || !canStartVote}
+              whileHover={!starting && canStartVote ? { scale: 1.02 } : undefined}
+              whileTap={!starting && canStartVote ? { scale: 0.97 } : undefined}
+              className="flex-1 py-3 rounded-xl font-space font-bold text-sm tracking-[0.12em]"
+              style={{
+                background: canStartVote
+                  ? 'linear-gradient(120deg, rgba(124,58,237,0.8), rgba(0,212,255,0.5))'
+                  : 'rgba(232,232,240,0.06)',
+                color: canStartVote ? '#E8E8F0' : 'rgba(232,232,240,0.25)',
+                border: canStartVote ? '1px solid rgba(124,58,237,0.5)' : '1px solid rgba(232,232,240,0.08)',
+                cursor: starting || !canStartVote ? 'default' : 'pointer',
+              }}
+            >
+              {starting ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                  STARTING VOTE…
+                </span>
+              ) : (
+                '🗳️ START VOTE NOW'
+              )}
+            </motion.button>
+          </div>
         </div>
       )}
 

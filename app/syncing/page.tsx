@@ -31,7 +31,13 @@ export default function SyncingPage() {
 
     // Race: wait for the animation (3.2s) AND the journey check, then route.
     const delay = new Promise<void>((res) => setTimeout(res, 3200));
-    const journeyCheck = fetch('/api/student/journey')
+    const studentId = typeof window !== 'undefined'
+      ? window.localStorage.getItem('astroli_student_id')
+      : null;
+    const journeyUrl = studentId
+      ? `/api/student/journey?studentId=${studentId}`
+      : '/api/student/journey';
+    const journeyCheck = fetch(journeyUrl)
       .then((r) => r.json())
       .catch(() => ({ hasActiveJourney: false, hasActiveVote: false }));
 
@@ -40,8 +46,9 @@ export default function SyncingPage() {
       const hasJourney = Boolean(data.hasActiveJourney);
       const hasVote    = Boolean(data.hasActiveVote);
       saveJourneyActive(hasJourney);
-      if (hasJourney) router.replace('/landscape');
-      else if (hasVote) router.replace('/vote');
+      if (hasJourney) {
+        router.replace('/landscape');
+      } else if (hasVote) router.replace('/vote');
       else router.replace('/pending-journey');
     });
 

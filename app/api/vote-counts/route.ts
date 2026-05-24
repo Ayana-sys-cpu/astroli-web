@@ -1,32 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { supabaseAdmin } from '@/lib/supabase';
 
-const prisma = new PrismaClient();
-
-// GET /api/vote-counts?journeyId=
-// Returns aggregated vote counts per big idea for a journey.
+// GET /api/vote-counts?voteSessionId=
+// Returns aggregated vote counts per big idea for a specific vote session.
 // Response: { counts: { [bigIdeaId]: number } }
 export async function GET(req: NextRequest) {
-  const journeyId = req.nextUrl.searchParams.get('journeyId');
-  if (!journeyId) {
-    return NextResponse.json({ error: 'journeyId is required' }, { status: 400 });
+  const voteSessionId = req.nextUrl.searchParams.get('voteSessionId');
+  if (!voteSessionId) {
+    return NextResponse.json({ error: 'voteSessionId is required' }, { status: 400 });
   }
 
-  try {
-    const rows = await prisma.vote.groupBy({
-      by: ['bigIdeaId'],
-      where: { journeyId },
-      _count: { bigIdeaId: true },
-    });
+  const { data, error } = await supabaseAdmin
+    .from('vote_counts')
+    .select('big_idea_id, vote_count')
+    .eq('vote_session_id', voteSessionId);
 
-    const counts: Record<string, number> = {};
-    for (const row of rows) {
-      counts[row.bigIdeaId] = row._count.bigIdeaId;
-    }
-
-    return NextResponse.json({ counts });
-  } catch (err) {
-    console.error('[GET /api/vote-counts]', err);
+  if (error) {
+    console.error('[GET /api/vote-counts]', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+
+  const counts: Record<string, number> = {};
+  for (const row of data ?? []) {
+    counts[row.big_idea_id] = Number(row.vote_count);
+  }
+
+  return NextResponse.json({ counts });
 }
