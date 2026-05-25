@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
@@ -71,8 +71,42 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
   const [showReward, setShowReward] = useState(false);
   const [plant, setPlant] = useState<Plant | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAvatarThinking, setIsAvatarThinking] = useState(false);
+  const [shownMsgCount, setShownMsgCount] = useState(0);
+  const thinkingStartTime = useRef(0);
+  const processedMsgCount = useRef(0);
+  const isThinkingRef     = useRef(false);
   const firstName = getFirstName() || 'Traveler';
   const orin = useOrinChat('plant_screen', params.id, 'plant');
+
+  // Keep isThinkingRef in sync for use inside async closures.
+  useEffect(() => { isThinkingRef.current = isAvatarThinking; }, [isAvatarThinking]);
+
+  // Show messages with natural delay for bot replies; user messages appear immediately.
+  useEffect(() => {
+    if (orin.messages.length <= processedMsgCount.current) return;
+    const newestMsg = orin.messages[orin.messages.length - 1];
+    processedMsgCount.current = orin.messages.length;
+
+    if (newestMsg.role === 'user' || !isThinkingRef.current) {
+      setShownMsgCount(orin.messages.length);
+    } else {
+      const elapsed   = Date.now() - thinkingStartTime.current;
+      const target    = Math.min(2500, 1200 + newestMsg.content.length * 15);
+      const remaining = Math.max(0, target - elapsed);
+      setTimeout(() => {
+        setShownMsgCount(orin.messages.length);
+        setIsAvatarThinking(false);
+      }, remaining);
+    }
+  }, [orin.messages.length]);
+
+  function handleSend() {
+    if (!orin.input.trim() || isAvatarThinking) return;
+    setIsAvatarThinking(true);
+    thinkingStartTime.current = Date.now();
+    orin.send();
+  }
 
   useEffect(() => {
     fetch(`/api/student/mission?plantId=${params.id}`)
@@ -269,7 +303,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
                     <ChatMessage key={msg.id} msg={msg} onSave={handleSave} />
                   ))}
 
-                  {orin.messages.map((m, i) => (
+                  {orin.messages.slice(0, shownMsgCount).map((m, i) => (
                     <ChatMessage
                       key={`live-${i}`}
                       msg={{ id: 9000 + i, sender: m.role === 'user' ? 'you' : 'figure', text: m.content, time: 'now', saved: false }}
@@ -277,24 +311,33 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
                     />
                   ))}
 
-                  {orin.loading && (
-                    <div className="text-[10px] text-white/20 font-inter italic text-center mt-2">
-                      {experience ? `${experience.figure} is typing...` : 'thinking...'}
+                  {isAvatarThinking && (
+                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-white/8 bg-white/3 w-fit">
+                      {[0, 1, 2].map(i => (
+                        <motion.span
+                          key={i}
+                          className="w-1.5 h-1.5 rounded-full"
+                          style={{ background: 'rgba(0,196,204,0.6)' }}
+                          animate={{ opacity: [0.25, 1, 0.25] }}
+                          transition={{ duration: 1, repeat: Infinity, delay: i * 0.18, ease: 'easeInOut' }}
+                        />
+                      ))}
                     </div>
                   )}
                 </div>
 
                 <div className="px-4 py-3 border-t border-white/5 flex gap-2">
                   <input
-                    className="input-dark text-xs flex-1"
-                    placeholder="Send a message"
+                    className="input-dark text-xs flex-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                    placeholder={isAvatarThinking ? 'thinking...' : 'Send a message'}
                     value={orin.input}
+                    disabled={isAvatarThinking}
                     onChange={(e) => orin.setInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && orin.send()}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                   />
                   <button
-                    onClick={() => orin.send()}
-                    disabled={orin.loading}
+                    onClick={handleSend}
+                    disabled={isAvatarThinking}
                     className="text-[#00C4CC]/60 hover:text-[#00C4CC] disabled:opacity-30 transition-colors text-sm px-1"
                   >→</button>
                 </div>

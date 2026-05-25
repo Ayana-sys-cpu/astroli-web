@@ -117,7 +117,9 @@ model Mission {
   source    ContentSource @default(HARDCODED)
 
   // Pip's first-entrance message shown the first time a student opens this Mission.
-  openingMessage String? @map("opening_message") @db.Text
+  openingMessage      String? @map("opening_message") @db.Text
+  // Optional quick-reply buttons attached to the opening message (JSON array of {label, value}).
+  openingQuickReplies Json?   @map("opening_quick_replies")
 
   startDate DateTime? @map("start_date") @db.Date
   endDate   DateTime? @map("end_date") @db.Date
@@ -158,7 +160,9 @@ model Plant {
   source ContentSource @default(HARDCODED)
 
   // Pip's first-entrance message shown the first time a student opens this Plant.
-  openingMessage String? @map("opening_message") @db.Text
+  openingMessage      String? @map("opening_message") @db.Text
+  // Optional quick-reply buttons attached to the opening message (JSON array of {label, value}).
+  openingQuickReplies Json?   @map("opening_quick_replies")
 
   // Phase 2 scaffold: for plants that ARE a media resource (YouTube, Drive doc, link)
   // rather than written text. Null for all Phase 1 text plants.

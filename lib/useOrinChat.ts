@@ -7,7 +7,12 @@ const BOT_URL          = 'https://astorli-bot.vercel.app/api/bot';
 const OPENING_URL      = 'https://astorli-bot.vercel.app/api/opening-message';
 const FALLBACK_ID      = '00000000-0000-0000-0000-000000000001';
 
-export interface ChatMessage { role: 'user' | 'assistant'; content: string }
+export interface QuickReply   { label: string; value: string }
+export interface ChatMessage  {
+  role:         'user' | 'assistant';
+  content:      string;
+  quickReplies?: QuickReply[];
+}
 
 // screen      — which screen the student is on (big_question, plant_screen, etc.)
 // contentId   — the mission or plant DB id (e.g. 'seed-mission-1', 'seed-plant-2-3')
@@ -22,7 +27,7 @@ export function useOrinChat(
   const [loading,  setLoading]  = useState(false);
   const openingFetched = useRef(false);
 
-  // Auto-load Pip's first-entrance opening message on mount.
+  // Auto-load the alien bot's first-entrance opening message on mount.
   useEffect(() => {
     if (!contentId || !contentType || openingFetched.current) return;
     openingFetched.current = true;
@@ -33,7 +38,11 @@ export function useOrinChat(
       .then(r => r.json())
       .then(data => {
         if (data.message) {
-          setMessages([{ role: 'assistant', content: data.message }]);
+          setMessages([{
+            role:         'assistant',
+            content:      data.message,
+            quickReplies: data.quickReplies ?? [],
+          }]);
         }
       })
       .catch(() => {
@@ -56,13 +65,21 @@ export function useOrinChat(
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
           studentId,
-          message:      msg,
+          message:        msg,
           screen,
-          currentPlant: contentType === 'plant' ? contentId : undefined,
+          currentPlant:   contentType === 'plant'   ? contentId : undefined,
+          currentMission: contentType === 'mission' ? contentId : undefined,
         }),
       });
       const data = await res.json();
-      setMessages(prev => [...prev, { role: 'assistant', content: data.reply ?? 'Signal lost.' }]);
+      setMessages(prev => [
+        ...prev,
+        {
+          role:         'assistant',
+          content:      data.message ?? 'Signal lost.',
+          quickReplies: data.quickReplies ?? [],
+        },
+      ]);
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Catching static — try again.' }]);
     } finally {

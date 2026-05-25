@@ -9,11 +9,10 @@ const OPENING_URL = 'https://astorli-bot.vercel.app/api/opening-message';
 const FALLBACK_ID = '00000000-0000-0000-0000-000000000001';
 
 function screenFromPath(pathname: string): string {
-  if (pathname.startsWith('/onboarding'))                                           return 'onboarding';
-  if (pathname.startsWith('/landscape'))                                            return 'plant_screen';
-  if (pathname.startsWith('/mission/brief') || pathname.startsWith('/mission/reveal')) return 'big_question';
-  if (pathname.startsWith('/mission'))                                              return 'mission_hub';
-  return 'mission_hub';
+  if (pathname.startsWith('/onboarding'))   return 'onboarding';
+  if (pathname.startsWith('/landscape'))    return 'plant_screen';
+  if (pathname.startsWith('/mission'))      return 'mission_landscape_hub';
+  return 'mission_landscape_hub';
 }
 
 // Derive content type + ID from the URL so the floating bot can load opening messages.
@@ -28,7 +27,12 @@ function contentFromPath(pathname: string): { contentType: 'mission' | 'plant'; 
   return null;
 }
 
-interface Message { role: 'user' | 'assistant'; content: string }
+interface QuickReply { label: string; value: string }
+interface Message {
+  role:         'user' | 'assistant';
+  content:      string;
+  quickReplies?: QuickReply[];
+}
 
 export default function AvatarBot() {
   const pathname = usePathname();
@@ -36,7 +40,7 @@ export default function AvatarBot() {
   const [input, setInput]     = useState('');
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [botName, setBotName] = useState('Pip');
+  const [botName, setBotName] = useState('Scout');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const openingFetched = useRef(false);
 
@@ -61,14 +65,18 @@ export default function AvatarBot() {
       .then(r => r.json())
       .then(data => {
         if (data.message) {
-          setMessages([{ role: 'assistant', content: data.message }]);
+          setMessages([{
+            role:         'assistant',
+            content:      data.message,
+            quickReplies: data.quickReplies ?? [],
+          }]);
         }
       })
       .catch(() => {});
   }, [open, content]);
 
-  async function send() {
-    const text = input.trim();
+  async function send(overrideText?: string) {
+    const text = (overrideText ?? input).trim();
     if (!text || loading) return;
     const studentId = getStudentId() ?? FALLBACK_ID;
 
@@ -82,13 +90,21 @@ export default function AvatarBot() {
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
           studentId,
-          message:      text,
+          message:        text,
           screen,
-          currentPlant: content?.contentType === 'plant' ? content.contentId : undefined,
+          currentPlant:   content?.contentType === 'plant'   ? content.contentId : undefined,
+          currentMission: content?.contentType === 'mission' ? content.contentId : undefined,
         }),
       });
       const data = await res.json();
-      setMessages(prev => [...prev, { role: 'assistant', content: data.reply ?? '...' }]);
+      setMessages(prev => [
+        ...prev,
+        {
+          role:         'assistant',
+          content:      data.message ?? 'Signal lost — try again.',
+          quickReplies: data.quickReplies ?? [],
+        },
+      ]);
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Signal lost — try again.' }]);
     } finally {
@@ -104,7 +120,7 @@ export default function AvatarBot() {
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3"
             style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)' }}>
-            <span className="text-sm font-semibold text-white">{botName} · Your Lumian Scout</span>
+            <span className="text-sm font-semibold text-white">{botName} · Your Alien Scout</span>
             <button onClick={() => setOpen(false)}
               className="text-white/60 hover:text-white text-xl leading-none transition-colors">×</button>
           </div>
@@ -117,14 +133,38 @@ export default function AvatarBot() {
               </p>
             )}
             {messages.map((m, i) => (
-              <div key={i}
-                className={`px-3 py-2 rounded-xl text-xs max-w-[85%] leading-relaxed ${
-                  m.role === 'user' ? 'self-end text-white' : 'self-start text-white/90'
-                }`}
-                style={m.role === 'user'
-                  ? { background: 'rgba(79,70,229,0.8)' }
-                  : { background: 'rgba(255,255,255,0.08)' }}>
-                {m.content}
+              <div key={i} className="flex flex-col">
+                <div
+                  className={`px-3 py-2 rounded-xl text-xs max-w-[85%] leading-relaxed ${
+                    m.role === 'user' ? 'self-end text-white' : 'self-start text-white/90'
+                  }`}
+                  style={m.role === 'user'
+                    ? { background: 'rgba(79,70,229,0.8)' }
+                    : { background: 'rgba(255,255,255,0.08)' }}>
+                  {m.content}
+                </div>
+
+                {/* Quick replies — only on last assistant message, only when not loading */}
+                {m.role === 'assistant' &&
+                  i === messages.length - 1 &&
+                  !loading &&
+                  m.quickReplies && m.quickReplies.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2 max-w-[90%]">
+                    {m.quickReplies.map((qr, qi) => (
+                      <button
+                        key={qi}
+                        onClick={() => send(qr.value)}
+                        className="text-xs px-3 py-1.5 rounded-full font-medium transition-opacity hover:opacity-80 active:opacity-60"
+                        style={{
+                          background: 'rgba(79,70,229,0.2)',
+                          border:     '1px solid rgba(79,70,229,0.5)',
+                          color:      'rgba(255,255,255,0.85)',
+                        }}>
+                        {qr.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
             {loading && (
@@ -145,7 +185,7 @@ export default function AvatarBot() {
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && send()}
             />
-            <button onClick={send} disabled={loading}
+            <button onClick={() => send()} disabled={loading}
               className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-40 transition-opacity"
               style={{ background: 'rgba(79,70,229,0.8)' }}>
               →

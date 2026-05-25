@@ -51,11 +51,7 @@ Your task: Build an argument defending your side's claim to be the ultimate sour
 How to submit — choose one:
 📝 Written argument — A structured 2–3 page written speech in your character's voice.
 🎙️ Recorded argument — A 3–5 minute audio or video recording of you delivering the argument in character.`,
-    opening_message: `Traveler. My scanners are picking up something unusual.
-
-Two of the most powerful forces in the known world — both claiming to own the truth. At the same time. The Pope says God speaks through him. The Emperor says God speaks through him. Both of them. Simultaneously. And neither is bluffing.
-
-Before we go deeper — I need your first instinct: is it even possible for two people to each be completely right, when their answers are total opposites?`,
+    opening_message: `Traveler, my scanners are glitching. Two historical leaders are claiming they own the ultimate truth. At the exact same time. The Pope says God chose him. The Emperor says the same thing. Who do you think has more actual power here?`,
     plants: [
       {
         title: 'The Central Role of the Catholic Church in Medieval Society',

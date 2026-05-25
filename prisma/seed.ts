@@ -67,6 +67,11 @@ Two of the most powerful forces in the known world — both claiming to own the 
 
 Before we go deeper — I need your first instinct: is it even possible for two people to each be completely right, when their answers are total opposites?`,
 
+      openingQuickReplies: [
+        { label: 'Yes, possible',   value: 'Yes — I think they could both be completely right' },
+        { label: 'No, impossible',  value: 'No — two total opposites can\'t both be right at the same time' },
+      ],
+
       questionDescription:
         'In the Middle Ages, "truth" was not a personal opinion — it was an official position, guarded and declared by powerful institutions. The Church decided what was spiritually true. The Emperor decided what was politically true. Jewish communities built their own parallel systems of truth to survive in exile. This Mission asks: when powerful institutions control what counts as real and legitimate, what room is left for the individual? And what happens when two institutions both claim the same authority?',
 
@@ -112,6 +117,12 @@ How to submit — choose one:
 This isn't just about religion. The Church ran the hospitals. The schools. The courts. The calendar. If you were born in medieval Europe, the Church was involved in literally every major moment of your life — from baptism to burial.
 
 Here's what I want you to figure out while you're in there: what would it actually cost an ordinary person to disagree with an institution that controlled all of that?`,
+
+      openingQuickReplies: [
+        { label: 'Everything — total ruin',   value: 'Everything — if the Church controlled your life from birth to burial, disagreeing would cost you absolutely everything' },
+        { label: 'Depended on your status',   value: 'It depended on who you were — a king could push back more than a peasant could' },
+      ],
+
       content:
 `In the Middle Ages, the Catholic Church was not simply a place of worship — it was the backbone of European society. The Church ran hospitals, schools, and courts. It collected taxes. It governed the calendar. From birth (baptism) to death (last rites), no major life event happened outside the Church's authority.
 
@@ -141,6 +152,12 @@ Think about this: If the Church controlled education, law, spiritual salvation, 
 The Emperor — one of the most powerful men in the world — ended up standing barefoot in the snow outside a castle for three days, begging forgiveness. It actually happened. 1077 CE.
 
 What I want you to find out: how does someone with that much power end up in that position? And what does it tell us about who was really in charge?`,
+
+      openingQuickReplies: [
+        { label: 'The Pope',    value: 'The Pope was really in charge — he could destroy an emperor\'s legitimacy with one letter' },
+        { label: 'The Emperor', value: 'The Emperor was in charge — he had the armies and kept his throne in the end' },
+      ],
+
       content:
 `In 1076, Pope Gregory VII did something that had never been done before: he excommunicated a sitting Holy Roman Emperor, Henry IV.
 
@@ -172,6 +189,12 @@ Think about this: Both the Pope and the Emperor believed they were defending God
 A community with no army, no castle, and no political power in the Christian world — and yet they built a system of law and leadership that lasted a thousand years and is still in use today.
 
 I want you to come out of this one with an answer to this: what makes authority real, if it's not backed by force?`,
+
+      openingQuickReplies: [
+        { label: 'Shared belief makes it real',  value: 'Authority is real when enough people choose to believe in it — belief is its own kind of power' },
+        { label: 'Nothing else makes it stable', value: 'Without force, authority is fragile — it only lasts as long as people keep agreeing to it' },
+      ],
+
       content:
 `While the Pope and Emperor fought over who controlled Christian Europe, Jewish communities across Northern France and Germany — collectively known as Ashkenaz — were building a parallel world with its own laws, courts, and leaders.
 
@@ -201,6 +224,12 @@ Think about this: How did Jewish communities maintain their own system of law, t
 And yet, from academies in Babylonia — modern-day Iraq — they ran a legal system that served Jewish communities from Spain to Persia. People wrote questions. They wrote back. And communities across the world treated those answers as binding law.
 
 How? That's the question. Go find out what made that kind of authority work — with nothing behind it except reputation and trust.`,
+
+      openingQuickReplies: [
+        { label: 'Reputation alone',     value: 'Pure reputation — if you were known as the greatest scholar, communities trusted you without needing any force behind it' },
+        { label: 'Communities needed it', value: 'Shared desperation — communities needed answers they couldn\'t get elsewhere, and that need created its own authority' },
+      ],
+
       content:
 `Centuries before Rashi was born, the centre of Jewish intellectual life was not in Europe at all — it was in Babylonia (modern-day Iraq), in the academies of Sura and Pumbedita.
 
@@ -240,6 +269,11 @@ Think about this: The Geonim created a system of authority that worked without a
 No police. No army. No government to call. Raiders could arrive in your village tonight, and no one is coming to help. That's not a hypothetical. For most people in medieval Europe, that was just a Tuesday.
 
 The question your mission is asking — how much freedom would you trade for safety — was the most important question of their lives. So I'll ask you first: what would you give up? And what would you refuse to give up, no matter what?`,
+
+      openingQuickReplies: [
+        { label: "I'd make the deal",  value: "I'd trade my freedom for safety — survival comes first, freedom means nothing if you're dead" },
+        { label: "I'd refuse",         value: "I'd refuse — there are freedoms I'd protect even facing raiders. Some things are worth the risk" },
+      ],
 
       questionDescription:
         'After the fall of the Roman Empire, Europe descended into a world with no stable government, no reliable army, and no guaranteed safety. In response, people made a deal: give up your freedom in exchange for protection. This is the Feudal Bargain — and for hundreds of years, it shaped every aspect of daily life, from who owned the land to who could marry whom. This Mission asks: when the world feels dangerous and chaotic, how much freedom are people willing to trade away for security? And what happens when that bargain starts to look less like protection and more like control?',
@@ -290,6 +324,12 @@ How to submit — choose one:
 And what went with it wasn't just an emperor or a capital city. It was roads, law, a professional army — the entire infrastructure that made safety possible. When that collapsed, there was no emergency number to call. There was no state.
 
 I want you to come out of this one with a clear picture of what it actually felt like to live in that vacuum. Because the bargain people made next only makes sense if you feel the fear first.`,
+
+      openingQuickReplies: [
+        { label: "I'd accept the deal",  value: "I'd accept the deal — safety is worth almost anything when survival is uncertain and no one is coming to help" },
+        { label: "I'd hold out",         value: "I'd hold out — even facing that fear, there are things I'd refuse to give up" },
+      ],
+
       content:
 `In 476 CE, the last Roman Emperor in the West was deposed by a Germanic chieftain. But Rome hadn't really "fallen" on that day — it had been unravelling for centuries.
 
@@ -321,6 +361,12 @@ Think about this: If there were no police, no army, and no government — and ra
 Feudalism wasn't really a pyramid. It was a web of personal promises — each one individually sworn, each one binding. Every level had obligations running in both directions. Break your oath and you weren't just breaking a rule — you were breaking a sacred bond.
 
 Here's what I want you to figure out: where in this web would you actually want to be — and what would you have to give up to get there?`,
+
+      openingQuickReplies: [
+        { label: 'Higher up, more risk',  value: 'I\'d want to be higher up — noble or knight — even knowing it means more obligations, more enemies, more risk' },
+        { label: 'Lower, but safer',      value: 'I\'d rather be lower in the chain — less power but also less danger of betrayal, war, and political games' },
+      ],
+
       content:
 `Feudalism is often drawn as a pyramid — king at the top, nobles below, knights below them, peasants at the base. The pyramid is useful but misleading. Feudalism was less like a corporation with a clear chain of command and more like a web of personal promises, each individually negotiated, each binding only to the specific people who made it.
 
@@ -350,6 +396,12 @@ Think about this: Every level of this hierarchy had obligations running in both 
 Medieval Europe's story was this: God designed three kinds of people — those who pray, those who fight, and those who work. Each has its role. Each is sacred. Accepting your place in that system isn't just a social norm — it's a religious duty.
 
 I need you to think about something while you're reading this: who benefits most from that particular story? And is that a coincidence?`,
+
+      openingQuickReplies: [
+        { label: 'Church and nobles — no coincidence', value: 'The Church and nobles benefit most — and no, it\'s definitely not a coincidence that the story was designed by them' },
+        { label: 'Everyone in different ways',         value: 'Everyone benefited in different ways — even peasants got stability and meaning from knowing their role' },
+      ],
+
       content:
 `Medieval society had a story it told about itself — and that story was very convenient for the people at the top.
 
@@ -381,6 +433,12 @@ Think about this: When a social hierarchy is described as God's design, what eff
 Someone who was born on a manor, works the same fields their parents worked, owes the lord a portion of every harvest, and cannot leave without permission. Not as a prisoner — as a serf. That was a legal category. A normal life.
 
 What I want you to find in here is the texture of that life — not just the obligations, but what it actually felt like day to day. Was the Feudal Bargain fair to this person? You decide.`,
+
+      openingQuickReplies: [
+        { label: 'Not fair',           value: 'Not fair — the bargain was deeply unfair to serfs. They had no real choice and gave up everything for someone else\'s protection' },
+        { label: 'Fair given the era', value: 'Fair given the era — unfair by our standards, but a rational survival decision in that world with no other options' },
+      ],
+
       content:
 `The manor was the basic unit of feudal life — a self-contained world of fields, a mill, a church, workshops, and the lord's hall or castle. Most people who lived on a manor were born, lived, and died there without ever travelling more than a few miles.
 
@@ -412,6 +470,12 @@ Think about this: Based on what you've learned about daily life, was the Feudal 
 Then a fourth kind appeared. Merchants. Craftspeople. Scholars. People who didn't fit any of the three categories — and who were quietly accumulating wealth and influence the system hadn't anticipated.
 
 Here's your mission going in: find out what kind of bargain city life offered — and whether it was actually better than the feudal one, or just a different set of trade-offs.`,
+
+      openingQuickReplies: [
+        { label: 'Better deal',           value: 'City life sounds like a genuinely better deal — real freedom, mobility, the chance to build something of your own' },
+        { label: 'Just different risks',  value: 'Sounds like different trade-offs to me — new freedoms but also new risks, new obligations, and a new kind of instability' },
+      ],
+
       content:
 `Feudalism assumed that everyone fit into one of three categories: clergy, noble, or peasant. But beginning in the 10th and 11th centuries, a new kind of person appeared in Europe — and the feudal system had no place for them.
 
@@ -453,6 +517,11 @@ Think about this: Cities offered a different kind of bargain from the feudal one
 Jerusalem, 1099 CE. The Crusaders are at the walls. Inside: a Muslim population that has lived there for four centuries, and a Jewish community caught between two forces neither of which considers them allies.
 
 Here's what I want to know before we start. When you think about two cultures clashing — does someone always have to lose? Or is that just the story we tell afterwards?`,
+
+      openingQuickReplies: [
+        { label: 'Someone always loses',  value: 'Yes — when cultures clash at that scale, someone always ends up losing. That\'s just reality' },
+        { label: 'Not always',            value: 'No — that\'s the story we tell afterwards. The real outcome is almost always more complicated than a clean win or loss' },
+      ],
 
       questionDescription:
         'Between the 7th and 13th centuries, Christianity, Islam, and Judaism were not isolated from each other — they collided, competed, traded, translated, and sometimes even collaborated. The Crusades are the most famous collision, but they are only one part of a much larger story. This Mission asks: when civilisations meet, does someone always have to win? Or is it possible for cultures to transform each other — to exchange ideas, lose things, gain things, and emerge as something new — without one side conquering the other?',
@@ -500,6 +569,12 @@ How to submit — choose one:
 The medieval Church officially said Jews should be allowed to live and worship. Popes issued decrees protecting them. And at the same time — the same Church, the same era — mobs burned Jewish neighbourhoods while bishops looked the other way.
 
 Both things were true simultaneously. I want you to come out of this understanding how that's possible — because the same gap between official policy and social reality shows up a lot in history, and in the present.`,
+
+      openingQuickReplies: [
+        { label: 'Power gap: top vs locals',  value: 'The people in power made the rules but couldn\'t control what locals did — official policy and street-level reality are different things' },
+        { label: 'Deliberate double standard', value: 'It was deliberately two-faced — official tolerance kept commerce going while local persecution kept Jews subordinate and scapegoatable' },
+      ],
+
       content:
 `The position of Jews in medieval Christian Europe was defined by a contradiction the Church never fully resolved.
 
@@ -531,6 +606,12 @@ Think about this: How is it possible for an institution to simultaneously protec
 Islam, Judaism, and Christianity don't just share some overlap — they share the same prophets. Abraham. Moses. Jesus. Islam sees them all as authentic, and Muhammad as the final one in that chain. From inside Islam, it isn't a completely different religion. It's the completed version of the same one.
 
 Here's what I want you to figure out while you're in here: if they share so much common ground, why did that shared foundation not prevent — and sometimes intensify — the conflicts between them?`,
+
+      openingQuickReplies: [
+        { label: 'Shared roots = rival claims',  value: 'Sharing the same prophets created competition, not unity — each faith claimed to be the true and final version of the same story' },
+        { label: 'Politics, not theology',       value: 'The conflicts were political and territorial. The shared theology barely mattered when land and power were at stake' },
+      ],
+
       content:
 `Islam emerged in the Arabian Peninsula in the 7th century CE through the revelations received by the Prophet Muhammad beginning around 610 CE. These revelations were collected into the Quran — understood by Muslims as the direct, literal word of God (Allah).
 
@@ -560,6 +641,12 @@ Think about this: Islam, Judaism, and Christianity all claim the same God and ma
 That is one of the fastest territorial expansions in human history. And it's also one of the most misread. The word you're going to encounter in here — Jihad — has been used and abused so much that almost nobody knows what it actually means in Islamic theology.
 
 Go find out. Not the caricature. The real thing. Then tell me what surprised you.`,
+
+      openingQuickReplies: [
+        { label: 'The inner-struggle meaning',  value: 'I was most surprised that Jihad\'s primary meaning in Islamic theology is the internal spiritual struggle — not warfare' },
+        { label: 'The speed of spread',         value: 'The speed is what hit me — Arabia to Spain in 100 years is one of the fastest expansions in all of human history' },
+      ],
+
       content:
 `Within 100 years of Muhammad's death in 632 CE, Islam had spread from the Arabian Peninsula to Persia, across North Africa, into Spain, and to the borders of India and China. This is one of the most rapid territorial expansions in human history.
 
@@ -589,6 +676,12 @@ Think about this: Religious expansion and political expansion were completely in
 The Dhimmi system — the legal framework for Jewish and Christian life under Islamic rule — is one of history's clearest answers to that question. By the standards of medieval Christian Europe, it offered Jewish communities something remarkable. By modern standards, it was structured inequality.
 
 Both of those things are true. Your job is to sit with that complexity — not resolve it, just understand it.`,
+
+      openingQuickReplies: [
+        { label: 'Relatively tolerant',     value: 'By the standards of the time, the Dhimmi system sounds relatively tolerant — protection and rights that most of Europe didn\'t offer' },
+        { label: 'Still discriminatory',    value: 'Tolerant by comparison or not, structured inequality is still discrimination — the comparison to worse doesn\'t make it good' },
+      ],
+
       content:
 `When Muslim armies conquered new territories, they encountered large populations of Jews and Christians. Islamic law had a framework for what to do with them: the Dhimmi system.
 
@@ -622,6 +715,12 @@ Think about this: The Dhimmi system offered genuine protection alongside genuine
 The Abbasid Caliphate built what might have been the greatest concentration of scholarship in the world at that time — translating Greek, Persian, and Indian knowledge into Arabic, and then pushing it further. Muslim, Jewish, and Christian scholars working in the same building on the same problems.
 
 The thing I want you to find in here: the scientific knowledge that eventually powered the European Renaissance came largely through the Islamic world. What does that do to the idea of "Western" vs "Islamic" as opposites?`,
+
+      openingQuickReplies: [
+        { label: 'Changes everything',         value: 'If the Renaissance came through Islamic scholarship, the whole "Western vs Islamic" opposition falls apart — it\'s a false boundary' },
+        { label: "Doesn't erase the label",    value: 'Even if the sources were shared, what Europe built with that knowledge became its own distinct thing. The label still means something' },
+      ],
+
       content:
 `Between the 8th and 12th centuries, while much of Europe was struggling to hold its civilisation together, the Abbasid Caliphate based in Baghdad was experiencing one of the greatest intellectual flowerings in human history.
 
@@ -653,6 +752,12 @@ Think about this: The scientific knowledge that eventually powered the European 
 They were still in the Rhine Valley in Germany — on their way to Jerusalem — when they turned on Jewish communities in Worms, Mainz, and Cologne. Thousands killed. The reasoning, in a horrifying way, made internal sense to them: why travel thousands of miles to fight enemies of Christ when his enemies were right here?
 
 This one is heavy, Traveler. But here's what I need you to think about: the people who did this believed they were doing something righteous. What do we do with the fact that sincere belief has been used to justify both the best and the worst things humans have ever done?`,
+
+      openingQuickReplies: [
+        { label: 'Judge by real-world effects',  value: 'We judge by outcomes, not intentions — sincerity of belief doesn\'t change the harm done. Actions matter more than motives' },
+        { label: 'Intent still matters',         value: 'Intent matters too — people who genuinely believed they were right need to be understood, even when they were catastrophically wrong' },
+      ],
+
       content:
 `In 1095, Pope Urban II stood before a crowd at Clermont, France, and called on Christian knights to march to Jerusalem and liberate the Holy City from Muslim rule. Tens of thousands responded — knights, nobles, peasants, priests — driven by religious devotion, the promise of papal indulgence, and the lure of land.
 
@@ -682,6 +787,12 @@ Think about this: The Crusaders believed they were doing God's work. The communi
 After the Crusaders conquered Jerusalem in 1099, they ruled it — and the surrounding territory — for nearly 200 years. A tiny European minority governing a region where they were surrounded by Muslim and Eastern Christian populations they had just fought. And during that time, they traded with them. Adopted their customs. Negotiated truces. Ate their food.
 
 I want you to come out of this with one answer: does 200 years of complicated coexistence — even between people who were also in conflict — tell us something about what's possible? Or does it not count because the violence was real too?`,
+
+      openingQuickReplies: [
+        { label: 'Coexistence is possible',  value: '200 years of co-existing while in conflict shows that annihilation is a choice, not inevitable — coexistence is always possible if people decide it is' },
+        { label: 'Violence cancels it out',  value: 'The violence was too real to call it coexistence. That framing lets the Crusaders off too easy — occupation isn\'t the same as living together' },
+      ],
+
       content:
 `After the conquest of Jerusalem in 1099, the Crusaders established a series of states along the eastern Mediterranean coast. The largest was the Kingdom of Jerusalem, which lasted nearly 200 years — until the fall of Acre in 1291.
 
