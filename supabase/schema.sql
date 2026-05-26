@@ -5,15 +5,14 @@
 -- HOW TO RUN:
 --   Supabase Dashboard → SQL Editor → New Query → paste this file → Run
 --
--- MIGRATION APPROACH (phased — existing app_students is kept as-is):
---   Phase 1 (this file): Add teachers, journeys, missions, plants, fix votes.
---   Phase 2 (future):    Unify auth — move teachers into auth.users + profiles.
---
 -- TABLES IN THIS FILE:
---   teachers            — Teacher accounts (mirrors app_students for teachers)
+--   authorized_teachers — Founder-controlled teacher email whitelist
+--   users               — Unified account table (teachers + students)
 --   journeys            — One per Google Classroom course
+--   vote_sessions       — One per teacher-initiated vote round
 --   missions            — Voting candidates and active learning missions
 --   plants              — Activities within a mission
+--   student_journeys    — Join table: students enrolled in journeys
 --   votes               — One row per student per journey vote window
 -- =============================================================================
 
@@ -25,25 +24,24 @@ DROP TABLE IF EXISTS vote_sessions    CASCADE;
 DROP TABLE IF EXISTS plants           CASCADE;
 DROP TABLE IF EXISTS missions         CASCADE;
 DROP TABLE IF EXISTS journeys         CASCADE;
-DROP TABLE IF EXISTS teachers         CASCADE;
+DROP TABLE IF EXISTS authorized_teachers CASCADE;
+DROP TABLE IF EXISTS users               CASCADE;
 
 
 -- -----------------------------------------------------------------------------
--- TEACHERS
--- Stores teacher accounts created during Google OAuth sign-in on the web app.
--- teacher_id is a Supabase-generated UUID; google_id ties back to the OAuth token.
+-- AUTHORIZED_TEACHERS
+-- Founder-controlled whitelist of teacher emails. Founder adds emails here
+-- via the Supabase dashboard. CHECK constraint enforces lowercase at the DB
+-- level — the dashboard will reject a mis-cased insert with a clear error.
 -- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS teachers (
-  teacher_id  UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
-  google_id   TEXT        UNIQUE NOT NULL,
-  email       TEXT        NOT NULL,
-  name        TEXT        NOT NULL,
-  gc_courses  JSONB,
-  created_at  TIMESTAMPTZ DEFAULT now(),
-  updated_at  TIMESTAMPTZ DEFAULT now()
+CREATE TABLE IF NOT EXISTS authorized_teachers (
+  email     TEXT PRIMARY KEY CHECK (email = lower(email)),
+  added_at  TIMESTAMPTZ DEFAULT now(),
+  added_by  TEXT        DEFAULT 'founder',
+  note      TEXT
 );
 
--- updated_at trigger
+-- updated_at trigger (used by users and downstream tables)
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -52,8 +50,38 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER teachers_updated_at
-  BEFORE UPDATE ON teachers
+-- -----------------------------------------------------------------------------
+-- USERS
+-- Unified account table replacing the former teachers + app_students tables.
+-- role distinguishes teacher vs. student; teacher-specific and student-specific
+-- columns are NULL for the other role.
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS users (
+  user_id                     UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  email                       TEXT        UNIQUE NOT NULL CHECK (email = lower(email)),
+  role                        TEXT        NOT NULL DEFAULT 'student'
+                                          CHECK (role IN ('teacher', 'student')),
+  -- shared
+  full_name                   TEXT,
+  first_name                  TEXT,
+  -- teacher-specific (NULL for students)
+  google_id                   TEXT,
+  gc_courses                  JSONB,
+  -- student-specific (NULL for teachers)
+  alien_name                  TEXT,
+  base_avatar_url             TEXT,
+  avatar_url                  TEXT,
+  area_of_interest            TEXT,
+  last_avatar_personalised_at TIMESTAMPTZ,
+  -- auth linkage
+  auth_user_id                UUID UNIQUE,
+  -- audit
+  created_at                  TIMESTAMPTZ DEFAULT now(),
+  updated_at                  TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TRIGGER users_updated_at
+  BEFORE UPDATE ON users
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 
@@ -66,7 +94,7 @@ CREATE TABLE IF NOT EXISTS journeys (
   id                     UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
   google_course_id       TEXT        UNIQUE NOT NULL,
   title                  TEXT        NOT NULL,
-  teacher_id             UUID        NOT NULL REFERENCES teachers(teacher_id) ON DELETE CASCADE,
+  teacher_id             UUID        NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
   last_material_sync_at  TIMESTAMPTZ,
   created_at             TIMESTAMPTZ DEFAULT now(),
   updated_at             TIMESTAMPTZ DEFAULT now()
@@ -140,7 +168,7 @@ CREATE TABLE IF NOT EXISTS missions (
   -- Phase 2 scaffold: null for all Phase 1 hardcoded missions
   generation_job_id    UUID,
 
-  created_by           UUID        NOT NULL REFERENCES teachers(teacher_id),
+  created_by           UUID        NOT NULL REFERENCES users(user_id),
   created_at           TIMESTAMPTZ DEFAULT now(),
   updated_at           TIMESTAMPTZ DEFAULT now()
 );
@@ -173,7 +201,7 @@ CREATE TABLE IF NOT EXISTS plants (
   -- Phase 2 scaffold: null for all Phase 1 hardcoded plants
   generation_job_id UUID,
 
-  created_by       UUID         NOT NULL REFERENCES teachers(teacher_id),
+  created_by       UUID         NOT NULL REFERENCES users(user_id),
   created_at       TIMESTAMPTZ  DEFAULT now(),
   updated_at       TIMESTAMPTZ  DEFAULT now()
 );
@@ -205,7 +233,7 @@ CREATE TRIGGER plants_updated_at
 -- and upsert here. Safe to call on every sign-in (idempotent).
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS student_journeys (
-  student_id   UUID        NOT NULL REFERENCES app_students(student_id) ON DELETE CASCADE,
+  student_id   UUID        NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
   journey_id   UUID        NOT NULL REFERENCES journeys(id) ON DELETE CASCADE,
   enrolled_at  TIMESTAMPTZ DEFAULT now(),
   PRIMARY KEY (student_id, journey_id)
@@ -221,7 +249,7 @@ CREATE TRIGGER student_journeys_enrolled_at
 
 CREATE TABLE votes (
   id               UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
-  student_id       UUID        NOT NULL REFERENCES app_students(student_id) ON DELETE CASCADE,
+  student_id       UUID        NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
   vote_session_id  UUID        NOT NULL REFERENCES vote_sessions(id) ON DELETE CASCADE,
   journey_id       UUID        NOT NULL REFERENCES journeys(id) ON DELETE CASCADE,
   big_idea_id      TEXT        NOT NULL,
@@ -244,7 +272,8 @@ CREATE TRIGGER votes_updated_at
 -- from the browser use the anon key and must pass these policies).
 -- =============================================================================
 
-ALTER TABLE teachers         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE authorized_teachers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE users               ENABLE ROW LEVEL SECURITY;
 ALTER TABLE journeys         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vote_sessions    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE missions         ENABLE ROW LEVEL SECURITY;
@@ -252,9 +281,8 @@ ALTER TABLE plants           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE votes            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE student_journeys ENABLE ROW LEVEL SECURITY;
 
--- Teachers: public reads (needed for Realtime on teacher dashboard)
-CREATE POLICY "teachers_select" ON teachers
-  FOR SELECT USING (true);
+-- Users: public reads (needed for Realtime on teacher dashboard and student screens)
+CREATE POLICY "users_select" ON users FOR SELECT USING (true);
 
 -- Journeys: public reads (Realtime subscriptions need this)
 CREATE POLICY "journeys_select" ON journeys
