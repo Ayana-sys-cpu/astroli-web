@@ -1,18 +1,18 @@
 // =============================================================================
-// SUPABASE VERSION — /api/teacher/missions
+// /api/teacher/missions
 //
-// Drop-in replacement for route.ts once supabase/schema.sql has been run.
-// Steps to activate:
-//   1. Run supabase/schema.sql in the Supabase SQL Editor.
-//   2. Run: npm install @supabase/supabase-js   (in src/astroli-web/)
-//   3. Add env vars to .env.local (see lib/supabase.ts for required keys).
-//   4. Seed the missions + plants tables (update prisma/seed.ts or write a
-//      one-off SQL INSERT based on docs/specs/HARDCODED_MISSIONS_PLANTS.md).
-//   5. Rename this file to route.ts  (delete the old Prisma route.ts first).
+// GET  ?id=<missionId>    — single mission with its plants
+// GET  ?journeyId=<uuid>  — all missions for a journey
+// PATCH { missionId, state } — update a mission's state
+//
+// All endpoints require a valid teacher session. Ownership of the journey
+// (and thus the mission) is verified against the session's teacher_id before
+// any read or write is performed.
 // =============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-server';
+import { requireAuth, assertTeacherSession } from '@/lib/auth';
 
 // Map Supabase snake_case columns → camelCase shape the frontend expects.
 function toMission(m: any) {
@@ -37,15 +37,52 @@ function toMission(m: any) {
   };
 }
 
+/**
+ * Verifies that the given journey belongs to the teacher.
+ * Returns the journey id on success, null on failure.
+ */
+async function verifyJourneyOwnership(journeyId: string, teacherId: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from('journeys')
+    .select('id')
+    .eq('id', journeyId)
+    .eq('teacher_id', teacherId)
+    .maybeSingle();
+  return data !== null;
+}
+
 // ---------------------------------------------------------------------------
 // GET /api/teacher/missions?journeyId=   — list all missions for a journey
 // GET /api/teacher/missions?id=          — single mission with its plants
 // ---------------------------------------------------------------------------
 export async function GET(req: NextRequest) {
-  const missionId = req.nextUrl.searchParams.get('id');
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
+
+  const sessionError = assertTeacherSession(auth.user);
+  if (sessionError) return sessionError;
+
+  const teacherId  = auth.user.user_metadata.teacher_id as string;
+  const missionId  = req.nextUrl.searchParams.get('id');
 
   // ── Single mission lookup ────────────────────────────────────────────────
   if (missionId) {
+    // Fetch mission to determine journey_id for ownership check.
+    const { data: missionRow, error: missionErr } = await supabaseAdmin
+      .from('missions')
+      .select('journey_id')
+      .eq('id', missionId)
+      .single();
+
+    if (missionErr || !missionRow) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
+    const owned = await verifyJourneyOwnership(missionRow.journey_id, teacherId);
+    if (!owned) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const { data, error } = await supabaseAdmin
       .from('missions')
       .select('*, plants(*)')
@@ -63,6 +100,11 @@ export async function GET(req: NextRequest) {
   const journeyId = req.nextUrl.searchParams.get('journeyId');
   if (!journeyId) {
     return NextResponse.json({ error: 'journeyId or id required' }, { status: 400 });
+  }
+
+  const owned = await verifyJourneyOwnership(journeyId, teacherId);
+  if (!owned) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const { data, error } = await supabaseAdmin
@@ -86,6 +128,14 @@ export async function GET(req: NextRequest) {
 // the UPDATE event to all subscribed clients — no extra push needed.
 // ---------------------------------------------------------------------------
 export async function PATCH(req: NextRequest) {
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
+
+  const sessionError = assertTeacherSession(auth.user);
+  if (sessionError) return sessionError;
+
+  const teacherId = auth.user.user_metadata.teacher_id as string;
+
   let body: { missionId?: string; state?: string };
   try {
     body = await req.json();
@@ -96,6 +146,22 @@ export async function PATCH(req: NextRequest) {
   const { missionId, state } = body;
   if (!missionId || !state) {
     return NextResponse.json({ error: 'missionId and state required' }, { status: 400 });
+  }
+
+  // Verify ownership: fetch the mission's journey, then check the teacher owns it.
+  const { data: missionRow, error: lookupErr } = await supabaseAdmin
+    .from('missions')
+    .select('journey_id')
+    .eq('id', missionId)
+    .single();
+
+  if (lookupErr || !missionRow) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  const owned = await verifyJourneyOwnership(missionRow.journey_id, teacherId);
+  if (!owned) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const { data, error } = await supabaseAdmin

@@ -1,8 +1,13 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
+import { useSupabaseRealtime, type RealtimeMission, type RealtimeVote } from '@/hooks/useSupabaseRealtime';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getTeacherId, getCourses, saveCourses, type CourseRecord } from '@/lib/teacher-store';
+import { toDatetimeLocal } from '@/lib/vote-utils';
+import Countdown from '@/components/Countdown';
+import StudentMobilePreview from '@/components/StudentMobilePreview';
+import VoteManageModals from '@/components/VoteManageModals';
 
 type MissionState = 'locked' | 'voting' | 'pending_start' | 'active' | 'completed' | 'skipped';
 
@@ -40,19 +45,18 @@ const STATUS_STYLES: Record<MissionState, { label: string; color: string; bg: st
   skipped:       { label: 'SKIPPED',  color: 'rgba(232,232,240,0.2)', bg: 'rgba(232,232,240,0.03)', dot: 'rgba(232,232,240,0.15)' },
 };
 
-function formatDT(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
-function formatCountdown(endIso: string): string {
-  const diff = Math.max(0, new Date(endIso).getTime() - Date.now());
-  const s = Math.floor(diff / 1000) % 60;
-  const m = Math.floor(diff / 60000) % 60;
-  const h = Math.floor(diff / 3600000) % 24;
-  const d = Math.floor(diff / 86400000);
-  if (d > 0) return `${d}d ${h}h ${m}m`;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+function JourneySync({
+  journeyId,
+  onMissionStateChange,
+  onVoteCast,
+}: {
+  journeyId: string;
+  onMissionStateChange: (m: RealtimeMission) => void;
+  onVoteCast: (v: RealtimeVote) => void;
+}) {
+  useSupabaseRealtime({ journeyId, onMissionStateChange, onVoteCast });
+  return null;
 }
 
 export default function TeacherDashboard() {
@@ -64,8 +68,8 @@ export default function TeacherDashboard() {
   const [fullMissions, setFullMissions] = useState<Record<string, Mission[]>>({});
   const [expanded,     setExpanded]     = useState<string | null>(null);
   const [studentView,  setStudentView]  = useState<Mission | null>(null);
-  const [voteStart,    setVoteStart]    = useState(() => formatDT(new Date()));
-  const [voteEnd,      setVoteEnd]      = useState(() => formatDT(new Date(Date.now() + 48 * 60 * 60 * 1000)));
+  const [voteStart,    setVoteStart]    = useState(() => toDatetimeLocal(new Date()));
+  const [voteEnd,      setVoteEnd]      = useState(() => toDatetimeLocal(new Date(Date.now() + 48 * 60 * 60 * 1000)));
   const [starting,     setStarting]     = useState(false);
   const [voteActiveMap,  setVoteActiveMap]  = useState<Record<string, string>>({});
   // Maps journeyId → sessionId for API calls (vote-counts, winner).
@@ -73,7 +77,6 @@ export default function TeacherDashboard() {
   const [voteSessionMap, setVoteSessionMap] = useState<Record<string, string>>({});
   const [voteCounts,     setVoteCounts]     = useState<Record<string, Record<string, number>>>({});
   const [copiedId,      setCopiedId]      = useState<string | null>(null);
-  const [,              setTick]          = useState(0);
   const syncedVoteRef = useRef(false);
 
   // Teacher manage-vote modals
@@ -182,26 +185,6 @@ export default function TeacherDashboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [journeys, fullMissions]);
 
-  useEffect(() => {
-    if (Object.keys(voteActiveMap).length === 0) return;
-    const id = setInterval(() => setTick(t => t + 1), 1000);
-    return () => clearInterval(id);
-  }, [voteActiveMap]);
-
-  // Poll vote counts every 15 s while any vote is live so the teacher sees a live tally.
-  useEffect(() => {
-    const liveJourneyIds = Object.keys(voteActiveMap);
-    if (liveJourneyIds.length === 0) return;
-    const fetch15s = () => liveJourneyIds.forEach(jid => {
-      const sid = voteSessionMap[jid];
-      if (sid) fetchVoteCounts(jid, sid);
-    });
-    fetch15s();
-    const id = setInterval(fetch15s, 15_000);
-    return () => clearInterval(id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [voteActiveMap, voteSessionMap]);
-
   async function toggleMission(mission: Mission) {
     if (activating) return;
     // Only allow manual transitions for non-vote-controlled states
@@ -272,13 +255,15 @@ export default function TeacherDashboard() {
     if (!editVoteEnd) return;
     setManageLoading(true);
     try {
-      localStorage.setItem(`voteEnd_${journeyId}`, editVoteEnd);
-      setVoteActiveMap(prev => ({ ...prev, [journeyId]: editVoteEnd }));
-      await fetch('/api/teacher/journeys', {
+      const endIso = new Date(editVoteEnd).toISOString();
+      const res = await fetch('/api/teacher/journeys', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ journeyId, voteEndsAt: editVoteEnd }),
+        body: JSON.stringify({ journeyId, voteEndsAt: endIso }),
       });
+      if (!res.ok) return;
+      localStorage.setItem(`voteEnd_${journeyId}`, endIso);
+      setVoteActiveMap(prev => ({ ...prev, [journeyId]: endIso }));
       setEditVoteJourneyId(null);
     } finally {
       setManageLoading(false);
@@ -422,12 +407,32 @@ export default function TeacherDashboard() {
             const isVoteExpired = Boolean(voteEndTs) && new Date(voteEndTs).getTime() <= Date.now();
 
             return (
-              <motion.section
-                key={journey.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: ji * 0.07 }}
-              >
+              <Fragment key={journey.id}>
+                <JourneySync
+                  journeyId={journey.id}
+                  onMissionStateChange={(mission) => {
+                    setFullMissions(prev => ({
+                      ...prev,
+                      [mission.journey_id]: prev[mission.journey_id]?.map(m =>
+                        m.id === mission.id ? { ...m, state: mission.state } : m
+                      ) ?? [],
+                    }));
+                  }}
+                  onVoteCast={(vote) => {
+                    setVoteCounts(prev => ({
+                      ...prev,
+                      [vote.journey_id]: {
+                        ...(prev[vote.journey_id] ?? {}),
+                        [vote.big_idea_id]: (prev[vote.journey_id]?.[vote.big_idea_id] ?? 0) + 1,
+                      },
+                    }));
+                  }}
+                />
+                <motion.section
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: ji * 0.07 }}
+                >
                 {/* Journey header */}
                 <div className="flex items-center gap-3 mb-5">
                   <span
@@ -732,7 +737,7 @@ export default function TeacherDashboard() {
                         {isVoteExpired ? 'ENDED' : 'CLOSES IN'}
                       </p>
                       <p className="font-space font-black text-4xl tracking-wider" style={{ color: isVoteExpired ? '#FF8C00' : '#E8E8F0' }}>
-                        {voteActiveMap[journey.id] ? formatCountdown(voteActiveMap[journey.id]) : 'VOTE ACTIVE'}
+                        {voteActiveMap[journey.id] ? <Countdown endIso={voteActiveMap[journey.id]} /> : 'VOTE ACTIVE'}
                       </p>
                     </div>
 
@@ -900,301 +905,31 @@ export default function TeacherDashboard() {
                     </motion.button>
                   </motion.div>
                 ) : null}
-              </motion.section>
+                </motion.section>
+              </Fragment>
             );
           })}
         </div>
       )}
 
-      {/* Student view overlay */}
-      <AnimatePresence>
-        {studentView && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center"
-            style={{ background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(6px)' }}
-            onClick={() => setStudentView(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-              className="flex flex-col overflow-hidden"
-              style={{
-                width: 320, maxHeight: '86vh',
-                background: '#0A0A0F',
-                borderRadius: 28,
-                border: '2px solid rgba(232,232,240,0.1)',
-                boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
-              }}
-              onClick={e => e.stopPropagation()}
-            >
-              {/* Notch */}
-              <div className="flex items-center justify-center py-3" style={{ background: 'rgba(232,232,240,0.03)' }}>
-                <div style={{ width: 72, height: 5, borderRadius: 3, background: 'rgba(232,232,240,0.12)' }} />
-              </div>
+      <StudentMobilePreview mission={studentView} onClose={() => setStudentView(null)} />
 
-              {/* Body */}
-              <div className="flex-1 overflow-y-auto px-4 pb-6 flex flex-col gap-4" style={{ paddingTop: 16 }}>
-                <div className="rounded-2xl p-5 text-center" style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.2), rgba(0,212,255,0.08))', border: '1px solid rgba(124,58,237,0.3)' }}>
-                  <p className="font-space font-black text-base mb-1" style={{ color: '#E8E8F0' }}>
-                    {studentView.projectTitle}
-                  </p>
-                  <p className="font-inter text-xs mb-3" style={{ color: 'rgba(232,232,240,0.45)' }}>
-                    Mission option {studentView.order}
-                  </p>
-                  {studentView.questionDescription && (
-                    <p className="font-inter text-xs leading-relaxed text-left" style={{ color: 'rgba(232,232,240,0.5)', borderTop: '1px solid rgba(124,58,237,0.2)', paddingTop: 12 }}>
-                      {studentView.questionDescription}
-                    </p>
-                  )}
-                </div>
-
-                <div className="rounded-xl px-4 py-3" style={{ background: 'rgba(232,232,240,0.03)', border: '1px solid rgba(232,232,240,0.07)' }}>
-                  <p className="font-space text-[9px] tracking-[0.2em] mb-1.5" style={{ color: 'rgba(232,232,240,0.35)' }}>BIG QUESTION</p>
-                  <p className="font-space font-bold text-sm leading-snug" style={{ color: '#E8E8F0' }}>{studentView.question}</p>
-                </div>
-
-                {studentView.plants && studentView.plants.length > 0 && (
-                  <div>
-                    <p className="font-space text-[9px] tracking-[0.2em] mb-2" style={{ color: 'rgba(232,232,240,0.3)' }}>
-                      YOUR PLANETS TO EXPLORE
-                    </p>
-                    <div className="flex flex-col gap-2">
-                      {studentView.plants.map((plant, pi) => (
-                        <div
-                          key={plant.id}
-                          className="flex items-center gap-3 rounded-xl px-3 py-2.5"
-                          style={{ background: 'rgba(232,232,240,0.03)', border: '1px solid rgba(232,232,240,0.07)', opacity: pi === 0 ? 1 : 0.45 }}
-                        >
-                          <div style={{ width: 28, height: 28, borderRadius: '50%', background: pi === 0 ? 'rgba(124,58,237,0.3)' : 'rgba(232,232,240,0.05)', border: `1px solid ${pi === 0 ? 'rgba(124,58,237,0.5)' : 'rgba(232,232,240,0.1)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <span style={{ fontSize: 11, color: pi === 0 ? '#A78BFA' : 'rgba(232,232,240,0.3)' }}>🪐</span>
-                          </div>
-                          <p className="font-space font-bold text-xs" style={{ color: pi === 0 ? '#E8E8F0' : 'rgba(232,232,240,0.4)' }}>{plant.title}</p>
-                          {pi === 0 && (
-                            <span className="ml-auto font-space text-[9px] font-bold px-2 py-0.5 rounded" style={{ background: 'rgba(124,58,237,0.2)', color: '#A78BFA', border: '1px solid rgba(124,58,237,0.3)' }}>
-                              START
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Footer */}
-              <div className="px-4 py-4 flex flex-col gap-2 items-center" style={{ background: 'rgba(232,232,240,0.02)', borderTop: '1px solid rgba(232,232,240,0.07)' }}>
-                <p className="font-space text-[9px] tracking-[0.15em]" style={{ color: 'rgba(232,232,240,0.25)' }}>
-                  👩‍🎓 STUDENT MOBILE VIEW — PREVIEW ONLY
-                </p>
-                <button
-                  onClick={() => setStudentView(null)}
-                  className="px-6 py-2 rounded-lg font-space text-[10px] font-bold tracking-[0.1em]"
-                  style={{ background: 'rgba(232,232,240,0.05)', color: 'rgba(232,232,240,0.5)', border: '1px solid rgba(232,232,240,0.1)' }}
-                >
-                  CLOSE PREVIEW
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── Edit Vote End Date modal ─────────────────────────────────────────── */}
-      <AnimatePresence>
-        {editVoteJourneyId && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center px-6"
-            style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
-            onClick={() => setEditVoteJourneyId(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.92, y: 16 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.92, y: 16 }}
-              transition={{ type: 'spring', stiffness: 320, damping: 26 }}
-              className="w-full max-w-sm rounded-2xl p-7 flex flex-col gap-5"
-              style={{ background: '#0d0d18', border: '1px solid rgba(0,212,255,0.25)', boxShadow: '0 24px 60px rgba(0,0,0,0.6)' }}
-              onClick={e => e.stopPropagation()}
-            >
-              <div>
-                <p className="font-space text-[10px] tracking-[0.2em] mb-2" style={{ color: '#00D4FF' }}>EDIT VOTE</p>
-                <h3 className="font-space font-black text-lg tracking-tight" style={{ color: '#E8E8F0' }}>Update End Date</h3>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="font-space text-[9px] font-bold tracking-[0.15em]" style={{ color: 'rgba(232,232,240,0.4)' }}>
-                  NEW END DATE &amp; TIME
-                </label>
-                <input
-                  type="datetime-local"
-                  value={editVoteEnd}
-                  onChange={e => setEditVoteEnd(e.target.value)}
-                  className="w-full rounded-xl px-4 py-3 font-inter text-sm outline-none"
-                  style={{ background: 'rgba(0,212,255,0.05)', border: '1px solid rgba(0,212,255,0.3)', color: '#E8E8F0', colorScheme: 'dark' }}
-                />
-                <p className="font-inter text-[11px]" style={{ color: 'rgba(232,232,240,0.28)' }}>
-                  The countdown timer will update immediately for all students.
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-3 pt-1">
-                <motion.button
-                  onClick={() => handleUpdateVoteEnd(editVoteJourneyId)}
-                  disabled={manageLoading || !editVoteEnd}
-                  whileHover={!manageLoading ? { scale: 1.02 } : undefined}
-                  whileTap={!manageLoading ? { scale: 0.97 } : undefined}
-                  className="w-full py-3 rounded-xl font-space font-bold text-sm tracking-[0.1em]"
-                  style={{ background: 'rgba(0,212,255,0.8)', color: '#0a0a0f', cursor: manageLoading ? 'default' : 'pointer' }}
-                >
-                  {manageLoading ? 'SAVING…' : 'SAVE NEW DATE'}
-                </motion.button>
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => { setEditVoteJourneyId(null); setFinishConfirmId(editVoteJourneyId); }}
-                    className="flex-1 py-2.5 rounded-xl font-space text-[10px] font-bold tracking-[0.1em] transition-all hover:opacity-80"
-                    style={{ background: 'rgba(255,184,0,0.1)', color: '#FFB800', border: '1px solid rgba(255,184,0,0.3)' }}
-                  >
-                    ◼ FINISH VOTE
-                  </button>
-                  <button
-                    onClick={() => { setEditVoteJourneyId(null); setDeleteConfirmId(editVoteJourneyId); }}
-                    className="flex-1 py-2.5 rounded-xl font-space text-[10px] font-bold tracking-[0.1em] transition-all hover:opacity-80"
-                    style={{ background: 'rgba(255,92,92,0.1)', color: '#FF5C5C', border: '1px solid rgba(255,92,92,0.3)' }}
-                  >
-                    🗑 DELETE
-                  </button>
-                </div>
-
-                <button
-                  onClick={() => setEditVoteJourneyId(null)}
-                  className="w-full py-2.5 rounded-xl font-space text-[10px] font-bold tracking-[0.1em] transition-all hover:opacity-70"
-                  style={{ background: 'rgba(232,232,240,0.05)', color: 'rgba(232,232,240,0.4)', border: '1px solid rgba(232,232,240,0.1)' }}
-                >
-                  CANCEL
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── Finish Vote confirmation modal ───────────────────────────────────── */}
-      <AnimatePresence>
-        {finishConfirmId && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center px-6"
-            style={{ background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(6px)' }}
-            onClick={() => setFinishConfirmId(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.92, y: 16 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.92, y: 16 }}
-              transition={{ type: 'spring', stiffness: 320, damping: 26 }}
-              className="w-full max-w-sm rounded-2xl p-7 flex flex-col gap-5"
-              style={{ background: '#0d0d18', border: '1px solid rgba(255,184,0,0.3)', boxShadow: '0 24px 60px rgba(0,0,0,0.6)' }}
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-center w-12 h-12 rounded-full mx-auto" style={{ background: 'rgba(255,184,0,0.1)', border: '1px solid rgba(255,184,0,0.35)' }}>
-                <span style={{ fontSize: 22 }}>◼</span>
-              </div>
-              <div className="text-center">
-                <h3 className="font-space font-black text-lg tracking-tight mb-2" style={{ color: '#E8E8F0' }}>End vote now?</h3>
-                <p className="font-inter text-sm leading-relaxed" style={{ color: 'rgba(232,232,240,0.5)' }}>
-                  Are you sure? Ending the vote now will finalize results before the original scheduled end time.
-                </p>
-              </div>
-              <div className="flex flex-col gap-3">
-                <motion.button
-                  onClick={() => handleFinishVote(finishConfirmId)}
-                  disabled={manageLoading}
-                  whileHover={!manageLoading ? { scale: 1.02 } : undefined}
-                  whileTap={!manageLoading ? { scale: 0.97 } : undefined}
-                  className="w-full py-3 rounded-xl font-space font-bold text-sm tracking-[0.1em]"
-                  style={{ background: 'rgba(255,184,0,0.85)', color: '#0a0a0f', cursor: manageLoading ? 'default' : 'pointer' }}
-                >
-                  {manageLoading ? 'ENDING…' : 'YES, END VOTE'}
-                </motion.button>
-                <button
-                  onClick={() => setFinishConfirmId(null)}
-                  className="w-full py-2.5 rounded-xl font-space text-[10px] font-bold tracking-[0.1em] transition-all hover:opacity-70"
-                  style={{ background: 'rgba(232,232,240,0.05)', color: 'rgba(232,232,240,0.4)', border: '1px solid rgba(232,232,240,0.1)' }}
-                >
-                  KEEP VOTE RUNNING
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── Delete Vote high-visibility modal ───────────────────────────────── */}
-      <AnimatePresence>
-        {deleteConfirmId && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center px-6"
-            style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
-            onClick={() => setDeleteConfirmId(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              transition={{ type: 'spring', stiffness: 320, damping: 26 }}
-              className="w-full max-w-sm rounded-2xl p-7 flex flex-col gap-5"
-              style={{ background: '#130808', border: '1.5px solid rgba(255,51,51,0.4)', boxShadow: '0 24px 60px rgba(255,51,51,0.15)' }}
-              onClick={e => e.stopPropagation()}
-            >
-              <div
-                className="flex items-center justify-center w-14 h-14 rounded-full mx-auto"
-                style={{ background: 'rgba(255,51,51,0.12)', border: '1px solid rgba(255,51,51,0.4)' }}
-              >
-                <span style={{ fontSize: 26 }}>⚠</span>
-              </div>
-              <div className="text-center">
-                <h3 className="font-space font-black text-xl tracking-tight mb-3" style={{ color: '#FF5C5C' }}>Delete this vote?</h3>
-                <p className="font-inter text-sm leading-relaxed" style={{ color: 'rgba(232,232,240,0.5)' }}>
-                  Are you sure you want to delete this vote? This action cannot be undone and will remove the voting option for all students in the class.
-                </p>
-              </div>
-              <div className="flex flex-col gap-3">
-                <motion.button
-                  onClick={() => handleDeleteVote(deleteConfirmId)}
-                  disabled={manageLoading}
-                  whileHover={!manageLoading ? { scale: 1.02 } : undefined}
-                  whileTap={!manageLoading ? { scale: 0.97 } : undefined}
-                  className="w-full py-3.5 rounded-xl font-space font-bold text-sm tracking-[0.15em]"
-                  style={{ background: '#FF3333', color: '#fff', cursor: manageLoading ? 'default' : 'pointer', boxShadow: '0 4px 20px rgba(255,51,51,0.35)' }}
-                >
-                  {manageLoading ? 'DELETING…' : 'DELETE VOTE'}
-                </motion.button>
-                <button
-                  onClick={() => setDeleteConfirmId(null)}
-                  className="w-full py-2.5 rounded-xl font-space text-[10px] font-bold tracking-[0.1em] transition-all hover:opacity-70"
-                  style={{ background: 'rgba(232,232,240,0.05)', color: 'rgba(232,232,240,0.4)', border: '1px solid rgba(232,232,240,0.1)' }}
-                >
-                  KEEP VOTE
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <VoteManageModals
+        editOpen={editVoteJourneyId !== null}
+        editEndValue={editVoteEnd}
+        onEditEndChange={val => setEditVoteEnd(val)}
+        onEditSave={() => { if (editVoteJourneyId) handleUpdateVoteEnd(editVoteJourneyId); }}
+        onEditClose={() => setEditVoteJourneyId(null)}
+        onEditOpenFinish={() => { const id = editVoteJourneyId; setEditVoteJourneyId(null); setFinishConfirmId(id); }}
+        onEditOpenDelete={() => { const id = editVoteJourneyId; setEditVoteJourneyId(null); setDeleteConfirmId(id); }}
+        finishOpen={finishConfirmId !== null}
+        onFinishConfirm={() => { if (finishConfirmId) handleFinishVote(finishConfirmId); }}
+        onFinishClose={() => setFinishConfirmId(null)}
+        deleteOpen={deleteConfirmId !== null}
+        onDeleteConfirm={() => { if (deleteConfirmId) handleDeleteVote(deleteConfirmId); }}
+        onDeleteClose={() => setDeleteConfirmId(null)}
+        loading={manageLoading}
+      />
     </div>
   );
 }

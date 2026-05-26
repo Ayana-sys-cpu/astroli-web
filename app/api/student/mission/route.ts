@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-server';
+import { requireAuth, assertStudentSession } from '@/lib/auth';
 
 // GET /api/student/mission?missionId=<uuid>  — mission + all plants (for landscape hub)
 // GET /api/student/mission?plantId=<uuid>    — single plant (for planet detail page)
-
+//
+// Mission and plant data are curriculum content accessible to any enrolled
+// student — no per-student ownership check is needed beyond a valid session.
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
+
+  const sessionError = assertStudentSession(auth.user);
+  if (sessionError) return sessionError;
+
   const missionId = req.nextUrl.searchParams.get('missionId');
   const plantId   = req.nextUrl.searchParams.get('plantId');
 

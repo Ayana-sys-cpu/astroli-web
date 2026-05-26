@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
@@ -98,13 +99,7 @@ export default function VotePage() {
     return () => clearInterval(id);
   }, []);
 
-  // Poll every 30s for state changes
-  useEffect(() => {
-    const id = setInterval(load, 30_000);
-    return () => clearInterval(id);
-  }, [load]);
-
-  // Fetch + refresh vote counts whenever session is known
+  // Fetch vote counts whenever session is known
   const loadCounts = useCallback(async (sessionId: string) => {
     try {
       const res = await fetch(`/api/vote-counts?voteSessionId=${sessionId}`);
@@ -118,9 +113,18 @@ export default function VotePage() {
   useEffect(() => {
     if (!state?.voteSessionId) return;
     loadCounts(state.voteSessionId);
-    const id = setInterval(() => loadCounts(state.voteSessionId!), 15_000);
-    return () => clearInterval(id);
   }, [state?.voteSessionId, loadCounts]);
+
+  useSupabaseRealtime({
+    journeyId: state?.voteJourneyId ?? null,
+    onMissionStateChange: (mission) => {
+      if (mission.state === 'active') router.replace('/landscape');
+      else if (mission.state === 'pending_start' || mission.state === 'skipped') router.replace('/pending-journey');
+    },
+    onVoteCast: () => {
+      if (state?.voteSessionId) loadCounts(state.voteSessionId);
+    },
+  });
 
   async function submitVote() {
     if (!selectedId || !state?.voteSessionId || !studentId || submitting) return;

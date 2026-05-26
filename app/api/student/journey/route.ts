@@ -1,84 +1,75 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-server';
+import { requireAuth, assertStudentSession } from '@/lib/auth';
 
-// GET /api/student/journey?studentId=<uuid>
+// GET /api/student/journey
 //
-// Returns current routing state for the student:
+// Returns current routing state for the authenticated student:
 //   hasActiveJourney — any mission is 'active' in an enrolled journey → /landscape
 //   hasActiveVote    — an open vote_session exists with ends_at in the future → /vote
 //   both false       → /pending-journey
 //
-// studentId is optional for backwards compatibility with legacy callers that
-// don't pass it — in that case the global check (all journeys) is used.
+// The ?studentId= query param is intentionally ignored — identity comes from
+// the verified session cookie only.
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
+
+  const sessionError = assertStudentSession(auth.user);
+  if (sessionError) return sessionError;
+
+  const studentId = auth.user.user_metadata.student_id as string;
+
   try {
-    const studentId = req.nextUrl.searchParams.get('studentId');
+    // Resolve enrolled journey IDs for this student.
+    const { data: enrollments } = await supabaseAdmin
+      .from('student_journeys')
+      .select('journey_id')
+      .eq('student_id', studentId);
 
-    // Resolve enrolled journey IDs if studentId is provided.
-    let enrolledJourneyIds: string[] | null = null;
-    if (studentId) {
-      const { data: enrollments } = await supabaseAdmin
-        .from('student_journeys')
-        .select('journey_id')
-        .eq('student_id', studentId);
+    const enrolledJourneyIds = (enrollments ?? []).map((e) => e.journey_id);
 
-      enrolledJourneyIds = (enrollments ?? []).map((e) => e.journey_id);
-
-      // No enrollments yet — student hasn't been placed in any class.
-      if (enrolledJourneyIds.length === 0) {
-        return NextResponse.json({ hasActiveJourney: false, hasActiveVote: false });
-      }
+    if (enrolledJourneyIds.length === 0) {
+      return NextResponse.json({ hasActiveJourney: false, hasActiveVote: false });
     }
 
-    // 1. Active mission check — scoped to enrolled journeys when studentId provided.
-    let missionQuery = supabaseAdmin
+    // 1. Active mission check — scoped to enrolled journeys.
+    const { data: activeMission } = await supabaseAdmin
       .from('missions')
       .select('id')
       .eq('state', 'active')
-      .limit(1);
-
-    if (enrolledJourneyIds !== null) {
-      missionQuery = missionQuery.in('journey_id', enrolledJourneyIds);
-    }
-
-    const { data: activeMission } = await missionQuery.maybeSingle();
+      .in('journey_id', enrolledJourneyIds)
+      .limit(1)
+      .maybeSingle();
 
     if (activeMission) {
-      let missionStatus: string | null = null;
-      if (studentId) {
-        const { data: ms } = await supabaseAdmin
-          .from('mission_started_by_student')
-          .select('status')
-          .eq('student_id', studentId)
-          .eq('mission_id', activeMission.id)
-          .maybeSingle();
-        missionStatus = (ms as any)?.status ?? null;
-      }
+      const { data: ms } = await supabaseAdmin
+        .from('mission_started_by_student')
+        .select('status')
+        .eq('student_id', studentId)
+        .eq('mission_id', activeMission.id)
+        .maybeSingle();
+      const missionStatus = (ms as any)?.status ?? null;
       return NextResponse.json({
         hasActiveJourney: true,
-        hasActiveVote: false,
-        activeMissionId: activeMission.id,
+        hasActiveVote:    false,
+        activeMissionId:  activeMission.id,
         missionStatus,
       });
     }
 
     // 2. Active vote check — open session whose end time is still in the future.
     const now = new Date().toISOString();
-    let sessionQuery = supabaseAdmin
+    const { data: session } = await supabaseAdmin
       .from('vote_sessions')
       .select('id, ends_at, journey_id')
       .eq('status', 'open')
       .gt('ends_at', now)
-      .limit(1);
-
-    if (enrolledJourneyIds !== null) {
-      sessionQuery = sessionQuery.in('journey_id', enrolledJourneyIds);
-    }
-
-    const { data: session } = await sessionQuery.maybeSingle();
+      .in('journey_id', enrolledJourneyIds)
+      .limit(1)
+      .maybeSingle();
 
     if (session) {
-      // Fetch voting missions for this session's journey.
       const { data: missionData } = await supabaseAdmin
         .from('missions')
         .select('id, question, project_title, project_description, mission_order, state')
@@ -104,7 +95,11 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ hasActiveJourney: false, hasActiveVote: false });
+    return NextResponse.json({
+      hasActiveJourney: false,
+      hasActiveVote:    false,
+      journeyId:        enrolledJourneyIds[0] ?? null,
+    });
   } catch (err) {
     console.error('[GET /api/student/journey]', err);
     return NextResponse.json({ hasActiveJourney: false, hasActiveVote: false });
@@ -112,12 +107,22 @@ export async function GET(req: NextRequest) {
 }
 
 // PATCH /api/student/journey
-// Body: { studentId: string, missionId: string, status: string }
-// Upserts the student's status for a specific mission.
+// Body: { missionId: string, status: string }
+// Upserts the authenticated student's status for a specific mission.
+// The body's studentId field is intentionally ignored — identity comes from
+// the verified session cookie only.
 export async function PATCH(req: NextRequest) {
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
+
+  const sessionError = assertStudentSession(auth.user);
+  if (sessionError) return sessionError;
+
+  const studentId = auth.user.user_metadata.student_id as string;
+
   try {
-    const { studentId, missionId, status = 'started' } = await req.json();
-    if (!studentId || !missionId) {
+    const { missionId, status = 'started' } = await req.json();
+    if (!missionId) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
     }
     const { error } = await supabaseAdmin

@@ -224,7 +224,7 @@ export default function MissionReview() {
                 await fetch('/api/teacher/missions', {
                   method: 'PATCH',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ missionId: mission.id, status: 'COMPLETED' }),
+                  body: JSON.stringify({ missionId: mission.id, state: 'completed' }),
                 });
                 router.push('/teacher');
               }}

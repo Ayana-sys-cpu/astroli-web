@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-server';
 
 /**
  * Enrolls a student in all Astroli journeys that match their Google Classroom courses.

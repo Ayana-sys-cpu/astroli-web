@@ -4,8 +4,9 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Script from 'next/script';
 import StarField from '@/components/StarField';
-import { saveStudent, cacheAvatarUrl, markOnboardingComplete, saveAlienName, saveBaseAvatarUrl } from '@/lib/student-store';
+import { saveStudent, markOnboardingComplete, saveAlienName, saveBaseAvatarUrl } from '@/lib/student-store';
 import { saveTeacher, saveCourses } from '@/lib/teacher-store';
+import { createBrowserClient } from '@supabase/ssr';
 
 const LINES: [number, number, number, number][] = [
   [8, 18, 28, 40], [28, 40, 50, 22], [50, 22, 72, 38],
@@ -16,6 +17,19 @@ const DOTS: [number, number][] = [
   [8, 18], [28, 40], [50, 22], [72, 38], [88, 62],
   [38, 68], [60, 78], [14, 62], [82, 20], [62, 8],
 ];
+
+// Singleton SSR-aware browser client — stores the Supabase session in cookies
+// so the Next.js middleware can read it on subsequent API requests.
+let _ssrClient: ReturnType<typeof createBrowserClient> | null = null;
+function getSupabaseBrowserClient() {
+  if (!_ssrClient) {
+    _ssrClient = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    );
+  }
+  return _ssrClient;
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,10 +49,14 @@ export default function LoginPage() {
       setGisReady(true);
       return;
     }
+    let attempts = 0;
     const interval = setInterval(() => {
       if ((window as any).google?.accounts?.oauth2) {
         setGisReady(true);
         clearInterval(interval);
+      } else if (++attempts > 100) {
+        clearInterval(interval);
+        setError('Google sign-in failed to load. Disable your ad blocker and refresh.');
       }
     }, 100);
     return () => clearInterval(interval);
@@ -54,6 +72,15 @@ export default function LoginPage() {
       });
       if (!identifyRes.ok) throw new Error('Identity check failed');
       const identity = await identifyRes.json();
+
+      // Exchange the one-time authToken for a Supabase session stored in cookies.
+      // This must happen before any subsequent authenticated API call.
+      if (identity.authToken) {
+        await getSupabaseBrowserClient().auth.verifyOtp({
+          token_hash: identity.authToken,
+          type: 'email',
+        });
+      }
 
       if (identity.role === 'teacher') {
         saveTeacher({
@@ -92,9 +119,6 @@ export default function LoginPage() {
           firstName:    status.firstName ?? g.given_name,
           baseAvatarUrl: status.baseAvatarUrl ?? null,
         });
-        if (status.avatarUrl && !status.avatarUrl.startsWith('avatars/')) {
-          cacheAvatarUrl(status.avatarUrl);
-        }
         if (status.alienName)    saveAlienName(status.alienName);
         if (status.baseAvatarUrl) saveBaseAvatarUrl(status.baseAvatarUrl);
         if (status.onboardingComplete) markOnboardingComplete();

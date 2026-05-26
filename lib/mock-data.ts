@@ -3,10 +3,10 @@
 // Landscape pages now use real DB data — see lib/plant-meta.ts and lib/planet-experience.ts.
 
 export const MOCK_USER = {
-  email: 'ayana6@gmail.com',
-  fullName: 'Ayana Reiss',
-  firstName: 'Ayana',
-  displayName: 'Ayana R.',
+  email: 'student@example.com',
+  fullName: 'Demo Student',
+  firstName: 'Demo',
+  displayName: 'Demo S.',
 };
 
 // Mission 1 display values used by mission/brief and mission/reveal pages.

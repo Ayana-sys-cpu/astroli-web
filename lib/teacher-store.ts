@@ -73,4 +73,12 @@ export function isTeacherSession(): boolean {
 export function clearTeacherSession(): void {
   const s = ls(); if (!s) return;
   Object.values(K).forEach((k) => s.removeItem(k));
+  const dynamic: string[] = [];
+  for (let i = 0; i < s.length; i++) {
+    const key = s.key(i);
+    if (key && (key.startsWith('voteEnd_') || key.startsWith('voteSessionId_'))) {
+      dynamic.push(key);
+    }
+  }
+  dynamic.forEach(k => s.removeItem(k));
 }
