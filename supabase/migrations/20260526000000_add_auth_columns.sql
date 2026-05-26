@@ -1,0 +1,5 @@
+-- This migration is superseded by 003_unify_users.sql which incorporates
+-- auth_user_id and last_avatar_personalised_at directly into the unified
+-- users table. The original ALTER TABLE statements for app_students and
+-- teachers are intentionally removed to prevent failure on fresh migration
+-- runs after those tables were dropped.

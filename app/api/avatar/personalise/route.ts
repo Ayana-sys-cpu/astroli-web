@@ -30,7 +30,7 @@ function getBaseImageFile(studentId: string): File {
 
 async function patchStudent(studentId: string, fields: Record<string, unknown>): Promise<void> {
   if (!SUPABASE_URL || !SUPABASE_KEY) return;
-  await fetch(`${SUPABASE_URL}app_students?student_id=eq.${studentId}`, {
+  await fetch(`${SUPABASE_URL}users?user_id=eq.${encodeURIComponent(studentId)}`, {
     method: 'PATCH',
     headers: {
       apikey: SUPABASE_KEY,

@@ -39,7 +39,7 @@ async function generateAlienName(): Promise<string> {
         max_tokens: 16,
         messages: [{
           role: 'user',
-          content: 'Invent one unique sci-fi alien name for a student\'s avatar companion in a space learning game. One word, 5–10 characters, kid-friendly, memorable, no real words. Reply with ONLY the name.',
+          content: "Invent one unique sci-fi alien name for a student's avatar companion in a space learning game. One word, 5–10 characters, kid-friendly, memorable, no real words. Reply with ONLY the name.",
         }],
       }),
     });
@@ -65,25 +65,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Server configuration error' }, { status: 503 });
   }
 
-  const { email, full_name, first_name, accessToken } = await req.json();
-  if (!email) return NextResponse.json({ error: 'email is required' }, { status: 400 });
+  const { email: rawEmail, full_name, first_name, accessToken } = await req.json();
+  if (!rawEmail) return NextResponse.json({ error: 'email is required' }, { status: 400 });
+  const email = rawEmail.toLowerCase();
 
-  const res = await fetch(`${SUPABASE_URL}app_students?on_conflict=email`, {
+  const res = await fetch(`${SUPABASE_URL}users?on_conflict=email`, {
     method: 'POST',
     headers: {
       ...supabaseHeaders(),
       Prefer: 'resolution=merge-duplicates,return=representation',
     },
-    body: JSON.stringify({ email, full_name, first_name }),
+    body: JSON.stringify({ email, full_name, first_name, role: 'student' }),
   });
 
   if (!res.ok) {
     const text = await res.text().catch(() => '(unreadable)');
     console.error('[POST /api/student] Supabase error', res.status, text);
-    return NextResponse.json({ error: text }, { status: res.status });
+    return NextResponse.json({ error: 'Failed to save student' }, { status: 503 });
   }
   const data = await res.json();
-  const studentId: string = data[0].student_id;
+  if (!Array.isArray(data) || !data[0]?.user_id) {
+    console.error('[POST /api/student] Unexpected Supabase response shape:', data);
+    return NextResponse.json({ error: 'Failed to save student' }, { status: 503 });
+  }
+  const userId: string = data[0].user_id;
 
   // Generate alien identity and persist it. Fire-and-forget the Supabase
   // write but await the name so we can return it to the client immediately.
@@ -93,7 +98,7 @@ export async function POST(req: NextRequest) {
   ]);
 
   fetch(
-    `${SUPABASE_URL}app_students?student_id=eq.${encodeURIComponent(studentId)}`,
+    `${SUPABASE_URL}users?user_id=eq.${encodeURIComponent(userId)}`,
     {
       method: 'PATCH',
       headers: { ...supabaseHeaders(), Prefer: 'return=minimal' },
@@ -102,14 +107,15 @@ export async function POST(req: NextRequest) {
   ).catch((err) => console.error('[POST /api/student] identity persist error:', err));
 
   // Enroll in matching journeys if caller provided a Google access token.
-  if (accessToken && studentId) {
-    enrollStudentInJourneys(studentId, accessToken).catch(() => {});
+  if (accessToken && userId) {
+    enrollStudentInJourneys(userId, accessToken).catch(() => {});
   }
 
-  return NextResponse.json({ student_id: studentId, alien_name: alienName, base_avatar_url: baseAvatarUrl });
+  // Alias user_id as student_id — client code (onboarding pages) reads this field.
+  return NextResponse.json({ student_id: userId, alien_name: alienName, base_avatar_url: baseAvatarUrl });
 }
 
-// PATCH /api/student — update alien_name and/or base_avatar_url by student_id.
+// PATCH /api/student — update alien_name and/or base_avatar_url by student_id (= user_id).
 // Called from the onboarding reveal screen after the alien name is generated.
 export async function PATCH(req: NextRequest) {
   if (missingConfig()) {
@@ -127,13 +133,13 @@ export async function PATCH(req: NextRequest) {
 
   const patch: Record<string, string> = {};
   if (alien_name)      patch.alien_name      = alien_name;
-  if (base_avatar_url) patch.base_avatar_url  = base_avatar_url;
+  if (base_avatar_url) patch.base_avatar_url = base_avatar_url;
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ ok: true });
   }
 
   const res = await fetch(
-    `${SUPABASE_URL}app_students?student_id=eq.${encodeURIComponent(student_id)}`,
+    `${SUPABASE_URL}users?user_id=eq.${encodeURIComponent(student_id)}`,
     {
       method: 'PATCH',
       headers: { ...supabaseHeaders(), Prefer: 'return=minimal' },
@@ -144,13 +150,13 @@ export async function PATCH(req: NextRequest) {
   if (!res.ok) {
     const text = await res.text().catch(() => '(unreadable)');
     console.error('[PATCH /api/student] Supabase error', res.status, text);
-    return NextResponse.json({ error: text }, { status: res.status });
+    return NextResponse.json({ error: 'Failed to update student' }, { status: 503 });
   }
 
   return NextResponse.json({ ok: true });
 }
 
-// GET /api/student?email=... — look up a student by email
+// GET /api/student?email=... — look up a student by email.
 // Returns the student record, or null (200) when the email is not found.
 // Returns 503 when env vars are missing, 502 when Supabase itself errors —
 // so the client can distinguish "not found" from "lookup failed".
@@ -160,13 +166,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Server configuration error' }, { status: 503 });
   }
 
-  const email = req.nextUrl.searchParams.get('email');
-  if (!email) return NextResponse.json({ error: 'email is required' }, { status: 400 });
+  const rawEmail = req.nextUrl.searchParams.get('email');
+  if (!rawEmail) return NextResponse.json({ error: 'email is required' }, { status: 400 });
+  const email = rawEmail.toLowerCase();
 
   let res: Response;
   try {
     res = await fetch(
-      `${SUPABASE_URL}app_students?email=eq.${encodeURIComponent(email)}&select=*`,
+      `${SUPABASE_URL}users?email=eq.${encodeURIComponent(email)}&select=*`,
       { headers: supabaseHeaders() },
     );
   } catch (err) {
@@ -180,7 +187,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Database lookup failed', detail: body }, { status: 502 });
   }
 
-  const data = await res.json();
-  // 200 with null body = email not in DB (genuine new user)
-  return NextResponse.json(data?.[0] ?? null);
+  const rows = await res.json();
+  const row = rows?.[0] ?? null;
+  // Alias user_id as student_id for backwards compat with client code.
+  if (row) row.student_id = row.user_id;
+  return NextResponse.json(row);
 }

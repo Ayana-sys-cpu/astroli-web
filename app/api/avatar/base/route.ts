@@ -25,7 +25,7 @@ async function getExistingBaseAvatar(studentId: string): Promise<string | null> 
   if (!SUPABASE_URL || !SUPABASE_KEY) return null;
   try {
     const res = await fetch(
-      `${SUPABASE_URL}app_students?student_id=eq.${studentId}&select=base_avatar_url`,
+      `${SUPABASE_URL}users?user_id=eq.${encodeURIComponent(studentId)}&select=base_avatar_url`,
       { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
     );
     if (!res.ok) return null;
@@ -38,7 +38,7 @@ async function getExistingBaseAvatar(studentId: string): Promise<string | null> 
 
 async function saveBaseAvatar(studentId: string, url: string): Promise<void> {
   if (!SUPABASE_URL || !SUPABASE_KEY) return;
-  await fetch(`${SUPABASE_URL}app_students?student_id=eq.${studentId}`, {
+  await fetch(`${SUPABASE_URL}users?user_id=eq.${encodeURIComponent(studentId)}`, {
     method: 'PATCH',
     headers: {
       apikey: SUPABASE_KEY,
