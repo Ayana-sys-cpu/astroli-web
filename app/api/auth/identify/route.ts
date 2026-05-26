@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Google token did not return an email' }, { status: 401 });
   }
   const email = rawEmail.toLowerCase();
+  const nameParts = (name ?? '').split(' ');
 
   // ── 2. Whitelist check — fail closed on DB error ───────────────────────────
   // Never fall through to the student path if Supabase is unreachable.
@@ -68,16 +69,15 @@ export async function POST(req: NextRequest) {
     );
     if (classroomRes.ok) {
       const data = await classroomRes.json();
-      courses = (data.courses ?? []).map((c: any) => ({
+      courses = (data.courses ?? []).map((c: { id: string; name: string; section?: string }) => ({
         id:      c.id,
         name:    c.name,
         section: c.section ?? null,
       }));
     } else {
-      console.log('[identify] classroom API status (teacher):', classroomRes.status);
+      console.warn('[identify] classroom API status (teacher):', classroomRes.status);
     }
 
-    const nameParts = (name ?? '').split(' ');
     const { data: teacher, error: upsertError } = await supabaseAdmin
       .from('users')
       .upsert(
@@ -110,7 +110,6 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 3b. Student path ───────────────────────────────────────────────────────
-  const nameParts = (name ?? '').split(' ');
   const { data: student, error: studentError } = await supabaseAdmin
     .from('users')
     .upsert(
