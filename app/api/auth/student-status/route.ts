@@ -18,7 +18,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-server';
 import { enrollStudentInJourneys } from '@/lib/enroll-student';
 
 export async function POST(req: NextRequest) {

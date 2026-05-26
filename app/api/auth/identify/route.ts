@@ -14,7 +14,7 @@
 // Response: { role, userId, googleId, email, name, courses }
 
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-server';
 
 export async function POST(req: NextRequest) {
   let body: { accessToken?: string };
