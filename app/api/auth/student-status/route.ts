@@ -11,9 +11,10 @@
  *   { exists: true  } → existing user  → bypass all onboarding → home (/syncing)
  *   { exists: false } → new user       → full onboarding flow  → /onboarding/interest
  *
- * Existence is determined by a single lookup in app_students (Supabase).
- * The legacy Prisma/users fallback was removed after the Stage 5 migration
- * confirmed all historical accounts are now in app_students.
+ * Existence is determined by a single lookup in users (Supabase).
+ * Email is normalized to lowercase before the DB lookup — Postgres text
+ * comparison is case-sensitive, so without normalization a mis-cased email
+ * from Google would produce a false "new user" result.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -40,7 +41,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to verify Google token' }, { status: 401 });
     }
     const profile = await profileRes.json();
-    email     = profile.email;
+    // Normalize to lowercase — Postgres text comparison is case-sensitive.
+    email     = (profile.email ?? '').toLowerCase();
     fullName  = profile.name ?? '';
     firstName = profile.given_name ?? fullName.split(' ')[0] ?? '';
     if (!email) {
@@ -51,10 +53,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }
 
-  // ── 2. Look up in app_students ───────────────────────────────────────────
+  // ── 2. Look up in users ──────────────────────────────────────────────────
   const { data, error } = await supabaseAdmin
-    .from('app_students')
-    .select('student_id, first_name, base_avatar_url, avatar_url, alien_name')
+    .from('users')
+    .select('user_id, first_name, base_avatar_url, avatar_url, alien_name')
     .eq('email', email)
     .maybeSingle();
 
@@ -64,20 +66,20 @@ export async function POST(req: NextRequest) {
   }
 
   if (data) {
-    console.log(`[student-status] ${email} found in app_students → existing user`);
+    console.log(`[student-status] ${email} found in users → existing user`);
 
     // Sync enrollment — fire-and-forget so sign-in latency is unaffected.
     // Idempotent upsert: safe to call on every sign-in.
-    enrollStudentInJourneys(data.student_id, accessToken).catch(() => {});
+    enrollStudentInJourneys(data.user_id, accessToken).catch(() => {});
 
     return NextResponse.json({
       exists:             true,
       onboardingComplete: true,
-      studentId:          data.student_id,
+      studentId:          data.user_id,
       firstName:          data.first_name ?? firstName,
       baseAvatarUrl:      data.base_avatar_url ?? null,
       avatarUrl:          data.avatar_url ?? null,
-      alienName:          (data as any).alien_name ?? null,
+      alienName:          data.alien_name ?? null,
     });
   }
 
