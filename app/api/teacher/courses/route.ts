@@ -1,18 +1,11 @@
 // =============================================================================
-// SUPABASE VERSION — /api/teacher/courses
+// /api/teacher/courses
 //
-// Drop-in replacement for route.ts. Same request/response shape:
+// GET /api/teacher/courses?teacherId=<uuid>
+// Response: { courses: [{ id, name, section }] }
 //
-//   Request:  GET /api/teacher/courses?teacherId=<uuid>
-//   Response: { courses: [{ id, name, section }] }
-//
-// The Prisma version read gcCourses from the user table (a JSON string).
-// This version reads gc_courses from the Supabase teachers table (native JSONB).
-//
-// HOW TO ACTIVATE:
-//   Rename this file to route.ts (delete the Prisma route.ts first).
-//   Activate AFTER identify/route.ts — teacherId in localStorage must be a
-//   Supabase teacher_id by the time this route is called.
+// Reads gc_courses from the unified users table (previously read from teachers).
+// teacherId is the user_id UUID from the users table.
 // =============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -24,17 +17,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'teacherId required' }, { status: 400 });
   }
 
-  const { data: teacher, error } = await supabaseAdmin
-    .from('teachers')
+  const { data: user, error } = await supabaseAdmin
+    .from('users')
     .select('gc_courses')
-    .eq('teacher_id', teacherId)
+    .eq('user_id', teacherId)
     .single();
 
-  if (error || !teacher) {
+  if (error || !user) {
     return NextResponse.json({ courses: [] });
   }
 
   // gc_courses is stored as JSONB — already parsed, no JSON.parse() needed.
-  const courses = Array.isArray(teacher.gc_courses) ? teacher.gc_courses : [];
+  const courses = Array.isArray(user.gc_courses) ? user.gc_courses : [];
   return NextResponse.json({ courses });
 }

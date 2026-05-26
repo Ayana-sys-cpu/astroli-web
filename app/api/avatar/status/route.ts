@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const res = await fetch(
-      `${SUPABASE_URL}app_students?student_id=eq.${studentId}&select=avatar_url`,
+      `${SUPABASE_URL}users?user_id=eq.${studentId}&select=avatar_url`,
       { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
     );
     if (!res.ok) return NextResponse.json({ ready: false, avatar_url: null });
