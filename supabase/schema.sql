@@ -25,6 +25,7 @@ DROP TABLE IF EXISTS plants           CASCADE;
 DROP TABLE IF EXISTS missions         CASCADE;
 DROP TABLE IF EXISTS journeys         CASCADE;
 DROP TABLE IF EXISTS authorized_teachers CASCADE;
+DROP TABLE IF EXISTS app_students        CASCADE;
 DROP TABLE IF EXISTS users               CASCADE;
 
 

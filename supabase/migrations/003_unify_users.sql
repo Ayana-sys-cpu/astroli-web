@@ -11,6 +11,8 @@
 -- Run via: Supabase Dashboard → SQL Editor → New Query → paste → Run
 -- ============================================================================
 
+BEGIN;
+
 -- ── 1. authorized_teachers ────────────────────────────────────────────────────
 -- Founder adds teacher emails here via the Supabase dashboard.
 -- CHECK constraint enforces lowercase at the DB level — dashboard will reject
@@ -75,6 +77,14 @@ SELECT
 FROM teachers
 ON CONFLICT (email) DO NOTHING;
 
+-- ── PRE-FLIGHT CHECK (run this before the full migration, must return 0 rows) ─
+-- If any rows are returned, those student_id values in student_journeys/votes
+-- will be orphaned after the merge. Resolve them manually before proceeding.
+--
+-- SELECT s.student_id, s.email
+-- FROM app_students s
+-- JOIN teachers t ON lower(s.email) = lower(t.email);
+
 -- ── 3b. Migrate app_students → users (preserving student_id as user_id) ───────
 -- ON CONFLICT DO NOTHING: if an email appears in both tables (ghost record scenario),
 -- the teacher row inserted above wins. The stale student row is discarded.
@@ -132,3 +142,5 @@ ALTER TABLE votes
 -- CASCADE removes any remaining DB-side dependencies (triggers, policies).
 DROP TABLE teachers     CASCADE;
 DROP TABLE app_students CASCADE;
+
+COMMIT;
