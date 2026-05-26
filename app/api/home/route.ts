@@ -1,46 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-server';
+import { requireAuth, assertStudentSession } from '@/lib/auth';
 
-// GET /api/home?studentId=<uuid>
+// GET /api/home
 //
-// Returns the journeys this student is enrolled in, each with its missions.
-// If studentId is omitted (legacy callers) falls back to returning all journeys
-// that have at least one non-locked mission — preserving backwards compatibility
-// until all clients are updated.
+// Returns the journeys the authenticated student is enrolled in, each with
+// its missions.
+//
+// The ?studentId= query param is intentionally ignored — identity comes from
+// the verified session cookie only.
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
+
+  const sessionError = assertStudentSession(auth.user);
+  if (sessionError) return sessionError;
+
+  const studentId = auth.user.user_metadata.student_id as string;
+
   try {
-    const studentId = req.nextUrl.searchParams.get('studentId');
+    // Fetch journey IDs the student is enrolled in.
+    const { data: enrollments, error: eErr } = await supabaseAdmin
+      .from('student_journeys')
+      .select('journey_id')
+      .eq('student_id', studentId);
 
-    let journeyIds: string[];
+    if (eErr) throw eErr;
 
-    if (studentId) {
-      // ── Enrolled path: student sees only their own journeys ──────────────
-      const { data: enrollments, error: eErr } = await supabaseAdmin
-        .from('student_journeys')
-        .select('journey_id')
-        .eq('student_id', studentId);
+    const journeyIds = (enrollments ?? []).map((e) => e.journey_id);
 
-      if (eErr) throw eErr;
-
-      journeyIds = (enrollments ?? []).map((e) => e.journey_id);
-
-      if (journeyIds.length === 0) {
-        return NextResponse.json({ journeys: [] });
-      }
-    } else {
-      // ── Legacy fallback: return all journeys with an activated mission ────
-      const { data: missionRows, error: mErr } = await supabaseAdmin
-        .from('missions')
-        .select('journey_id')
-        .neq('state', 'locked');
-
-      if (mErr) throw mErr;
-
-      journeyIds = Array.from(new Set((missionRows ?? []).map((m) => m.journey_id)));
-
-      if (journeyIds.length === 0) {
-        return NextResponse.json({ journeys: [] });
-      }
+    if (journeyIds.length === 0) {
+      return NextResponse.json({ journeys: [] });
     }
 
     // Fetch the journeys with all their missions (all states — UI handles display).

@@ -1,33 +1,26 @@
 // =============================================================================
-// SUPABASE VERSION — /api/teacher/connect
+// /api/teacher/connect
 //
-// Drop-in replacement for route.ts. Accepts the exact same request/response
-// shape as the Prisma version so the frontend (ConnectState component) works
-// without any changes:
+// POST { courses: { id: string; name: string }[] }
 //
-//   Request:  POST { teacherId: string; courses: { id: string; name: string }[] }
-//   Response: { ok: true; journeyId: string }
-//
-// WHAT THIS ROUTE DOES:
-//   The teacher is already in Supabase by the time this is called — the
-//   Supabase identify route upserts the teacher row during sign-in.
-//   This route only handles the course → journey step:
+// The teacher is already in Supabase by the time this is called — the
+// identify route upserts the teacher row during sign-in.
+// This route only handles the course → journey step:
 //
 //   For each course:
 //     1. Upsert a journey row (keyed by google_course_id — safe to re-call).
 //     2. If the journey is brand new (no missions yet), seed it with the
 //        3 hardcoded missions and all 16 hardcoded plants automatically.
 //
-//   Returns the first journey's id as journeyId (matches existing contract).
+// Returns the first journey's id as journeyId (matches existing contract).
 //
-// HOW TO ACTIVATE:
-//   1. Run supabase/schema.sql in the Supabase SQL Editor.
-//   2. Rename this file to route.ts (delete the Prisma route.ts first).
+// teacherId is taken from the session — the body's teacherId field is ignored.
 // =============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-server';
 import { HARDCODED_MISSIONS } from '@/lib/hardcoded-missions';
+import { requireAuth, assertTeacherSession } from '@/lib/auth';
 
 interface Course {
   id:       string;
@@ -36,6 +29,14 @@ interface Course {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
+
+  const sessionError = assertTeacherSession(auth.user);
+  if (sessionError) return sessionError;
+
+  const teacherId = auth.user.user_metadata.teacher_id as string;
+
   let body: { teacherId?: string; courses?: Course[] };
   try {
     body = await req.json();
@@ -43,10 +44,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { teacherId, courses = [] } = body;
-  if (!teacherId) {
-    return NextResponse.json({ error: 'teacherId required' }, { status: 400 });
-  }
+  const { courses = [] } = body;
   if (courses.length === 0) {
     return NextResponse.json({ error: 'at least one course required' }, { status: 400 });
   }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { getStudentId, getBotName, getCachedAvatarUrl, loadStudent } from '@/lib/student-store';
+import { getStudentId, getBotName, loadStudent } from '@/lib/student-store';
 
 const BOT_URL     = 'https://astorli-bot.vercel.app/api/bot';
 const OPENING_URL = 'https://astorli-bot.vercel.app/api/opening-message';
@@ -46,7 +46,7 @@ export default function AvatarBot() {
 
   useEffect(() => {
     setBotName(getBotName());
-    setAvatarUrl(getCachedAvatarUrl() ?? loadStudent()?.baseAvatarUrl ?? null);
+    setAvatarUrl(loadStudent()?.baseAvatarUrl ?? null);
   }, []);
 
   const screen  = screenFromPath(pathname);

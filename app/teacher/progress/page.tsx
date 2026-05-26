@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { getTeacherId } from '@/lib/teacher-store';
 
@@ -53,6 +53,10 @@ export default function ProgressMatrix() {
   }, []);
 
   const missions = activeJourney?.missions ?? [];
+  const statusGrid = useMemo(
+    () => MOCK_STUDENTS.map(() => missions.map(() => randomStatus())),
+    [missions],
+  );
 
   return (
     <div className="px-8 py-8 max-w-7xl mx-auto">
@@ -151,8 +155,8 @@ export default function ProgressMatrix() {
                   >
                     {student}
                   </td>
-                  {missions.map(m => {
-                    const status = randomStatus();
+                  {missions.map((m, mi) => {
+                    const status = statusGrid[si][mi];
                     return (
                       <td
                         key={m.id}

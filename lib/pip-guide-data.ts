@@ -11,17 +11,26 @@ export interface PipPlanet {
   hint: string; // short one-line description
 }
 
+export interface WorldBriefItem {
+  title: string;
+  body:  string; // may contain HTML (<strong>, <em>)
+}
+
 export interface PipMission {
-  order:            number;
-  question:         string;    // the Big Question
-  worldBrief:       string;    // questionDescription — shown in World Brief card
-  projectTitle:     string;
-  projectObjective: string;    // first paragraph of project_description
-  openingMessage:   string;
-  missionBrief:     string;    // short label for the header brief bar
-  chapter:          string;
-  planets:          PipPlanet[];
-  qaAnswers:        string[];  // canned Pip answers during Q&A phase
+  order:              number;
+  question:           string;           // the Big Question
+  worldBrief:         string;           // questionDescription — legacy plain text fallback
+  worldBriefSummary:  string;           // one-liner shown in the card header
+  worldBriefItems:    WorldBriefItem[]; // colored stripe cards in the expanded brief
+  projectTitle:       string;
+  projectObjective:   string;           // first paragraph of project_description
+  openingMessage:     string;
+  openingMessage2:    string;           // second Pip message before the World Brief CTA
+  missionBrief:       string;           // short label for the header brief bar
+  chapter:            string;
+  planets:            PipPlanet[];
+  qaAnswers:          string[];         // canned Pip answers during era Q&A phase
+  missionQaAnswers:   string[];         // canned Pip answers about the mission/project
 }
 
 // ── Planet icon + hint lookup ─────────────────────────────────────────────────
@@ -65,12 +74,95 @@ const QA_ANSWERS: Record<number, string[]> = {
   ],
 };
 
+// ── Canned Q&A answers about the mission/project (after mission card shown) ───
+
+const MISSION_QA_ANSWERS: Record<number, string[]> = {
+  1: [
+    "The project asks you to act as a mediator — your job isn't to pick a winner, but to show why both sides genuinely believed they were right. The strongest arguments acknowledge what each side was actually protecting.",
+    "You'll be building a written argument, so focus on collecting specific quotes and evidence as you explore each planet. Save anything that explains *why* someone acted the way they did — motive is everything in this mission.",
+    "Don't worry about covering every planet — pick the ones that feel most relevant to the question and go deep. Two or three well-explored planets will give you more to work with than a rushed visit to all of them.",
+  ],
+  2: [
+    "Your project asks whether the feudal bargain was fair — not just whether it worked. You're not looking for a verdict, you're building a case that shows the trade-offs clearly from multiple perspectives.",
+    "The strongest arguments will acknowledge that people at the time didn't experience this as oppression — they experienced it as order, safety, and God's plan. Understanding *their* logic is what makes your argument compelling.",
+    "Concentrate on the planets that show contrast — serfdom vs. cities, for example. That tension is where your most interesting evidence will come from.",
+  ],
+  3: [
+    "This mission asks you to hold complexity without resolving it too quickly. Protection and subordination coexisted. Religious conviction and violence coexisted. Your project is about showing *how*, not just *whether*.",
+    "The best evidence will come from the moments of contact — where the three faiths actually interacted, traded, debated, or clashed. Focus less on doctrine, more on what people actually did to each other.",
+    "You don't need to take a side. The most powerful arguments in this mission will be ones that resist the easy 'clash of civilisations' story and show the full, messy picture instead.",
+  ],
+};
+
 // ── Chapter labels ────────────────────────────────────────────────────────────
 
 const CHAPTER_LABELS: Record<number, string> = {
   1: 'Medieval History · Ch.1',
   2: 'Medieval History · Ch.2',
   3: 'Medieval History · Ch.3',
+};
+
+// ── Opening message 2 (shown after the first message, before World Brief CTA) ─
+
+const OPENING_MESSAGE_2: Record<number, string> = {
+  1: 'Before you weigh in, do you want context on the world they lived in?',
+  2: 'Before you dive in, want a quick read on the world these people were living in?',
+  3: 'Before you explore, do you want context on the world that made these events possible?',
+};
+
+// ── World Brief summaries (shown in the collapsed card header) ────────────────
+
+const WORLD_BRIEF_SUMMARY: Record<number, string> = {
+  1: 'Two leaders, one claim of divine authority…',
+  2: 'A world built on sworn oaths and sacred duty…',
+  3: 'Three faiths, one holy land, centuries of entanglement…',
+};
+
+// ── World Brief items (colored stripe cards) ──────────────────────────────────
+
+const WORLD_BRIEF_ITEMS: Record<number, WorldBriefItem[]> = {
+  1: [
+    {
+      title: 'THE OFFICIAL TRUTH',
+      body:  'In the Middle Ages, <strong>"truth" was not a personal opinion</strong> — it was an official position, guarded and declared by powerful institutions, not individuals.',
+    },
+    {
+      title: 'TWO COMPETING CLAIMS',
+      body:  '<strong>The Church</strong> controlled spiritual legitimacy — your soul, your afterlife. <strong>The Emperor</strong> controlled armies and land. Both needed the other to survive.',
+    },
+    {
+      title: 'THE REAL QUESTION',
+      body:  'When two institutions <strong>both claim divine authority</strong>, who can actually enforce it? And what happens to everyone caught in between?',
+    },
+  ],
+  2: [
+    {
+      title: 'THE FEUDAL BARGAIN',
+      body:  'In a world without police or standing armies, <strong>protection cost everything</strong> — your freedom, your land, your loyalty. The feudal system was a contract written in survival.',
+    },
+    {
+      title: 'THREE ORDERS, ONE TRUTH',
+      body:  '<strong>Those who pray, those who fight, those who work</strong> — medieval society divided humanity into sacred roles. To question your order was to question God\'s design.',
+    },
+    {
+      title: 'THE CRACK IN THE SYSTEM',
+      body:  'When cities began offering <strong>a different kind of security</strong> — through guilds, markets, and community — the feudal bargain started to come apart at the seams.',
+    },
+  ],
+  3: [
+    {
+      title: 'A WORLD OF BOUNDARIES',
+      body:  'In the medieval Islamic world, <strong>faith determined your legal status</strong> — not your nationality. The Dhimmi system offered protection at the price of permanent second-class standing.',
+    },
+    {
+      title: 'THE GOLDEN AGE',
+      body:  '<strong>Algebra, medicine, and preserved philosophy</strong> flowed out of Baghdad while Europe was rebuilding from Roman collapse. The "clash of civilisations" story hides how much they built together.',
+    },
+    {
+      title: 'WHEN BELIEF BECOMES VIOLENCE',
+      body:  'The Crusades reveal an uncomfortable truth: <strong>sincere religious conviction and mass atrocity can coexist</strong>. The Rhineland massacres happened before the Crusaders reached Jerusalem.',
+    },
+  ],
 };
 
 // ── Build PIP_MISSIONS from HARDCODED_MISSIONS ────────────────────────────────
@@ -84,20 +176,24 @@ export const PIP_MISSIONS: PipMission[] = HARDCODED_MISSIONS.map((m) => {
   const missionBrief = m.question.length > 60 ? m.question.slice(0, 57) + '…' : m.question;
 
   return {
-    order:            m.mission_order,
-    question:         m.question,
-    worldBrief:       m.question_description,
-    projectTitle:     m.project_title,
-    projectObjective: objective,
-    openingMessage:   m.opening_message,
+    order:             m.mission_order,
+    question:          m.question,
+    worldBrief:        m.question_description,
+    worldBriefSummary: WORLD_BRIEF_SUMMARY[m.mission_order] ?? WORLD_BRIEF_SUMMARY[1],
+    worldBriefItems:   WORLD_BRIEF_ITEMS[m.mission_order]   ?? WORLD_BRIEF_ITEMS[1],
+    projectTitle:      m.project_title,
+    projectObjective:  objective,
+    openingMessage:    m.opening_message,
+    openingMessage2:   OPENING_MESSAGE_2[m.mission_order]   ?? OPENING_MESSAGE_2[1],
     missionBrief,
-    chapter:          CHAPTER_LABELS[m.mission_order] ?? `Ch.${m.mission_order}`,
+    chapter:           CHAPTER_LABELS[m.mission_order] ?? `Ch.${m.mission_order}`,
     planets: m.plants.map((p) => ({
       icon: PLANET_META[p.label]?.icon ?? '🌍',
       name: p.label,
       hint: PLANET_META[p.label]?.hint ?? p.title.slice(0, 45),
     })),
-    qaAnswers: QA_ANSWERS[m.mission_order] ?? QA_ANSWERS[1],
+    qaAnswers:        QA_ANSWERS[m.mission_order]         ?? QA_ANSWERS[1],
+    missionQaAnswers: MISSION_QA_ANSWERS[m.mission_order] ?? MISSION_QA_ANSWERS[1],
   };
 });
 

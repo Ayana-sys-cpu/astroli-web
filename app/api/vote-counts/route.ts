@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-server';
 
 // GET /api/vote-counts?voteSessionId=
 // Returns aggregated vote counts per big idea for a specific vote session.

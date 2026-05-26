@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-server';
 
 // GET /api/winner?voteSessionId=
 // Tallies all votes for a session and returns the winning big idea ID.

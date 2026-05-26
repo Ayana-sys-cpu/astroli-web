@@ -1,10 +1,10 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import StarField from '@/components/StarField';
 import TopBar from '@/components/TopBar';
-import { useAvatar } from '@/hooks/useAvatar';
 import { getStudentId, getInterest, loadStudent } from '@/lib/student-store';
 
 // ── Animation variants ──────────────────────────────────────────────────────
@@ -51,12 +51,12 @@ const ORIN_MSG =
 
 export default function PendingJourneyPage() {
   const router = useRouter();
-  const avatar = useAvatar();
 
   const [alienName,     setAlienName]     = useState('');
   const [baseAvatarUrl, setBaseAvatarUrl] = useState<string | null>(null);
   const [charIndex,     setCharIndex]     = useState(0);
   const [typingLive,    setTypingLive]    = useState(false);
+  const [journeyId,     setJourneyId]     = useState<string | null>(null);
 
   // Resolve alien identity from localStorage on mount
   useEffect(() => {
@@ -86,27 +86,33 @@ export default function PendingJourneyPage() {
     return () => clearTimeout(t);
   }, [typingLive, charIndex]);
 
-  // Poll every 30 s — redirect the moment a journey or vote becomes active
-  useEffect(() => {
-    const id = setInterval(async () => {
-      try {
-        const studentId = typeof window !== 'undefined'
-          ? window.localStorage.getItem('astroli_student_id')
-          : null;
-        const url = studentId
-          ? `/api/student/journey?studentId=${studentId}`
-          : '/api/student/journey';
-        const res = await fetch(url);
-        const { hasActiveJourney, hasActiveVote } = await res.json();
-        if (hasActiveJourney) router.replace('/landscape');
-        else if (hasActiveVote) router.replace('/vote');
-      } catch { /* swallow — next tick will retry */ }
-    }, 30_000);
-    return () => clearInterval(id);
+  const load = useCallback(async () => {
+    try {
+      const studentId = getStudentId();
+      const url = studentId
+        ? `/api/student/journey?studentId=${studentId}`
+        : '/api/student/journey';
+      const res = await fetch(url);
+      // 401 = no session — send back to login.
+      if (res.status === 401) { router.replace('/'); return; }
+      const data = await res.json();
+      if (data.hasActiveJourney) { router.replace('/landscape'); return; }
+      if (data.hasActiveVote)   { router.replace('/vote'); return; }
+      if (data.journeyId) setJourneyId(data.journeyId);
+    } catch { /* swallow — hook will retry on next state change */ }
   }, [router]);
 
-  // Best available avatar: personalised > base > null (shows placeholder)
-  const avatarSrc = (!avatar.loading && avatar.url) ? avatar.url : baseAvatarUrl;
+  useEffect(() => { load(); }, [load]);
+
+  useSupabaseRealtime({
+    journeyId,
+    onMissionStateChange: (mission) => {
+      if (mission.state === 'active') router.replace('/landscape');
+      else if (mission.state === 'voting') router.replace('/vote');
+    },
+  });
+
+  const avatarSrc = baseAvatarUrl;
 
   return (
     <motion.div

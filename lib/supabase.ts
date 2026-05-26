@@ -24,18 +24,9 @@ import { createClient } from '@supabase/supabase-js';
 // Until then, 'any' is used as a placeholder; queries still work, just un-typed.
 export type Database = any;
 
-/** Server-side admin client. Import only in API routes (never in client components). */
-export const supabaseAdmin = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      // Disable automatic session management — API routes are stateless.
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  },
-);
+// supabaseAdmin lives in lib/supabase-server.ts (server-only).
+// Import it from there in API routes — never import it here, because this file
+// is also imported by client-side hooks and browser bundles.
 
 /** Browser client for Realtime and read-only queries from React components. */
 export function createBrowserClient() {
@@ -57,3 +48,4 @@ export function getBrowserClient() {
   }
   return _browserClient;
 }
+

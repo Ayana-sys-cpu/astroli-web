@@ -1,7 +1,9 @@
 // =============================================================================
 // /api/teacher/journeys
 //
-// GET  — list all journeys for a teacher, each with its active vote session.
+// GET  — list all journeys for the authenticated teacher, each with its
+//         active vote session. The ?teacherId= query param is ignored —
+//         identity comes from the verified session cookie.
 // PATCH — vote session state machine:
 //   voteEndsAt set, no open session → INSERT vote_session + locked→voting
 //   voteEndsAt set, session exists  → UPDATE session ends_at
@@ -9,16 +11,21 @@
 // =============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-server';
+import { requireAuth, assertTeacherSession } from '@/lib/auth';
 
 // ---------------------------------------------------------------------------
-// GET /api/teacher/journeys?teacherId=
+// GET /api/teacher/journeys
+// teacherId is taken from the session — the ?teacherId= query param is ignored.
 // ---------------------------------------------------------------------------
 export async function GET(req: NextRequest) {
-  const teacherId = req.nextUrl.searchParams.get('teacherId');
-  if (!teacherId) {
-    return NextResponse.json({ error: 'teacherId required' }, { status: 400 });
-  }
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
+
+  const sessionError = assertTeacherSession(auth.user);
+  if (sessionError) return sessionError;
+
+  const teacherId = auth.user.user_metadata.teacher_id as string;
 
   const { data, error } = await supabaseAdmin
     .from('journeys')
@@ -87,6 +94,14 @@ export async function GET(req: NextRequest) {
 //     pending_start/skipped via /api/teacher/missions)
 // ---------------------------------------------------------------------------
 export async function PATCH(req: NextRequest) {
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
+
+  const sessionError = assertTeacherSession(auth.user);
+  if (sessionError) return sessionError;
+
+  const teacherId = auth.user.user_metadata.teacher_id as string;
+
   let body: { journeyId?: string; voteEndsAt?: string | null };
   try {
     body = await req.json();
@@ -97,6 +112,18 @@ export async function PATCH(req: NextRequest) {
   const { journeyId, voteEndsAt, voteStartsAt } = body as { journeyId?: string; voteEndsAt?: string | null; voteStartsAt?: string | null };
   if (!journeyId) {
     return NextResponse.json({ error: 'journeyId required' }, { status: 400 });
+  }
+
+  // Verify the journey belongs to this teacher.
+  const { data: journeyCheck } = await supabaseAdmin
+    .from('journeys')
+    .select('id')
+    .eq('id', journeyId)
+    .eq('teacher_id', teacherId)
+    .maybeSingle();
+
+  if (!journeyCheck) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const parsedEndsAt   = voteEndsAt   ? new Date(voteEndsAt).toISOString()   : null;

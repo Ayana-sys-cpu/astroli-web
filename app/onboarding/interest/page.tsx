@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import StarField from '@/components/StarField';
-import { getStudentId, getFirstName, saveInterest, isOnboardingComplete } from '@/lib/student-store';
+import { getFirstName, saveInterest, isOnboardingComplete } from '@/lib/student-store';
 
 const INTEREST_TAGS = [
   'Deep Sea', 'Basketball', 'Space', 'Music',
@@ -28,16 +28,7 @@ export default function InterestPage() {
     if (!trimmed || submitted) return;
     setSubmitted(true);
 
-    const studentId = getStudentId();
     saveInterest(trimmed);
-
-    // Fire-and-forget — same pattern as mobile app
-    fetch('/api/avatar/personalise', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ student_id: studentId, area_of_interest: trimmed }),
-    }).catch(() => {});
-
     router.push('/onboarding/reveal');
   };
 

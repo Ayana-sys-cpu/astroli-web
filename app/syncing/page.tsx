@@ -38,11 +38,17 @@ export default function SyncingPage() {
       ? `/api/student/journey?studentId=${studentId}`
       : '/api/student/journey';
     const journeyCheck = fetch(journeyUrl)
-      .then((r) => r.json())
+      .then((r) => {
+        // 401 = no session — send back to login rather than silently
+        // treating it as "no active journey" (which traps the student).
+        if (r.status === 401) return { __redirect: '/' };
+        return r.json();
+      })
       .catch(() => ({ hasActiveJourney: false, hasActiveVote: false }));
 
     Promise.all([delay, journeyCheck]).then(([, data]) => {
       if (!alive) return;
+      if ((data as any).__redirect) { router.replace((data as any).__redirect); return; }
       const hasJourney = Boolean(data.hasActiveJourney);
       const hasVote    = Boolean(data.hasActiveVote);
       saveJourneyActive(hasJourney);

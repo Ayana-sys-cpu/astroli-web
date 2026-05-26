@@ -51,7 +51,7 @@ Your task: Build an argument defending your side's claim to be the ultimate sour
 How to submit — choose one:
 📝 Written argument — A structured 2–3 page written speech in your character's voice.
 🎙️ Recorded argument — A 3–5 minute audio or video recording of you delivering the argument in character.`,
-    opening_message: `Traveler, my scanners are glitching. Two historical leaders are claiming they own the ultimate truth. At the exact same time. The Pope says God chose him. The Emperor says the same thing. Who do you think has more actual power here?`,
+    opening_message: `traveler. my scanners are glitching — two historical leaders are claiming they own the Ultimate truth. At the exact same time.`,
     plants: [
       {
         title: 'The Central Role of the Catholic Church in Medieval Society',

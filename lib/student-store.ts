@@ -8,17 +8,12 @@ const K = {
   STUDENT_ID:         'astroli_student_id',
   FIRST_NAME:         'astroli_first_name',
   BASE_AVATAR:        'astroli_base_avatar_url',
-  AVATAR_URL:         'astroli_avatar_url',
-  AVATAR_TS:          'astroli_avatar_fetched_at',
   ONBOARDING:         'astroli_onboarding_complete',
   INTEREST:           'astroli_interest',
   ALIEN_NAME:         'astroli_alien_name',
   JOURNEY_ACTIVE:     'astroli_journey_active',
   MISSION_REVEALED:   'astroli_mission_revealed_id',
 } as const;
-
-// Signed URLs last 1 hour; we re-fetch after 50 min to stay fresh.
-const AVATAR_TTL_MS = 50 * 60 * 1000;
 
 function ls(): Storage | null {
   return typeof window !== 'undefined' ? window.localStorage : null;
@@ -41,13 +36,6 @@ export function saveStudent(r: StudentRecord): void {
   if (r.baseAvatarUrl) s.setItem(K.BASE_AVATAR, r.baseAvatarUrl);
 }
 
-/** Cache a signed Cloudinary URL with a timestamp for TTL checks. */
-export function cacheAvatarUrl(url: string): void {
-  const s = ls(); if (!s) return;
-  s.setItem(K.AVATAR_URL, url);
-  s.setItem(K.AVATAR_TS,  String(Date.now()));
-}
-
 // ── Read ─────────────────────────────────────────────────────────────────────
 
 export function loadStudent(): StudentRecord | null {
@@ -65,15 +53,6 @@ export function getStudentId(): string | null {
 
 export function getFirstName(): string {
   return ls()?.getItem(K.FIRST_NAME) ?? 'Traveler';
-}
-
-/** Returns a cached signed URL if it is still within TTL, else null. */
-export function getCachedAvatarUrl(): string | null {
-  const s = ls(); if (!s) return null;
-  const url = s.getItem(K.AVATAR_URL);
-  const ts  = Number(s.getItem(K.AVATAR_TS) ?? 0);
-  if (!url || Date.now() - ts > AVATAR_TTL_MS) return null;
-  return url;
 }
 
 export function saveBaseAvatarUrl(url: string): void {
