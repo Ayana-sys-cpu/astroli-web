@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
 
   if (error) {
     console.error('[student-status] Supabase lookup error:', error);
-    return NextResponse.json({ error: 'Database lookup failed' }, { status: 502 });
+    return NextResponse.json({ error: 'Service temporarily unavailable' }, { status: 503 });
   }
 
   if (data) {

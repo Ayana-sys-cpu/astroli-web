@@ -81,9 +81,13 @@ export async function POST(req: NextRequest) {
   if (!res.ok) {
     const text = await res.text().catch(() => '(unreadable)');
     console.error('[POST /api/student] Supabase error', res.status, text);
-    return NextResponse.json({ error: text }, { status: res.status });
+    return NextResponse.json({ error: 'Failed to save student' }, { status: 503 });
   }
   const data = await res.json();
+  if (!Array.isArray(data) || !data[0]?.user_id) {
+    console.error('[POST /api/student] Unexpected Supabase response shape:', data);
+    return NextResponse.json({ error: 'Failed to save student' }, { status: 503 });
+  }
   const userId: string = data[0].user_id;
 
   // Generate alien identity and persist it. Fire-and-forget the Supabase
@@ -146,7 +150,7 @@ export async function PATCH(req: NextRequest) {
   if (!res.ok) {
     const text = await res.text().catch(() => '(unreadable)');
     console.error('[PATCH /api/student] Supabase error', res.status, text);
-    return NextResponse.json({ error: text }, { status: res.status });
+    return NextResponse.json({ error: 'Failed to update student' }, { status: 503 });
   }
 
   return NextResponse.json({ ok: true });

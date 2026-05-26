@@ -17,7 +17,7 @@ BEGIN;
 -- Founder adds teacher emails here via the Supabase dashboard.
 -- CHECK constraint enforces lowercase at the DB level — dashboard will reject
 -- a mis-cased insert with a clear constraint error.
-CREATE TABLE authorized_teachers (
+CREATE TABLE IF NOT EXISTS authorized_teachers (
   email     TEXT PRIMARY KEY CHECK (email = lower(email)),
   added_at  TIMESTAMPTZ DEFAULT now(),
   added_by  TEXT        DEFAULT 'founder',
@@ -25,7 +25,7 @@ CREATE TABLE authorized_teachers (
 );
 
 -- ── 2. Unified users table ────────────────────────────────────────────────────
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   user_id                     UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
   email                       TEXT        UNIQUE NOT NULL CHECK (email = lower(email)),
   role                        TEXT        NOT NULL DEFAULT 'student'
@@ -50,32 +50,37 @@ CREATE TABLE users (
 );
 
 -- set_updated_at() is already defined from the initial schema migration.
-CREATE TRIGGER users_updated_at
+CREATE OR REPLACE TRIGGER users_updated_at
   BEFORE UPDATE ON users
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "users_select" ON users;
 CREATE POLICY "users_select" ON users FOR SELECT USING (true);
 
 -- ── 3a. Migrate teachers → users (preserving teacher_id as user_id) ───────────
 -- Preserving the UUID means journeys.teacher_id, missions.created_by, and
 -- plants.created_by already contain the correct user_id values — no data updates needed.
-INSERT INTO users (
-  user_id, email, role, full_name, first_name,
-  google_id, gc_courses, auth_user_id, created_at
-)
-SELECT
-  teacher_id,
-  lower(email),
-  'teacher',
-  name,
-  split_part(name, ' ', 1),
-  google_id,
-  gc_courses,
-  auth_user_id,
-  created_at
-FROM teachers
-ON CONFLICT (email) DO NOTHING;
+DO $$ BEGIN
+  IF to_regclass('public.teachers') IS NOT NULL THEN
+    INSERT INTO users (
+      user_id, email, role, full_name, first_name,
+      google_id, gc_courses, auth_user_id, created_at
+    )
+    SELECT
+      teacher_id,
+      lower(email),
+      'teacher',
+      name,
+      split_part(name, ' ', 1),
+      google_id,
+      gc_courses,
+      auth_user_id,
+      created_at
+    FROM teachers
+    ON CONFLICT (email) DO NOTHING;
+  END IF;
+END $$;
 
 -- ── PRE-FLIGHT CHECK (run this before the full migration, must return 0 rows) ─
 -- If any rows are returned, those student_id values in student_journeys/votes
@@ -90,26 +95,30 @@ ON CONFLICT (email) DO NOTHING;
 -- the teacher row inserted above wins. The stale student row is discarded.
 -- Preserving the UUID means student_journeys.student_id and votes.student_id
 -- already contain the correct user_id values — no data updates needed.
-INSERT INTO users (
-  user_id, email, role, full_name, first_name,
-  alien_name, base_avatar_url, avatar_url, area_of_interest,
-  last_avatar_personalised_at, auth_user_id, created_at
-)
-SELECT
-  student_id,
-  lower(email),
-  'student',
-  full_name,
-  first_name,
-  alien_name,
-  base_avatar_url,
-  avatar_url,
-  area_of_interest,
-  last_avatar_personalised_at,
-  auth_user_id,
-  created_at
-FROM app_students
-ON CONFLICT (email) DO NOTHING;
+DO $$ BEGIN
+  IF to_regclass('public.app_students') IS NOT NULL THEN
+    INSERT INTO users (
+      user_id, email, role, full_name, first_name,
+      alien_name, base_avatar_url, avatar_url, area_of_interest,
+      last_avatar_personalised_at, auth_user_id, created_at
+    )
+    SELECT
+      student_id,
+      lower(email),
+      'student',
+      full_name,
+      first_name,
+      alien_name,
+      base_avatar_url,
+      avatar_url,
+      area_of_interest,
+      last_avatar_personalised_at,
+      auth_user_id,
+      created_at
+    FROM app_students
+    ON CONFLICT (email) DO NOTHING;
+  END IF;
+END $$;
 
 -- ── 4. Re-point FK constraints from old tables → users ────────────────────────
 ALTER TABLE journeys
@@ -140,7 +149,7 @@ ALTER TABLE votes
 -- ── 5. Drop old tables ─────────────────────────────────────────────────────────
 -- FK constraints from all dependent tables were replaced above.
 -- CASCADE removes any remaining DB-side dependencies (triggers, policies).
-DROP TABLE teachers     CASCADE;
-DROP TABLE app_students CASCADE;
+DROP TABLE IF EXISTS teachers     CASCADE;
+DROP TABLE IF EXISTS app_students CASCADE;
 
 COMMIT;
