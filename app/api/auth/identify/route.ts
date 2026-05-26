@@ -17,6 +17,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 
 export async function POST(req: NextRequest) {
+  try {
+    return await handlePOST(req);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[identify] unhandled error:', message);
+    return NextResponse.json({ error: 'Internal server error', detail: message }, { status: 500 });
+  }
+}
+
+async function handlePOST(req: NextRequest) {
   let body: { accessToken?: string };
   try {
     body = await req.json();
