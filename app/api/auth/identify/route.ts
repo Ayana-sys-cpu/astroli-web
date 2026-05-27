@@ -16,6 +16,71 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 
+// ── Auth helpers ───────────────────────────────────────────────────────────────
+
+async function findAuthUserByEmail(email: string): Promise<{ id: string } | null> {
+  try {
+    const url = new URL('/auth/v1/admin/users', process.env.NEXT_PUBLIC_SUPABASE_URL!);
+    url.searchParams.set('email', email);
+    url.searchParams.set('page', '1');
+    url.searchParams.set('per_page', '1');
+    const res = await fetch(url.toString(), {
+      headers: {
+        apikey:        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
+      },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return (data.users as { id: string }[])?.[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function upsertAuthUserAndToken(
+  email: string,
+  metadata: { role: string; student_id?: string | null; teacher_id?: string | null },
+): Promise<{ authUserId: string; authToken: string } | null> {
+  let authUserId: string;
+
+  const existing = await findAuthUserByEmail(email);
+  if (existing) {
+    authUserId = existing.id;
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(authUserId, {
+      user_metadata: metadata,
+      email_confirm: true,
+    });
+    if (error) {
+      console.error('[identify] updateUserById', error);
+      return null;
+    }
+  } else {
+    const { data, error } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      email_confirm: true,
+      user_metadata: metadata,
+    });
+    if (error || !data.user) {
+      console.error('[identify] createUser', error);
+      return null;
+    }
+    authUserId = data.user.id;
+  }
+
+  const { data: link, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+    type:    'magiclink',
+    email,
+    options: { data: metadata },
+  });
+  if (linkError || !link) {
+    console.error('[identify] generateLink', linkError);
+    return null;
+  }
+
+  return { authUserId, authToken: (link.properties as any).hashed_token };
+}
+
 export async function POST(req: NextRequest) {
   try {
     return await handlePOST(req);
@@ -109,13 +174,28 @@ async function handlePOST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to save teacher' }, { status: 503 });
     }
 
+    const authResult = await upsertAuthUserAndToken(email, {
+      role:       'teacher',
+      teacher_id: teacher.user_id,
+      student_id: null,
+    });
+
+    // Best-effort: store the Supabase Auth UUID back in the users row for linkage.
+    if (authResult?.authUserId) {
+      await supabaseAdmin
+        .from('users')
+        .update({ auth_user_id: authResult.authUserId })
+        .eq('user_id', teacher.user_id);
+    }
+
     return NextResponse.json({
-      role:     'teacher',
-      userId:   teacher.user_id,
+      role:      'teacher',
+      userId:    teacher.user_id,
       googleId,
       email,
       name,
       courses,
+      authToken: authResult?.authToken ?? null,
     });
   }
 
@@ -139,12 +219,27 @@ async function handlePOST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to save student' }, { status: 503 });
   }
 
+  const authResult = await upsertAuthUserAndToken(email, {
+    role:       'student',
+    student_id: student.user_id,
+    teacher_id: null,
+  });
+
+  // Best-effort: store the Supabase Auth UUID back in the users row for linkage.
+  if (authResult?.authUserId) {
+    await supabaseAdmin
+      .from('users')
+      .update({ auth_user_id: authResult.authUserId })
+      .eq('user_id', student.user_id);
+  }
+
   return NextResponse.json({
-    role:     'student',
-    userId:   student.user_id,
+    role:      'student',
+    userId:    student.user_id,
     googleId,
     email,
     name,
-    courses:  [],
+    courses:   [],
+    authToken: authResult?.authToken ?? null,
   });
 }
