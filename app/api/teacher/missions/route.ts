@@ -44,11 +44,18 @@ function toMission(m: any) {
 async function verifyJourneyOwnership(journeyId: string, teacherId: string): Promise<boolean> {
   const { data } = await supabaseAdmin
     .from('journeys')
-    .select('id')
+    .select('id, teacher_id')
     .eq('id', journeyId)
-    .eq('teacher_id', teacherId)
     .maybeSingle();
-  return data !== null;
+  if (!data) {
+    console.error(`[verifyJourneyOwnership] journey ${journeyId} not found`);
+    return false;
+  }
+  if ((data as any).teacher_id !== teacherId) {
+    console.error(`[verifyJourneyOwnership] mismatch — journey.teacher_id=${(data as any).teacher_id} session.teacher_id=${teacherId}`);
+    return false;
+  }
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -63,6 +70,7 @@ export async function GET(req: NextRequest) {
   if (sessionError) return sessionError;
 
   const teacherId  = auth.user.user_metadata.teacher_id as string;
+  console.log('[GET /api/teacher/missions] teacherId from session:', teacherId);
   const missionId  = req.nextUrl.searchParams.get('id');
 
   // ── Single mission lookup ────────────────────────────────────────────────
@@ -135,6 +143,7 @@ export async function PATCH(req: NextRequest) {
   if (sessionError) return sessionError;
 
   const teacherId = auth.user.user_metadata.teacher_id as string;
+  console.log('[PATCH /api/teacher/missions] teacherId from session:', teacherId);
 
   let body: { missionId?: string; state?: string };
   try {
