@@ -91,14 +91,18 @@ function VoteSetupInner() {
     setManageLoading(true);
     try {
       const sessionId = localStorage.getItem(`voteSessionId_${journeyId}`);
-      const winnerRes = await fetch(`/api/winner?voteSessionId=${sessionId}`);
-      const { winnerId } = await winnerRes.json();
+
+      // Get winner — skip API call if sessionId is missing (falls back to first-by-order)
+      let winnerId: string | null = null;
+      if (sessionId) {
+        const winnerRes = await fetch(`/api/winner?voteSessionId=${sessionId}`);
+        const data = await winnerRes.json();
+        winnerId = data.winnerId ?? null;
+      }
+
       const votingMissions = missions.filter(m => m.state === 'voting');
       const resolvedWinnerId: string | null =
         winnerId ?? (votingMissions.sort((a, b) => a.order - b.order)[0]?.id ?? null);
-
-      localStorage.removeItem(`voteEnd_${journeyId}`);
-      localStorage.removeItem(`voteSessionId_${journeyId}`);
 
       await Promise.all([
         fetch('/api/teacher/journeys', {
@@ -115,12 +119,20 @@ function VoteSetupInner() {
         ),
       ]);
 
+      // Only clear localStorage AFTER successful API update
+      localStorage.removeItem(`voteEnd_${journeyId}`);
+      localStorage.removeItem(`voteSessionId_${journeyId}`);
+
       // Stay on this page — update UI to show concluded state
       setVoteActive(false);
       setVoteEndIso('');
       // Reload missions to reflect pending_start / skipped states
       const md = await fetch(`/api/teacher/missions?journeyId=${journeyId}`).then(r => r.json());
       setMissions(md.missions ?? []);
+      setFinishConfirmOpen(false);
+    } catch (err) {
+      console.error('[handleFinishVote]', err);
+      // Close modal so UI isn't stuck — vote state (voteActive/voteEndIso) unchanged
       setFinishConfirmOpen(false);
     } finally {
       setManageLoading(false);
