@@ -965,11 +965,7 @@ function ConnectState({
         }),
       });
       if (!res.ok) throw new Error('Server error');
-      const data = await res.json();
       onConnected();
-      if (data.journeyId) {
-        router.push(`/teacher/vote/new?journeyId=${data.journeyId}`);
-      }
     } catch {
       setError('Something went wrong. Please try again.');
       setConnecting(false);
