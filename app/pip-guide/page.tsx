@@ -5,6 +5,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
 import { getPipMission, type PipMission, type PipPlanet } from '@/lib/pip-guide-data';
+import { getStudentId } from '@/lib/student-store';
+
+const BOT_URL    = 'https://astorli-bot.vercel.app/api/bot';
+const FALLBACK_ID = '00000000-0000-0000-0000-000000000001';
 
 // =============================================================================
 // Design tokens — matches pip-guide-chat-ui.html prototype exactly
@@ -465,7 +469,7 @@ function PipGuideChatInner() {
 
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [dock,     setDock]     = useState<DockState>('lock');
-  const [qaIdx,    setQaIdx]    = useState(0);
+  const [qaIdx,    setQaIdx]    = useState(0); // fallback index if AI call fails
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Smooth scroll on new messages
@@ -519,15 +523,27 @@ function PipGuideChatInner() {
     }, 1700);
   }
 
-  // ── Flow: Q&A during Understand phase ───────────────────────────────────────
-  function handleQA(text: string) {
+  // ── Flow: Q&A during Understand phase — calls live AI bot ───────────────────
+  async function handleQA(text: string) {
     push({ id: uid(), role: 'user', type: 'text', html: text });
-    const ans = mission.qaAnswers[qaIdx % mission.qaAnswers.length];
-    setQaIdx((q) => q + 1);
     setTimeout(showTyping, 400);
-    setTimeout(() => {
-      push({ id: uid(), role: 'pip', type: 'text', html: ans });
-    }, 1900);
+
+    const studentId = getStudentId() ?? FALLBACK_ID;
+    try {
+      const res  = await fetch(BOT_URL, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ studentId, message: text, screen: 'mission_landscape_hub' }),
+      });
+      const data = await res.json();
+      push({ id: uid(), role: 'pip', type: 'text', html: data.message ?? mission.qaAnswers[0] });
+    } catch {
+      // Fallback to hardcoded answer if AI is unreachable
+      setQaIdx((q) => {
+        push({ id: uid(), role: 'pip', type: 'text', html: mission.qaAnswers[q % mission.qaAnswers.length] });
+        return q + 1;
+      });
+    }
   }
 
   // ── Flow: Got It ─────────────────────────────────────────────────────────────
