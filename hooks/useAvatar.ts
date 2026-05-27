@@ -3,8 +3,8 @@ import { useState, useEffect } from 'react';
 import {
   getStudentId,
   loadStudent,
-  getCachedAvatarUrl,
-  cacheAvatarUrl,
+  getBaseAvatarUrl,
+  saveBaseAvatarUrl,
 } from '@/lib/student-store';
 
 export interface AvatarState {
@@ -43,7 +43,7 @@ export function useAvatar(): AvatarState {
 
   useEffect(() => {
     // 1. Return cached URL immediately if still within TTL
-    const cached = getCachedAvatarUrl();
+    const cached = getBaseAvatarUrl();
     if (cached) {
       setState({ url: cached, loading: false, isPersonalized: true });
       return;
@@ -69,7 +69,7 @@ export function useAvatar(): AvatarState {
         if (cancelled) return;
 
         if (data.ready && data.avatar_url) {
-          cacheAvatarUrl(data.avatar_url);
+          saveBaseAvatarUrl(data.avatar_url);
           setState({ url: data.avatar_url, loading: false, isPersonalized: true });
         } else {
           setState({ url: fallback, loading: false, isPersonalized: false });
