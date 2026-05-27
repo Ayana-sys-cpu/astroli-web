@@ -118,8 +118,10 @@ export default function VotePage() {
   useSupabaseRealtime({
     journeyId: state?.voteJourneyId ?? null,
     onMissionStateChange: (mission) => {
-      if (mission.state === 'active') router.replace('/landscape');
-      else if (mission.state === 'pending_start' || mission.state === 'skipped') router.replace('/pending-journey');
+      if (mission.state === 'active' || mission.state === 'pending_start') {
+        router.replace('/landscape');
+      }
+      // 'skipped' fires for non-winners — don't redirect, the pending_start event handles routing
     },
     onVoteCast: () => {
       if (state?.voteSessionId) loadCounts(state.voteSessionId);

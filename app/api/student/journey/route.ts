@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
     const { data: activeMission } = await supabaseAdmin
       .from('missions')
       .select('id')
-      .eq('state', 'active')
+      .in('state', ['active', 'pending_start'])
       .in('journey_id', enrolledJourneyIds)
       .limit(1)
       .maybeSingle();

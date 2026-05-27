@@ -100,7 +100,11 @@ export default function TeacherDashboard() {
     if (!teacherId) return;
     setLoading(true);
     fetch(`/api/teacher/journeys?teacherId=${teacherId}`)
-      .then(r => r.json())
+      .then(r => {
+        if (r.status === 401) { router.replace('/'); return { journeys: [] }; }
+        if (!r.ok) { console.error('[fetchJourneys] error', r.status); return { journeys: [] }; }
+        return r.json();
+      })
       .then(d => {
         const loaded: Journey[] = d.journeys ?? [];
         setJourneys(loaded);
