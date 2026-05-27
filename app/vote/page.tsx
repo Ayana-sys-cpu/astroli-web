@@ -14,11 +14,13 @@ interface VoteMission {
   projectTitle: string;
   projectDescription: string;
   order: number;
+  state?: string; // 'voting' | 'pending_start' | 'skipped'
 }
 
 interface JourneyState {
   hasActiveJourney: boolean;
   hasActiveVote: boolean;
+  awaitingActivation?: boolean; // vote concluded, winner pending teacher activation
   voteSessionId: string | null;
   voteJourneyId: string | null;
   voteEndsAt: string | null;
@@ -63,12 +65,13 @@ export default function VotePage() {
       if (data.hasActiveJourney) { router.replace('/landscape'); return; }
       if (!data.hasActiveVote)   { router.replace('/pending-journey'); return; }
       setState({
-        hasActiveJourney: false,
-        hasActiveVote: true,
-        voteSessionId: data.voteSessionId ?? null,
-        voteJourneyId: data.voteJourneyId ?? null,
-        voteEndsAt: data.voteEndsAt ?? null,
-        voteMissions: data.voteMissions ?? [],
+        hasActiveJourney:   false,
+        hasActiveVote:      true,
+        awaitingActivation: data.awaitingActivation ?? false,
+        voteSessionId:      data.voteSessionId ?? null,
+        voteJourneyId:      data.voteJourneyId ?? null,
+        voteEndsAt:         data.voteEndsAt ?? null,
+        voteMissions:       data.voteMissions ?? [],
       });
     } catch {
       // stay — next poll will retry
@@ -118,10 +121,12 @@ export default function VotePage() {
   useSupabaseRealtime({
     journeyId: state?.voteJourneyId ?? null,
     onMissionStateChange: (mission) => {
-      if (mission.state === 'active' || mission.state === 'pending_start') {
+      // Only redirect when the teacher actually *launches* the mission (active).
+      // 'pending_start' = vote concluded, winner chosen — student stays here to see results.
+      // 'skipped' = non-winner — no redirect needed.
+      if (mission.state === 'active') {
         router.replace('/landscape');
       }
-      // 'skipped' fires for non-winners — don't redirect, the pending_start event handles routing
     },
     onVoteCast: () => {
       if (state?.voteSessionId) loadCounts(state.voteSessionId);
@@ -149,7 +154,9 @@ export default function VotePage() {
     }
   }
 
-  const isExpired = state?.voteEndsAt ? new Date(state.voteEndsAt).getTime() <= Date.now() : false;
+  // Treat "awaiting activation" the same as expired for voting purposes —
+  // the vote window is closed, students just see results until teacher launches.
+  const isExpired = state?.awaitingActivation || (state?.voteEndsAt ? new Date(state.voteEndsAt).getTime() <= Date.now() : false);
 
   if (!state) {
     return (
@@ -217,18 +224,25 @@ export default function VotePage() {
           transition={{ delay: 0.35 }}
           className="flex items-center gap-3 px-5 py-2.5 rounded-full"
           style={{
-            background: isExpired ? 'rgba(255,0,128,0.08)' : 'rgba(0,245,212,0.06)',
-            border: `1px solid ${isExpired ? 'rgba(255,0,128,0.25)' : 'rgba(0,245,212,0.2)'}`,
+            background: state.awaitingActivation
+              ? 'rgba(0,245,212,0.06)'
+              : isExpired ? 'rgba(255,0,128,0.08)' : 'rgba(0,245,212,0.06)',
+            border: `1px solid ${state.awaitingActivation ? 'rgba(0,245,212,0.3)' : isExpired ? 'rgba(255,0,128,0.25)' : 'rgba(0,245,212,0.2)'}`,
           }}
         >
           <motion.div
             className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-            style={{ background: isExpired ? '#FF0080' : '#00F5D4', boxShadow: `0 0 8px ${isExpired ? '#FF0080' : '#00F5D4'}` }}
-            animate={isExpired ? {} : { opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }}
+            style={{
+              background: state.awaitingActivation ? '#00F5D4' : isExpired ? '#FF0080' : '#00F5D4',
+              boxShadow: `0 0 8px ${state.awaitingActivation ? '#00F5D4' : isExpired ? '#FF0080' : '#00F5D4'}`,
+            }}
+            animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }}
             transition={{ duration: 2, repeat: Infinity }}
           />
-          <span className="font-space text-xs tracking-[0.18em] uppercase" style={{ color: isExpired ? '#FF0080' : '#00F5D4' }}>
-            {isExpired ? 'VOTE CLOSED' : `CLOSES IN ${state.voteEndsAt ? formatCountdown(state.voteEndsAt) : '…'}`}
+          <span className="font-space text-xs tracking-[0.18em] uppercase" style={{ color: state.awaitingActivation ? '#00F5D4' : isExpired ? '#FF0080' : '#00F5D4' }}>
+            {state.awaitingActivation
+              ? 'WINNER CHOSEN · AWAITING LAUNCH'
+              : isExpired ? 'VOTE CLOSED' : `CLOSES IN ${state.voteEndsAt ? formatCountdown(state.voteEndsAt) : '…'}`}
           </span>
           {/* force re-render on tick */}
           <span className="hidden">{tick}</span>
@@ -253,16 +267,20 @@ export default function VotePage() {
           {state.voteMissions.map((mission, i) => {
             const totalVotes   = Object.values(voteCounts).reduce((s, n) => s + n, 0);
             const col          = PLANET_COLORS[i % PLANET_COLORS.length];
-            const isSelected   = selectedId === mission.id;
+            // When awaiting activation, the winner (pending_start) is "selected"; others are dimmed.
+            const isWinner     = state.awaitingActivation && mission.state === 'pending_start';
+            const isSelected   = state.awaitingActivation ? isWinner : selectedId === mission.id;
             const wasVoted     = previousVoteId === mission.id;
             const missionVotes = voteCounts[mission.id] ?? 0;
             const votePct      = totalVotes > 0 ? Math.round((missionVotes / totalVotes) * 100) : 0;
+            // Non-winner cards are faded when results are shown
+            const isLoser      = state.awaitingActivation && mission.state === 'skipped';
 
             return (
               <motion.button
                 key={mission.id}
                 initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
+                animate={{ opacity: isLoser ? 0.35 : 1, y: 0 }}
                 transition={{ delay: 0.55 + i * 0.1, type: 'spring', damping: 22, stiffness: 150 }}
                 onClick={() => {
                   if (confirmed || isExpired) return;
@@ -304,7 +322,12 @@ export default function VotePage() {
                         MISSION {String(mission.order).padStart(2, '0')}
                       </p>
                       <div className="flex items-center gap-2">
-                        {wasVoted && confirmed && (
+                        {isWinner && (
+                          <span className="text-[9px] tracking-[0.14em] font-space uppercase" style={{ color: col.dot }}>
+                            CHOSEN ✦
+                          </span>
+                        )}
+                        {!isWinner && wasVoted && confirmed && (
                           <span className="text-[9px] tracking-[0.14em] font-space uppercase" style={{ color: col.dot }}>
                             YOUR VOTE ✦
                           </span>
@@ -357,9 +380,47 @@ export default function VotePage() {
           })}
         </div>
 
-        {/* CTA — submit or confirmed state */}
+        {/* CTA — awaiting activation, confirmed, or submit */}
         <AnimatePresence mode="wait">
-          {confirmed ? (
+          {state.awaitingActivation ? (
+            <motion.div
+              key="awaiting"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ type: 'spring', damping: 18, stiffness: 160 }}
+              className="w-full flex flex-col items-center gap-3"
+            >
+              <div
+                className="w-full py-4 rounded-xl flex items-center justify-center gap-3"
+                style={{
+                  background: 'rgba(0,245,212,0.06)',
+                  border: '1px solid rgba(0,245,212,0.25)',
+                }}
+              >
+                <motion.span
+                  animate={{ scale: [1, 1.2, 1], opacity: [0.6, 1, 0.6] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  style={{ color: '#00F5D4', fontSize: 18 }}
+                >
+                  ✦
+                </motion.span>
+                <p className="font-space font-bold text-sm tracking-[0.12em] text-white">
+                  AWAITING MISSION LAUNCH
+                </p>
+                <motion.span
+                  animate={{ scale: [1, 1.2, 1], opacity: [0.6, 1, 0.6] }}
+                  transition={{ duration: 2, repeat: Infinity, delay: 1 }}
+                  style={{ color: '#00F5D4', fontSize: 18 }}
+                >
+                  ✦
+                </motion.span>
+              </div>
+              <p className="text-[10px] tracking-[0.2em] font-space uppercase text-white/25">
+                Your teacher is about to launch the chosen mission
+              </p>
+            </motion.div>
+          ) : confirmed ? (
             <motion.div
               key="confirmed"
               initial={{ opacity: 0, scale: 0.9 }}
@@ -454,16 +515,16 @@ export default function VotePage() {
         >
           <motion.div
             className="w-1.5 h-1.5 rounded-full"
-            style={{ background: '#7C3AED', boxShadow: '0 0 8px rgba(124,58,237,0.9)' }}
+            style={{ background: state.awaitingActivation ? '#00F5D4' : '#7C3AED', boxShadow: `0 0 8px ${state.awaitingActivation ? 'rgba(0,245,212,0.9)' : 'rgba(124,58,237,0.9)'}` }}
             animate={{ opacity: [0.25, 1, 0.25], scale: [0.75, 1.25, 0.75] }}
             transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
           />
           <p className="text-[9px] tracking-[0.34em] font-space uppercase text-white/25">
-            MISSION SELECTION IN PROGRESS
+            {state.awaitingActivation ? 'MISSION SELECTED · LAUNCH IMMINENT' : 'MISSION SELECTION IN PROGRESS'}
           </p>
           <motion.div
             className="w-1.5 h-1.5 rounded-full"
-            style={{ background: '#7C3AED', boxShadow: '0 0 8px rgba(124,58,237,0.9)' }}
+            style={{ background: state.awaitingActivation ? '#00F5D4' : '#7C3AED', boxShadow: `0 0 8px ${state.awaitingActivation ? 'rgba(0,245,212,0.9)' : 'rgba(124,58,237,0.9)'}` }}
             animate={{ opacity: [0.25, 1, 0.25], scale: [0.75, 1.25, 0.75] }}
             transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut', delay: 1.2 }}
           />

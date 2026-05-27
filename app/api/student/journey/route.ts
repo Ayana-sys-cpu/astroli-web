@@ -33,11 +33,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ hasActiveJourney: false, hasActiveVote: false });
     }
 
-    // 1. Active mission check — scoped to enrolled journeys.
+    // 1. Active mission check — only 'active' state counts as a launched mission.
+    //    'pending_start' means vote is concluded but teacher hasn't activated yet;
+    //    students should stay on the vote results screen until the teacher fires it.
     const { data: activeMission } = await supabaseAdmin
       .from('missions')
       .select('id')
-      .in('state', ['active', 'pending_start'])
+      .eq('state', 'active')
       .in('journey_id', enrolledJourneyIds)
       .limit(1)
       .maybeSingle();
@@ -83,6 +85,7 @@ export async function GET(req: NextRequest) {
         projectTitle:       m.project_title,
         projectDescription: m.project_description,
         order:              m.mission_order,
+        state:              m.state,
       }));
 
       return NextResponse.json({
@@ -91,6 +94,54 @@ export async function GET(req: NextRequest) {
         voteSessionId:    session.id,
         voteJourneyId:    session.journey_id,
         voteEndsAt:       session.ends_at,
+        voteMissions,
+      });
+    }
+
+    // 3. Awaiting activation — vote concluded, winner is pending_start.
+    //    Student stays on the vote page seeing results until teacher activates.
+    const { data: pendingMission } = await supabaseAdmin
+      .from('missions')
+      .select('id, journey_id')
+      .eq('state', 'pending_start')
+      .in('journey_id', enrolledJourneyIds)
+      .limit(1)
+      .maybeSingle();
+
+    if (pendingMission) {
+      const { data: allMissionData } = await supabaseAdmin
+        .from('missions')
+        .select('id, question, project_title, project_description, mission_order, state')
+        .eq('journey_id', pendingMission.journey_id)
+        .in('state', ['pending_start', 'skipped'])
+        .order('mission_order');
+
+      // Also retrieve the concluded session so vote counts can still be displayed.
+      const { data: concludedSession } = await supabaseAdmin
+        .from('vote_sessions')
+        .select('id')
+        .eq('journey_id', pendingMission.journey_id)
+        .eq('status', 'concluded')
+        .order('ends_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const voteMissions = (allMissionData ?? []).map((m: any) => ({
+        id:                 m.id,
+        question:           m.question,
+        projectTitle:       m.project_title,
+        projectDescription: m.project_description,
+        order:              m.mission_order,
+        state:              m.state,
+      }));
+
+      return NextResponse.json({
+        hasActiveJourney:   false,
+        hasActiveVote:      true,
+        awaitingActivation: true,
+        voteSessionId:      concludedSession?.id ?? null,
+        voteJourneyId:      pendingMission.journey_id,
+        voteEndsAt:         null,
         voteMissions,
       });
     }
