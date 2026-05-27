@@ -6,8 +6,9 @@ import { supabaseAdmin } from '@/lib/supabase-server';
  * Called on every sign-in (idempotent upsert) so the enrollment stays current
  * without a separate background sync job.
  *
- * Fails silently — if GC is unreachable or no courses match, the student simply
- * sees no journeys yet; they'll be enrolled on their next sign-in.
+ * Fails silently — if GC is unreachable or returns an error status, the function
+ * returns early without touching existing enrollments. Only a successful GC response
+ * (with a confirmed course list) triggers the stale-enrollment cleanup in Step 4.
  */
 export async function enrollStudentInJourneys(
   studentId: string,
@@ -24,7 +25,10 @@ export async function enrollStudentInJourneys(
       const data = await res.json();
       courseIds = (data.courses ?? []).map((c: any) => String(c.id));
     } else {
+      // Do not fall through — Step 4 would treat all existing enrollments as stale
+      // and delete them if courseIds remains empty. Return early instead.
       console.log('[enroll] GC API returned', res.status, '— skipping enrollment');
+      return;
     }
   } catch (err) {
     console.log('[enroll] GC unreachable — skipping enrollment:', err);
