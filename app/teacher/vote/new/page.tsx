@@ -98,6 +98,7 @@ function VoteSetupInner() {
         winnerId ?? (votingMissions.sort((a, b) => a.order - b.order)[0]?.id ?? null);
 
       localStorage.removeItem(`voteEnd_${journeyId}`);
+      localStorage.removeItem(`voteSessionId_${journeyId}`);
 
       await Promise.all([
         fetch('/api/teacher/journeys', {
@@ -114,7 +115,13 @@ function VoteSetupInner() {
         ),
       ]);
 
-      router.push('/teacher');
+      // Stay on this page — update UI to show concluded state
+      setVoteActive(false);
+      setVoteEndIso('');
+      // Reload missions to reflect pending_start / skipped states
+      const md = await fetch(`/api/teacher/missions?journeyId=${journeyId}`).then(r => r.json());
+      setMissions(md.missions ?? []);
+      setFinishConfirmOpen(false);
     } finally {
       setManageLoading(false);
     }
