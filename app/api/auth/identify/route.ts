@@ -30,10 +30,14 @@ async function findAuthUserByEmail(email: string): Promise<{ id: string } | null
         Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
       },
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error('[identify] findAuthUserByEmail admin API error:', res.status);
+      return null;
+    }
     const data = await res.json();
     return (data.users as { id: string }[])?.[0] ?? null;
-  } catch {
+  } catch (err) {
+    console.error('[identify] findAuthUserByEmail network error:', err);
     return null;
   }
 }
@@ -78,7 +82,12 @@ async function upsertAuthUserAndToken(
     return null;
   }
 
-  return { authUserId, authToken: (link.properties as any).hashed_token };
+  const hashed_token = (link.properties as { hashed_token?: string }).hashed_token;
+  if (!hashed_token) {
+    console.error('[identify] generateLink missing hashed_token');
+    return null;
+  }
+  return { authUserId, authToken: hashed_token };
 }
 
 export async function POST(req: NextRequest) {
@@ -180,13 +189,16 @@ async function handlePOST(req: NextRequest) {
       student_id: null,
     });
 
-    // Best-effort: store the Supabase Auth UUID back in the users row for linkage.
-    if (authResult?.authUserId) {
-      await supabaseAdmin
-        .from('users')
-        .update({ auth_user_id: authResult.authUserId })
-        .eq('user_id', teacher.user_id);
+    if (!authResult) {
+      console.error('[identify] upsertAuthUserAndToken failed for teacher:', email);
+      return NextResponse.json({ error: 'Failed to create auth session' }, { status: 503 });
     }
+
+    const { error: teacherLinkError } = await supabaseAdmin
+      .from('users')
+      .update({ auth_user_id: authResult.authUserId })
+      .eq('user_id', teacher.user_id);
+    if (teacherLinkError) console.warn('[identify] auth_user_id linkage failed (teacher):', teacherLinkError);
 
     return NextResponse.json({
       role:      'teacher',
@@ -195,7 +207,7 @@ async function handlePOST(req: NextRequest) {
       email,
       name,
       courses,
-      authToken: authResult?.authToken ?? null,
+      authToken: authResult.authToken,
     });
   }
 
@@ -225,13 +237,16 @@ async function handlePOST(req: NextRequest) {
     teacher_id: null,
   });
 
-  // Best-effort: store the Supabase Auth UUID back in the users row for linkage.
-  if (authResult?.authUserId) {
-    await supabaseAdmin
-      .from('users')
-      .update({ auth_user_id: authResult.authUserId })
-      .eq('user_id', student.user_id);
+  if (!authResult) {
+    console.error('[identify] upsertAuthUserAndToken failed for student:', email);
+    return NextResponse.json({ error: 'Failed to create auth session' }, { status: 503 });
   }
+
+  const { error: studentLinkError } = await supabaseAdmin
+    .from('users')
+    .update({ auth_user_id: authResult.authUserId })
+    .eq('user_id', student.user_id);
+  if (studentLinkError) console.warn('[identify] auth_user_id linkage failed (student):', studentLinkError);
 
   return NextResponse.json({
     role:      'student',
@@ -240,6 +255,6 @@ async function handlePOST(req: NextRequest) {
     email,
     name,
     courses:   [],
-    authToken: authResult?.authToken ?? null,
+    authToken: authResult.authToken,
   });
 }
