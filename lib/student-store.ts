@@ -1,18 +1,23 @@
 /**
- * Thin, type-safe localStorage helpers for the student session.
- * All keys are colocated here so nothing is scattered across pages.
+ * Thin, type-safe localStorage helpers for the student UI session.
+ *
+ * SCOPE: display-layer state only (name, avatar URL, onboarding flags,
+ * interest, alien name, journey/mission hints). Nothing here is used
+ * for authentication or authorization — identity comes from the
+ * server-validated Supabase session (see lib/session.ts).
+ *
+ * Sensitive fields (studentId, email) are intentionally absent.
+ * Reading those on the client: use getSessionStudentId() from lib/session.ts.
  */
 
 const K = {
-  EMAIL:              'astroli_email',
-  STUDENT_ID:         'astroli_student_id',
-  FIRST_NAME:         'astroli_first_name',
-  BASE_AVATAR:        'astroli_base_avatar_url',
-  ONBOARDING:         'astroli_onboarding_complete',
-  INTEREST:           'astroli_interest',
-  ALIEN_NAME:         'astroli_alien_name',
-  JOURNEY_ACTIVE:     'astroli_journey_active',
-  MISSION_REVEALED:   'astroli_mission_revealed_id',
+  FIRST_NAME:       'astroli_first_name',
+  BASE_AVATAR:      'astroli_base_avatar_url',
+  ONBOARDING:       'astroli_onboarding_complete',
+  INTEREST:         'astroli_interest',
+  ALIEN_NAME:       'astroli_alien_name',
+  JOURNEY_ACTIVE:   'astroli_journey_active',
+  MISSION_REVEALED: 'astroli_mission_revealed_id',
 } as const;
 
 function ls(): Storage | null {
@@ -21,17 +26,14 @@ function ls(): Storage | null {
 
 // ── Write ────────────────────────────────────────────────────────────────────
 
+/** Display-layer data stored on login. studentId and email are omitted — use lib/session.ts. */
 export interface StudentRecord {
-  studentId:    string;
-  email:        string;
-  firstName:    string;
+  firstName:     string;
   baseAvatarUrl: string | null;
 }
 
 export function saveStudent(r: StudentRecord): void {
   const s = ls(); if (!s) return;
-  s.setItem(K.EMAIL,      r.email);
-  s.setItem(K.STUDENT_ID, r.studentId);
   s.setItem(K.FIRST_NAME, r.firstName);
   if (r.baseAvatarUrl) s.setItem(K.BASE_AVATAR, r.baseAvatarUrl);
 }
@@ -40,15 +42,9 @@ export function saveStudent(r: StudentRecord): void {
 
 export function loadStudent(): StudentRecord | null {
   const s = ls(); if (!s) return null;
-  const studentId = s.getItem(K.STUDENT_ID);
-  const email     = s.getItem(K.EMAIL);
   const firstName = s.getItem(K.FIRST_NAME);
-  if (!studentId || !email || !firstName) return null;
-  return { studentId, email, firstName, baseAvatarUrl: s.getItem(K.BASE_AVATAR) };
-}
-
-export function getStudentId(): string | null {
-  return ls()?.getItem(K.STUDENT_ID) ?? null;
+  if (!firstName) return null;
+  return { firstName, baseAvatarUrl: s.getItem(K.BASE_AVATAR) };
 }
 
 export function getFirstName(): string {
@@ -106,6 +102,8 @@ export function markMissionRevealed(missionId: string): void {
 export function clearSession(): void {
   const s = ls(); if (!s) return;
   Object.values(K).forEach((k) => s.removeItem(k));
+  // Also clear any legacy keys that may have been set by older versions.
+  ['astroli_email', 'astroli_student_id'].forEach(k => s.removeItem(k));
 }
 
 // ── Bot identity ─────────────────────────────────────────────────────────────
@@ -122,7 +120,6 @@ export function generateAlienName(interest: string): string {
 /**
  * Returns the student's bot companion name.
  * Priority: Supabase-persisted name (saved at onboarding) → computed from interest → 'Pip'.
- * The Supabase value is cached in localStorage so this is always synchronous.
  */
 export function getBotName(): string {
   const stored = getAlienName();

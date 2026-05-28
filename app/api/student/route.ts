@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { enrollStudentInJourneys } from '@/lib/enroll-student';
+import { requireAuth, assertStudentSession } from '@/lib/auth';
+import { supabaseAdmin } from '@/lib/supabase-server';
 
 const SUPABASE_URL = process.env.SUPABASE_REST_URL ?? '';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
@@ -115,21 +117,23 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ student_id: userId, alien_name: alienName, base_avatar_url: baseAvatarUrl });
 }
 
-// PATCH /api/student — update alien_name and/or base_avatar_url by student_id (= user_id).
-// Called from the onboarding reveal screen after the alien name is generated.
+// PATCH /api/student — update alien_name and/or base_avatar_url for the
+// authenticated student. The student_id is read from the verified session —
+// any student_id supplied in the body is intentionally ignored.
 export async function PATCH(req: NextRequest) {
-  if (missingConfig()) {
-    return NextResponse.json({ error: 'Server configuration error' }, { status: 503 });
-  }
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
+
+  const sessionError = assertStudentSession(auth.user);
+  if (sessionError) return sessionError;
+
+  const studentId = auth.user.user_metadata.student_id as string;
 
   const body = await req.json().catch(() => ({}));
-  const { student_id, alien_name, base_avatar_url } = body as {
-    student_id?: string;
+  const { alien_name, base_avatar_url } = body as {
     alien_name?: string;
     base_avatar_url?: string;
   };
-
-  if (!student_id) return NextResponse.json({ error: 'student_id is required' }, { status: 400 });
 
   const patch: Record<string, string> = {};
   if (alien_name)      patch.alien_name      = alien_name;
@@ -138,18 +142,13 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  const res = await fetch(
-    `${SUPABASE_URL}users?user_id=eq.${encodeURIComponent(student_id)}`,
-    {
-      method: 'PATCH',
-      headers: { ...supabaseHeaders(), Prefer: 'return=minimal' },
-      body: JSON.stringify(patch),
-    },
-  );
+  const { error } = await supabaseAdmin
+    .from('users')
+    .update(patch)
+    .eq('user_id', studentId);
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => '(unreadable)');
-    console.error('[PATCH /api/student] Supabase error', res.status, text);
+  if (error) {
+    console.error('[PATCH /api/student] Supabase error', error);
     return NextResponse.json({ error: 'Failed to update student' }, { status: 503 });
   }
 

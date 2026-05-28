@@ -83,12 +83,8 @@ export default function LoginPage() {
       }
 
       if (identity.role === 'teacher') {
-        saveTeacher({
-          teacherId: identity.userId,
-          email:     identity.email,
-          name:      identity.name,
-          googleId:  identity.googleId,
-        });
+        // Save display-only data — teacherId/email are in the session cookie.
+        saveTeacher({ name: identity.name });
         saveCourses(identity.courses ?? []);
         router.push('/teacher');
         return;
@@ -112,10 +108,10 @@ export default function LoginPage() {
       const status = await statusRes.json();
 
       if (status.exists) {
-        // ── Existing user ─────────────────────────────────────────────────
+        // ── Existing user — save display-layer data only ──────────────────
+        // studentId and email are NOT stored in localStorage; they live in
+        // the Supabase session cookie set by verifyOtp above.
         saveStudent({
-          studentId:    status.studentId,
-          email:        g.email,
           firstName:    status.firstName ?? g.given_name,
           baseAvatarUrl: status.baseAvatarUrl ?? null,
         });
@@ -135,9 +131,8 @@ export default function LoginPage() {
         });
         if (!regRes.ok) throw new Error('Registration failed');
         const reg = await regRes.json();
+        // Save display-layer data only — studentId/email stay in the session cookie.
         saveStudent({
-          studentId:    reg.student_id,
-          email:        g.email,
           firstName:    g.given_name,
           baseAvatarUrl: reg.base_avatar_url ?? null,
         });

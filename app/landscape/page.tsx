@@ -8,7 +8,7 @@ import OrinOrb from '@/components/OrinOrb';
 import Planet from '@/components/Planet';
 import MissionOverlay from '@/components/MissionOverlay';
 import PipGuidePanel from '@/components/PipGuidePanel';
-import { getBotName, getStudentId, loadStudent } from '@/lib/student-store';
+import { getBotName, loadStudent } from '@/lib/student-store';
 import { getPlantMeta, PLANET_LAYOUT, PLANET_EDGES } from '@/lib/plant-meta';
 
 interface Plant {
@@ -48,12 +48,7 @@ export default function LandscapePage() {
   }, []);
 
   useEffect(() => {
-    const studentId = getStudentId();
-    const url = studentId
-      ? `/api/student/journey?studentId=${studentId}`
-      : '/api/student/journey';
-
-    fetch(url)
+    fetch('/api/student/journey')
       .then(r => r.json())
       .then(({ hasActiveJourney, hasActiveVote, activeMissionId, missionStatus }) => {
         if (!hasActiveJourney) {
@@ -82,14 +77,12 @@ export default function LandscapePage() {
     setShowOverlay(false);
     setReady(true);
     if (mission) {
-      const studentId = getStudentId();
-      if (studentId) {
-        fetch('/api/student/journey', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ studentId, missionId: mission.id, status: 'started' }),
-        }).catch(() => {});
-      }
+      // studentId comes from the server session — not sent in the body.
+      fetch('/api/student/journey', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ missionId: mission.id, status: 'started' }),
+      }).catch(() => {});
     }
   };
 

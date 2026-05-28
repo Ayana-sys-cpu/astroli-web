@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { getStudentId, getBotName, loadStudent } from '@/lib/student-store';
+import { getBotName, loadStudent } from '@/lib/student-store';
+import { getSessionStudentId } from '@/lib/session';
 
 const BOT_URL     = 'https://astorli-bot.vercel.app/api/bot';
 const OPENING_URL = 'https://astorli-bot.vercel.app/api/opening-message';
@@ -58,7 +59,7 @@ export default function AvatarBot() {
     if (!open || !content || openingFetched.current) return;
     openingFetched.current = true;
 
-    const studentId = getStudentId() ?? FALLBACK_ID;
+    const studentId = (await getSessionStudentId()) ?? FALLBACK_ID;
     const { contentType, contentId } = content;
 
     fetch(`${OPENING_URL}?type=${contentType}&contentId=${contentId}&studentId=${studentId}`)
@@ -78,7 +79,7 @@ export default function AvatarBot() {
   async function send(overrideText?: string) {
     const text = (overrideText ?? input).trim();
     if (!text || loading) return;
-    const studentId = getStudentId() ?? FALLBACK_ID;
+    const studentId = (await getSessionStudentId()) ?? FALLBACK_ID;
 
     setMessages(prev => [...prev, { role: 'user', content: text }]);
     setInput('');

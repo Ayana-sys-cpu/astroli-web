@@ -4,6 +4,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { isTeacherSession, clearTeacherSession, getTeacherName } from '@/lib/teacher-store';
+import { supabaseSignOut } from '@/lib/session';
 import StarField from '@/components/StarField';
 
 const NAV = [
@@ -25,7 +26,8 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
   }, [router]);
 
   function handleSignOut() {
-    clearTeacherSession();
+    clearTeacherSession();            // clears display-layer localStorage
+    supabaseSignOut().catch(() => {}); // revokes server session (fire-and-forget)
     router.replace('/');
   }
 

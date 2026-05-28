@@ -1,21 +1,23 @@
 // =============================================================================
 // /api/teacher/courses
 //
-// GET /api/teacher/courses?teacherId=<uuid>
-// Response: { courses: [{ id, name, section }] }
-//
-// Reads gc_courses from the unified users table (previously read from teachers).
-// teacherId is the user_id UUID from the users table.
+// GET — returns the gc_courses list for the authenticated teacher.
+// The teacherId comes from the verified session cookie —
+// any ?teacherId= query param is intentionally ignored.
 // =============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
+import { requireAuth, assertTeacherSession } from '@/lib/auth';
 
 export async function GET(req: NextRequest) {
-  const teacherId = req.nextUrl.searchParams.get('teacherId');
-  if (!teacherId) {
-    return NextResponse.json({ error: 'teacherId required' }, { status: 400 });
-  }
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
+
+  const sessionError = assertTeacherSession(auth.user);
+  if (sessionError) return sessionError;
+
+  const teacherId = auth.user.user_metadata.teacher_id as string;
 
   const { data: user, error } = await supabaseAdmin
     .from('users')

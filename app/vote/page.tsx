@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
 import TopBar from '@/components/TopBar';
 import OrinOrb from '@/components/OrinOrb';
-import { getStudentId, getFirstName } from '@/lib/student-store';
+import { getFirstName } from '@/lib/student-store';
 
 interface VoteMission {
   id: string;
@@ -55,7 +55,6 @@ export default function VotePage() {
   const [previousVoteId, setPreviousVoteId] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
   const [firstName] = useState(() => getFirstName() || 'Traveller');
-  const [studentId] = useState(() => getStudentId() ?? '');
   const [voteCounts, setVoteCounts] = useState<Record<string, number>>({});
 
   const load = useCallback(async () => {
@@ -83,8 +82,8 @@ export default function VotePage() {
 
   // Check if student already voted in this session
   useEffect(() => {
-    if (!state?.voteSessionId || !studentId) return;
-    fetch(`/api/votes?studentId=${studentId}&voteSessionId=${state.voteSessionId}`)
+    if (!state?.voteSessionId) return;
+    fetch(`/api/votes?voteSessionId=${state.voteSessionId}`)
       .then(r => r.json())
       .then(({ bigIdeaId }) => {
         if (bigIdeaId) {
@@ -94,7 +93,7 @@ export default function VotePage() {
         }
       })
       .catch(() => {});
-  }, [state?.voteSessionId, studentId]);
+  }, [state?.voteSessionId]);
 
   // Countdown ticker
   useEffect(() => {
@@ -134,13 +133,14 @@ export default function VotePage() {
   });
 
   async function submitVote() {
-    if (!selectedId || !state?.voteSessionId || !studentId || submitting) return;
+    if (!selectedId || !state?.voteSessionId || submitting) return;
     setSubmitting(true);
     try {
+      // studentId comes from the server session — not sent in the body.
       const res = await fetch('/api/votes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId, voteSessionId: state.voteSessionId, bigIdeaId: selectedId }),
+        body: JSON.stringify({ voteSessionId: state.voteSessionId, bigIdeaId: selectedId }),
       });
       if (res.ok) {
         setPreviousVoteId(selectedId);

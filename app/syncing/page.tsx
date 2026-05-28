@@ -30,14 +30,9 @@ export default function SyncingPage() {
     let alive = true;
 
     // Race: wait for the animation (3.2s) AND the journey check, then route.
+    // studentId comes from the server session — not passed in the URL.
     const delay = new Promise<void>((res) => setTimeout(res, 3200));
-    const studentId = typeof window !== 'undefined'
-      ? window.localStorage.getItem('astroli_student_id')
-      : null;
-    const journeyUrl = studentId
-      ? `/api/student/journey?studentId=${studentId}`
-      : '/api/student/journey';
-    const journeyCheck = fetch(journeyUrl)
+    const journeyCheck = fetch('/api/student/journey')
       .then((r) => {
         // 401 = no session — send back to login rather than silently
         // treating it as "no active journey" (which traps the student).

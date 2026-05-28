@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
 import { getPipMission, type PipMission, type PipPlanet } from '@/lib/pip-guide-data';
-import { getStudentId } from '@/lib/student-store';
+import { getSessionStudentId } from '@/lib/session';
 
 const BOT_URL    = 'https://astorli-bot.vercel.app/api/bot';
 const FALLBACK_ID = '00000000-0000-0000-0000-000000000001';
@@ -528,7 +528,7 @@ function PipGuideChatInner() {
     push({ id: uid(), role: 'user', type: 'text', html: text });
     setTimeout(showTyping, 400);
 
-    const studentId = getStudentId() ?? FALLBACK_ID;
+    const studentId = (await getSessionStudentId()) ?? FALLBACK_ID;
     try {
       const res  = await fetch(BOT_URL, {
         method:  'POST',

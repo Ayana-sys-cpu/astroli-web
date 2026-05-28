@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import StarField from '@/components/StarField';
 import TopBar from '@/components/TopBar';
-import { getStudentId, getInterest, loadStudent } from '@/lib/student-store';
+import { getInterest, loadStudent } from '@/lib/student-store';
 
 // ── Animation variants ──────────────────────────────────────────────────────
 
@@ -58,18 +58,19 @@ export default function PendingJourneyPage() {
   const [typingLive,    setTypingLive]    = useState(false);
   const [journeyId,     setJourneyId]     = useState<string | null>(null);
 
-  // Resolve alien identity from localStorage on mount
+  // Resolve display identity from localStorage on mount.
+  // studentId is not stored in localStorage — if no stored avatar exists,
+  // we fall back to a fixed placeholder until the DB is loaded.
   useEffect(() => {
-    const studentId = getStudentId() ?? '';
-    const interest  = getInterest();
+    const interest = getInterest();
     setAlienName(interest ? generateAlienName(interest) : 'Xylo-Vex');
 
     const record = loadStudent();
     if (record?.baseAvatarUrl) {
       setBaseAvatarUrl(record.baseAvatarUrl);
-    } else if (studentId) {
-      const idx = pickBaseIndex(studentId);
-      setBaseAvatarUrl(`/avatars/base/base-${String(idx).padStart(2, '0')}.png`);
+    } else {
+      // Default to base-01 when no avatar is stored yet.
+      setBaseAvatarUrl('/avatars/base/base-01.png');
     }
   }, []);
 
@@ -88,11 +89,8 @@ export default function PendingJourneyPage() {
 
   const load = useCallback(async () => {
     try {
-      const studentId = getStudentId();
-      const url = studentId
-        ? `/api/student/journey?studentId=${studentId}`
-        : '/api/student/journey';
-      const res = await fetch(url);
+      // studentId comes from the server session — not passed in the URL.
+      const res = await fetch('/api/student/journey');
       // 401 = no session — send back to login.
       if (res.status === 401) { router.replace('/'); return; }
       const data = await res.json();

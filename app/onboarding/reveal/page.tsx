@@ -3,12 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
-import { getStudentId, getFirstName, getInterest, markOnboardingComplete, saveBaseAvatarUrl, saveAlienName, getAlienName, getBaseAvatarUrl, generateAlienName, isOnboardingComplete } from '@/lib/student-store';
-
-function pickBaseIndex(studentId: string): number {
-  const sum = Array.from(studentId.replace(/-/g, '')).reduce((a, c) => a + c.charCodeAt(0), 0);
-  return (sum % 10) + 1;
-}
+import { getFirstName, getInterest, markOnboardingComplete, saveBaseAvatarUrl, saveAlienName, getAlienName, getBaseAvatarUrl, generateAlienName, isOnboardingComplete } from '@/lib/student-store';
 
 export default function RevealPage() {
   const router = useRouter();
@@ -17,15 +12,15 @@ export default function RevealPage() {
   const [showCTA, setShowCTA] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const studentId = getStudentId() ?? '';
   const firstName = getFirstName();
   const interest  = getInterest();
   // Use the identity generated at signup (stored in localStorage by page.tsx).
   // Fall back to the deterministic algorithm for users who signed up before this change.
-  const alienName = getAlienName() ?? (interest ? generateAlienName(interest) : 'Xylo-Vex');
+  const alienName  = getAlienName() ?? (interest ? generateAlienName(interest) : 'Xylo-Vex');
   const storedBase = getBaseAvatarUrl();
-  const baseIndex  = studentId ? pickBaseIndex(studentId) : 1;
-  const baseUrl    = storedBase ?? `/avatars/base/base-${String(baseIndex).padStart(2, '0')}.png`;
+  // Avatar URL is always assigned server-side during registration. Fall back
+  // to base-01 only if the localStorage cache was lost (e.g. browser data cleared).
+  const baseUrl    = storedBase ?? '/avatars/base/base-01.png';
 
   // Returning users (already onboarded) should never see this screen
   useEffect(() => {
@@ -51,14 +46,12 @@ export default function RevealPage() {
 
     // Persist alien name and avatar URL to Supabase so every screen
     // can always load them from the DB rather than recomputing them.
-    const student_id = studentId;
-    if (student_id) {
-      fetch('/api/student', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ student_id, alien_name: alienName, base_avatar_url: baseUrl }),
-      }).catch(() => {});
-    }
+    // student_id is read from the verified session on the server — not sent here.
+    fetch('/api/student', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ alien_name: alienName, base_avatar_url: baseUrl }),
+    }).catch(() => {});
 
     router.push('/syncing');
   };

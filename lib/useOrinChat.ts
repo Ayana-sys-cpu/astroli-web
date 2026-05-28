@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { getStudentId } from '@/lib/student-store';
+import { getSessionStudentId } from '@/lib/session';
 
 const BOT_URL          = 'https://astorli-bot.vercel.app/api/bot';
 const OPENING_URL      = 'https://astorli-bot.vercel.app/api/opening-message';
@@ -32,29 +32,30 @@ export function useOrinChat(
     if (!contentId || !contentType || openingFetched.current) return;
     openingFetched.current = true;
 
-    const studentId = getStudentId() ?? FALLBACK_ID;
-
-    fetch(`${OPENING_URL}?type=${contentType}&contentId=${contentId}&studentId=${studentId}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.message) {
-          setMessages([{
-            role:         'assistant',
-            content:      data.message,
-            quickReplies: data.quickReplies ?? [],
-          }]);
-        }
-      })
-      .catch(() => {
-        // Silently ignore — chat still works without the opening message
-      });
+    getSessionStudentId().then(id => {
+      const studentId = id ?? FALLBACK_ID;
+      fetch(`${OPENING_URL}?type=${contentType}&contentId=${contentId}&studentId=${studentId}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.message) {
+            setMessages([{
+              role:         'assistant',
+              content:      data.message,
+              quickReplies: data.quickReplies ?? [],
+            }]);
+          }
+        })
+        .catch(() => {
+          // Silently ignore — chat still works without the opening message
+        });
+    });
   }, [contentId, contentType]);
 
   async function send(text?: string) {
     const msg = (text ?? input).trim();
     if (!msg || loading) return;
 
-    const studentId = getStudentId() ?? FALLBACK_ID;
+    const studentId = (await getSessionStudentId()) ?? FALLBACK_ID;
     setMessages(prev => [...prev, { role: 'user', content: msg }]);
     setInput('');
     setLoading(true);

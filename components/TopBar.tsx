@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { MOCK_USER } from '@/lib/mock-data';
 import { clearSession } from '@/lib/student-store';
+import { supabaseSignOut } from '@/lib/session';
 
 interface TopBarProps {
   left?: string;
@@ -27,7 +28,8 @@ export default function TopBar({ left, center, showUser = true }: TopBarProps) {
   }, [menuOpen]);
 
   const handleSignOut = () => {
-    clearSession();
+    clearSession();                  // clears display-layer localStorage
+    supabaseSignOut().catch(() => {}); // revokes server session (fire-and-forget)
     router.push('/');
   };
 

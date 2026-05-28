@@ -1,7 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { getTeacherId } from '@/lib/teacher-store';
 
 interface Mission {
   id: string;
@@ -39,9 +38,8 @@ export default function ProgressMatrix() {
   const [loading, setLoading]     = useState(true);
 
   useEffect(() => {
-    const teacherId = getTeacherId();
-    if (!teacherId) return;
-    fetch(`/api/teacher/journeys?teacherId=${teacherId}`)
+    // teacherId comes from the server session — not passed in the URL.
+    fetch('/api/teacher/journeys')
       .then(r => r.json())
       .then(d => {
         const j: Journey[] = d.journeys ?? [];

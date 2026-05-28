@@ -3,7 +3,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { useSupabaseRealtime, type RealtimeMission, type RealtimeVote } from '@/hooks/useSupabaseRealtime';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getTeacherId, getCourses, saveCourses, type CourseRecord } from '@/lib/teacher-store';
+import { getCourses, saveCourses, type CourseRecord } from '@/lib/teacher-store';
 import { toDatetimeLocal } from '@/lib/vote-utils';
 import Countdown from '@/components/Countdown';
 import StudentMobilePreview from '@/components/StudentMobilePreview';
@@ -96,10 +96,9 @@ export default function TeacherDashboard() {
   };
 
   const fetchJourneys = () => {
-    const teacherId = getTeacherId();
-    if (!teacherId) return;
     setLoading(true);
-    fetch(`/api/teacher/journeys?teacherId=${teacherId}`)
+    // teacherId comes from the server session — not passed in the URL.
+    fetch('/api/teacher/journeys')
       .then(r => {
         if (r.status === 401) { router.replace('/'); return { journeys: [] }; }
         if (!r.ok) { console.error('[fetchJourneys] error', r.status); return { journeys: [] }; }
@@ -143,15 +142,15 @@ export default function TeacherDashboard() {
   };
 
   useEffect(() => {
-    const teacherId = getTeacherId();
     const cached = getCourses();
     if (cached.length > 0) {
       setCourses(cached);
       fetchJourneys();
       return;
     }
-    if (teacherId) {
-      fetch(`/api/teacher/courses?teacherId=${teacherId}`)
+    {
+      // teacherId is read from the verified session on the server — not sent in the URL.
+      fetch('/api/teacher/courses')
         .then(r => r.json())
         .then(d => {
           const fetched: CourseRecord[] = d.courses ?? [];
@@ -956,13 +955,11 @@ function ConnectState({
     setConnecting(true);
     setError(null);
     try {
+      // teacherId comes from the server session — not sent in the body.
       const res = await fetch('/api/teacher/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          teacherId: getTeacherId(),
-          courses: [{ id: course.id, name: course.name }],
-        }),
+        body: JSON.stringify({ courses: [{ id: course.id, name: course.name }] }),
       });
       if (!res.ok) throw new Error('Server error');
       onConnected();
