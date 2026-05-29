@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { enrollStudentInJourneys } from '@/lib/enroll-student';
 import { requireAuth, assertStudentSession } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase-server';
+import { z, parseBody } from '@/lib/validate';
 
 const SUPABASE_URL = process.env.SUPABASE_REST_URL ?? '';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
@@ -59,6 +60,20 @@ function pickAvatarUrl(): string {
   return `/avatars/base/base-${String(index).padStart(2, '0')}.png`;
 }
 
+const RegisterSchema = z.object({
+  email:       z.string().trim().email('Valid email required'),
+  full_name:   z.string().trim().min(1, 'full_name is required'),
+  first_name:  z.string().trim().min(1, 'first_name is required'),
+  accessToken: z.string().trim().min(1, 'accessToken is required'),
+});
+
+const PatchStudentSchema = z.object({
+  alien_name:     z.string().trim().min(1).max(50).optional(),
+  base_avatar_url: z.string().trim().url('Must be a valid URL').optional(),
+}).refine(d => d.alien_name || d.base_avatar_url, {
+  message: 'At least one of alien_name or base_avatar_url is required',
+});
+
 // POST /api/student — register a new student, generate their alien identity,
 // persist it to the DB, and return it so the client can cache it immediately.
 export async function POST(req: NextRequest) {
@@ -67,8 +82,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Server configuration error' }, { status: 503 });
   }
 
-  const { email: rawEmail, full_name, first_name, accessToken } = await req.json();
-  if (!rawEmail) return NextResponse.json({ error: 'email is required' }, { status: 400 });
+  const parsed = await parseBody(req, RegisterSchema);
+  if (!parsed.ok) return parsed.response;
+  const { email: rawEmail, full_name, first_name, accessToken } = parsed.data;
   const email = rawEmail.toLowerCase();
 
   const res = await fetch(`${SUPABASE_URL}users?on_conflict=email`, {
@@ -129,18 +145,13 @@ export async function PATCH(req: NextRequest) {
 
   const studentId = auth.user.user_metadata.student_id as string;
 
-  const body = await req.json().catch(() => ({}));
-  const { alien_name, base_avatar_url } = body as {
-    alien_name?: string;
-    base_avatar_url?: string;
-  };
+  const parsed = await parseBody(req, PatchStudentSchema);
+  if (!parsed.ok) return parsed.response;
+  const { alien_name, base_avatar_url } = parsed.data;
 
   const patch: Record<string, string> = {};
-  if (alien_name)      patch.alien_name      = alien_name;
-  if (base_avatar_url) patch.base_avatar_url = base_avatar_url;
-  if (Object.keys(patch).length === 0) {
-    return NextResponse.json({ ok: true });
-  }
+  if (alien_name)       patch.alien_name      = alien_name;
+  if (base_avatar_url)  patch.base_avatar_url = base_avatar_url;
 
   const { error } = await supabaseAdmin
     .from('users')

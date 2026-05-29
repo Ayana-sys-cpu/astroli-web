@@ -15,6 +15,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
+import { parseBody, AccessTokenSchema } from '@/lib/validate';
 
 // ── Auth helpers ───────────────────────────────────────────────────────────────
 
@@ -101,17 +102,9 @@ export async function POST(req: NextRequest) {
 }
 
 async function handlePOST(req: NextRequest) {
-  let body: { accessToken?: string };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
-  }
-
-  const { accessToken } = body;
-  if (!accessToken) {
-    return NextResponse.json({ error: 'accessToken required' }, { status: 400 });
-  }
+  const parsed = await parseBody(req, AccessTokenSchema);
+  if (!parsed.ok) return parsed.response;
+  const { accessToken } = parsed.data;
 
   // ── 1. Resolve Google identity ─────────────────────────────────────────────
   const profileRes = await fetch('https://www.googleapis.com/userinfo/v2/me', {

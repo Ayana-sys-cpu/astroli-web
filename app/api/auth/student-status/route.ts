@@ -20,20 +20,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { enrollStudentInJourneys } from '@/lib/enroll-student';
+import { parseBody, AccessTokenSchema } from '@/lib/validate';
 
 export async function POST(req: NextRequest) {
   // ── 1. Resolve identity from Google access token (server-side) ───────────
-  let accessToken: string;
+  const parsed = await parseBody(req, AccessTokenSchema);
+  if (!parsed.ok) return parsed.response;
+  const { accessToken } = parsed.data;
+
   let email: string;
   let firstName: string;
   let fullName: string;
   try {
-    const body = await req.json();
-    accessToken = body.accessToken;
-    if (!accessToken) {
-      return NextResponse.json({ error: 'accessToken is required' }, { status: 400 });
-    }
-
     const profileRes = await fetch('https://www.googleapis.com/userinfo/v2/me', {
       headers: { Authorization: `Bearer ${accessToken}` },
     });

@@ -28,13 +28,16 @@ importers:
         version: 14.2.29(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       openai:
         specifier: ^6.37.0
-        version: 6.37.0
+        version: 6.37.0(zod@4.4.3)
       react:
         specifier: ^18.3.1
         version: 18.3.1
       react-dom:
         specifier: ^18.3.1
         version: 18.3.1(react@18.3.1)
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@types/node':
         specifier: ^20
@@ -742,6 +745,9 @@ packages:
     resolution: {integrity: sha512-Ux4ygGWsu2c7isFWe8Yu1YluJmqVhxqK2cLXNQA5AcC3QfbGNpM7fu0Y8b/z16pXLnFxZYvWhd3fhBY9DLmC6Q==}
     engines: {node: '>=6'}
 
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
+
 snapshots:
 
   '@alloc/quick-lru@5.2.0': {}
@@ -1130,7 +1136,9 @@ snapshots:
 
   object-hash@3.0.0: {}
 
-  openai@6.37.0: {}
+  openai@6.37.0(zod@4.4.3):
+    optionalDependencies:
+      zod: 4.4.3
 
   path-parse@1.0.7: {}
 
@@ -1333,3 +1341,5 @@ snapshots:
   v8-compile-cache-lib@3.0.1: {}
 
   yn@3.1.1: {}
+
+  zod@4.4.3: {}

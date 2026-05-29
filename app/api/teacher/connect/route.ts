@@ -21,12 +21,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { HARDCODED_MISSIONS } from '@/lib/hardcoded-missions';
 import { requireAuth, assertTeacherSession } from '@/lib/auth';
+import { z, parseBody } from '@/lib/validate';
 
-interface Course {
-  id:       string;
-  name:     string;
-  section?: string | null;
-}
+const ConnectSchema = z.object({
+  courses: z.array(
+    z.object({
+      id:      z.string().trim().min(1, 'Course id is required'),
+      name:    z.string().trim().min(1, 'Course name is required'),
+      section: z.string().nullable().optional(),
+    }),
+  ).min(1, 'At least one course is required'),
+});
+
+type Course = z.infer<typeof ConnectSchema>['courses'][number];
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuth();
@@ -37,17 +44,9 @@ export async function POST(req: NextRequest) {
 
   const teacherId = auth.user.user_metadata.teacher_id as string;
 
-  let body: { teacherId?: string; courses?: Course[] };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
-  }
-
-  const { courses = [] } = body;
-  if (courses.length === 0) {
-    return NextResponse.json({ error: 'at least one course required' }, { status: 400 });
-  }
+  const parsed = await parseBody(req, ConnectSchema);
+  if (!parsed.ok) return parsed.response;
+  const { courses } = parsed.data;
 
   let firstJourneyId: string | null = null;
 

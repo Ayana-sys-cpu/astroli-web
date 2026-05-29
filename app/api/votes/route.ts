@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { requireAuth, assertStudentSession } from '@/lib/auth';
+import { z, parseBody } from '@/lib/validate';
+
+const VoteSchema = z.object({
+  voteSessionId: z.string().trim().uuid('voteSessionId must be a UUID'),
+  bigIdeaId:     z.string().trim().uuid('bigIdeaId must be a UUID'),
+});
 
 // POST /api/votes
 // Upsert a vote for the authenticated student in a vote session.
@@ -15,20 +21,9 @@ export async function POST(req: NextRequest) {
 
   const studentId = auth.user.user_metadata.student_id as string;
 
-  let body: { voteSessionId?: string; bigIdeaId?: string };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
-  }
-
-  const { voteSessionId, bigIdeaId } = body;
-  if (!voteSessionId || !bigIdeaId) {
-    return NextResponse.json(
-      { error: 'voteSessionId and bigIdeaId are required' },
-      { status: 400 },
-    );
-  }
+  const parsed = await parseBody(req, VoteSchema);
+  if (!parsed.ok) return parsed.response;
+  const { voteSessionId, bigIdeaId } = parsed.data;
 
   const { data: session, error: sessionLookupError } = await supabaseAdmin
     .from('vote_sessions')
