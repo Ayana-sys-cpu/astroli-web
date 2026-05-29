@@ -38,9 +38,27 @@ export default function LoginPage() {
   const [gisReady, setGisReady] = useState(false);
   const [linesReady, setLinesReady] = useState(false);
 
+  // Magic link fallback state
+  const [magicEmail,   setMagicEmail]   = useState('');
+  const [magicSent,    setMagicSent]    = useState(false);
+  const [magicLoading, setMagicLoading] = useState(false);
+  const [magicError,   setMagicError]   = useState<string | null>(null);
+
   useEffect(() => {
     const t = setTimeout(() => setLinesReady(true), 400);
     return () => clearTimeout(t);
+  }, []);
+
+  // Surface friendly errors that arrive via redirect from /auth/callback
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('error');
+    if (!code) return;
+    if (code === 'invalid_link')    setError('That sign-in link is invalid or has expired. Please request a new one.');
+    else if (code === 'not_registered') setError('No account found for that email. Please sign in with Google first to create your account.');
+    else if (code === 'service_error')  setError('Service temporarily unavailable. Please try again.');
+    // Clean the param from the URL so a refresh doesn't re-display the error
+    window.history.replaceState({}, '', window.location.pathname);
   }, []);
 
   // Handle GIS script already cached — onLoad won't fire in that case
@@ -144,6 +162,28 @@ export default function LoginPage() {
       console.error('[login]', err);
       setError("Couldn't sign you in. Check your connection and try again.");
       setLoading(false);
+    }
+  };
+
+  const handleMagicLink = async () => {
+    const trimmed = magicEmail.trim().toLowerCase();
+    if (!trimmed || magicLoading) return;
+    setMagicLoading(true);
+    setMagicError(null);
+    try {
+      const { error: otpError } = await getSupabaseBrowserClient().auth.signInWithOtp({
+        email: trimmed,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          shouldCreateUser: false,
+        },
+      });
+      if (otpError) throw otpError;
+      setMagicSent(true);
+    } catch {
+      setMagicError("Couldn't send the link. Check your email and try again.");
+    } finally {
+      setMagicLoading(false);
     }
   };
 
@@ -332,11 +372,83 @@ export default function LoginPage() {
           )}
         </motion.div>
 
+        {/* ── Magic link fallback ────────────────────────────────────── */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.35, duration: 0.5 }}
+          className="w-full mt-2"
+        >
+          {/* "or" rule */}
+          <div className="flex items-center gap-3 my-5">
+            <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
+            <span className="text-[9px] tracking-[0.35em] text-white/20 font-space uppercase">or</span>
+            <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
+          </div>
+
+          {magicSent ? (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center py-2"
+            >
+              <p className="text-xs font-space tracking-widest" style={{ color: '#00F5D4' }}>
+                ✓ CHECK YOUR INBOX
+              </p>
+              <p className="text-[10px] text-white/30 font-inter mt-1.5">
+                We sent a sign-in link to {magicEmail}
+              </p>
+            </motion.div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <input
+                type="email"
+                placeholder="your@email.com"
+                value={magicEmail}
+                onChange={e => setMagicEmail(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleMagicLink()}
+                disabled={magicLoading}
+                className="w-full rounded-lg px-4 font-inter text-sm text-white outline-none"
+                style={{
+                  height: 46,
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  color: 'rgba(255,255,255,0.85)',
+                }}
+              />
+              <button
+                onClick={handleMagicLink}
+                disabled={magicLoading || !magicEmail.trim()}
+                className="w-full rounded-lg font-space font-bold tracking-[0.12em] text-xs transition-all"
+                style={{
+                  height: 46,
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.10)',
+                  color: magicEmail.trim() ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.2)',
+                  cursor: (magicLoading || !magicEmail.trim()) ? 'default' : 'pointer',
+                }}
+              >
+                {magicLoading ? 'SENDING…' : 'EMAIL ME A SIGN-IN LINK'}
+              </button>
+              {magicError && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-xs text-center font-inter"
+                  style={{ color: '#FF6B6B' }}
+                >
+                  {magicError}
+                </motion.p>
+              )}
+            </div>
+          )}
+        </motion.div>
+
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.45 }}
-          className="mt-6 text-[10px] text-white/18 font-inter text-center"
+          className="mt-5 text-[10px] text-white/18 font-inter text-center"
         >
           Sign in with your Google Classroom account
         </motion.p>

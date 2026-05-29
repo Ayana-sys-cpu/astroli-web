@@ -59,21 +59,22 @@ export default function AvatarBot() {
     if (!open || !content || openingFetched.current) return;
     openingFetched.current = true;
 
-    const studentId = (await getSessionStudentId()) ?? FALLBACK_ID;
     const { contentType, contentId } = content;
-
-    fetch(`${OPENING_URL}?type=${contentType}&contentId=${contentId}&studentId=${studentId}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.message) {
-          setMessages([{
-            role:         'assistant',
-            content:      data.message,
-            quickReplies: data.quickReplies ?? [],
-          }]);
-        }
-      })
-      .catch(() => {});
+    getSessionStudentId().then(id => {
+      const studentId = id ?? FALLBACK_ID;
+      fetch(`${OPENING_URL}?type=${contentType}&contentId=${contentId}&studentId=${studentId}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.message) {
+            setMessages([{
+              role:         'assistant',
+              content:      data.message,
+              quickReplies: data.quickReplies ?? [],
+            }]);
+          }
+        })
+        .catch(() => {});
+    });
   }, [open, content]);
 
   async function send(overrideText?: string) {
