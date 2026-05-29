@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getPipMission, type PipPlanet, type WorldBriefItem } from '@/lib/pip-guide-data';
+import type { PipMission, PipPlanet, WorldBriefItem } from '@/lib/pip-mission-types';
 
 // =============================================================================
 // Design tokens — matches pip-guide/page.tsx exactly
@@ -571,7 +571,7 @@ function DoneDock() {
 // =============================================================================
 
 export default function PipGuidePanel({ missionOrder, firstPlanet, onLaunch }: PipGuidePanelProps) {
-  const mission = getPipMission(missionOrder);
+  const [mission, setMission] = useState<PipMission | null>(null);
 
   const [messages,      setMessages]      = useState<ChatMsg[]>([]);
   const [dock,          setDock]          = useState<DockState>('lock');
@@ -579,7 +579,7 @@ export default function PipGuidePanel({ missionOrder, firstPlanet, onLaunch }: P
   const [missionQaIdx,  setMissionQaIdx]  = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // CHANGE 4: auto-scroll to bottom on new messages
+  // Auto-scroll to bottom on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
@@ -595,8 +595,18 @@ export default function PipGuidePanel({ missionOrder, firstPlanet, onLaunch }: P
     ]);
   }, []);
 
-  // Opening two messages on mount
+  // ── Fetch mission data from DB ─────────────────────────────────────────────
   useEffect(() => {
+    fetch(`/api/mission?order=${missionOrder}`)
+      .then((r) => r.json())
+      .then(setMission)
+      .catch(console.error);
+  }, [missionOrder]);
+
+  // ── Show opening messages once mission data has loaded ─────────────────────
+  // Cleanup ensures strict-mode double-fire clears first-set timers before second.
+  useEffect(() => {
+    if (!mission) return;
     const t1 = setTimeout(() => showTyping(), 300);
     const t2 = setTimeout(() => {
       push({
@@ -611,14 +621,14 @@ export default function PipGuidePanel({ missionOrder, firstPlanet, onLaunch }: P
     }, 3400);
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [mission]);
 
   function handleGenerateBrief() {
     setDock('lock');
     push({ id: uid(), role: 'user', type: 'chip', icon: '🌐', text: 'Generate World Brief' });
     setTimeout(showTyping, 400);
     setTimeout(() => {
-      push({ id: uid(), role: 'pip', type: 'brief', items: mission.worldBriefItems, summary: mission.worldBriefSummary });
+      push({ id: uid(), role: 'pip', type: 'brief', items: mission!.worldBriefItems, summary: mission!.worldBriefSummary });
       setTimeout(showTyping, 300);
       setTimeout(() => {
         push({
@@ -632,7 +642,7 @@ export default function PipGuidePanel({ missionOrder, firstPlanet, onLaunch }: P
 
   function handleQA(text: string) {
     push({ id: uid(), role: 'user', type: 'text', html: text });
-    const ans = mission.qaAnswers[qaIdx % mission.qaAnswers.length];
+    const ans = mission!.qaAnswers[qaIdx % mission!.qaAnswers.length];
     setQaIdx((q) => q + 1);
     setTimeout(showTyping, 400);
     setTimeout(() => {
@@ -647,9 +657,9 @@ export default function PipGuidePanel({ missionOrder, firstPlanet, onLaunch }: P
     setTimeout(() => {
       push({
         id: uid(), role: 'pip', type: 'mission',
-        chapter:   mission.chapter,
-        title:     mission.projectTitle,
-        objective: mission.projectObjective,
+        chapter:   mission!.chapter,
+        title:     mission!.projectTitle,
+        objective: mission!.projectObjective,
       });
     }, 1400);
     setTimeout(showTyping, 2700);
@@ -664,7 +674,7 @@ export default function PipGuidePanel({ missionOrder, firstPlanet, onLaunch }: P
 
   function handleMissionQA(text: string) {
     push({ id: uid(), role: 'user', type: 'text', html: text });
-    const ans = mission.missionQaAnswers[missionQaIdx % mission.missionQaAnswers.length];
+    const ans = mission!.missionQaAnswers[missionQaIdx % mission!.missionQaAnswers.length];
     setMissionQaIdx((q) => q + 1);
     setTimeout(showTyping, 400);
     setTimeout(() => {
@@ -677,7 +687,7 @@ export default function PipGuidePanel({ missionOrder, firstPlanet, onLaunch }: P
     push({ id: uid(), role: 'user', type: 'chip', icon: '✓', text: 'Got it — Accept Mission' });
     setTimeout(showTyping, 400);
     setTimeout(() => {
-      push({ id: uid(), role: 'pip', type: 'howto', planets: mission.planets });
+      push({ id: uid(), role: 'pip', type: 'howto', planets: mission!.planets });
       setDock('launch');
     }, 1600);
   }
@@ -707,8 +717,17 @@ export default function PipGuidePanel({ missionOrder, firstPlanet, onLaunch }: P
     }
   }
 
+  // ── Loading guard ──────────────────────────────────────────────────────────
+  if (!mission) {
+    return (
+      <div className="flex flex-col flex-1 min-h-0 overflow-hidden items-center justify-center">
+        <div style={{ color: '#00d4d4', fontSize: 12, letterSpacing: '0.2em', opacity: 0.6 }}>LOADING…</div>
+      </div>
+    );
+  }
+
   return (
-    // CHANGE 4: flex column fills the sidebar, content area scrolls
+    // flex column fills the sidebar, content area scrolls
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
 
       {/* Scrollable message area */}

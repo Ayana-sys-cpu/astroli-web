@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
-import { getPipMission, type PipMission, type PipPlanet } from '@/lib/pip-guide-data';
+import type { PipMission, PipPlanet } from '@/lib/pip-mission-types';
 import { getSessionStudentId } from '@/lib/session';
 
 const BOT_URL    = 'https://astorli-bot.vercel.app/api/bot';
@@ -465,7 +465,7 @@ function PipGuideChatInner() {
   const router  = useRouter();
   const params  = useSearchParams();
   const mOrder  = parseInt(params.get('m') ?? '1', 10);
-  const mission = getPipMission(mOrder);
+  const [mission, setMission] = useState<PipMission | null>(null);
 
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [dock,     setDock]     = useState<DockState>('lock');
@@ -489,10 +489,24 @@ function PipGuideChatInner() {
     ]);
   }, []);
 
-  // ── Init: show Pip's opening message on mount ────────────────────────────────
-  // Cleanup ensures strict-mode double-fire clears the first set of timers
-  // before the second fires — so we always get exactly one message.
+  // ── Fetch mission data from DB whenever the mission order changes ─────────────
   useEffect(() => {
+    setMission(null);
+    setMessages([]);
+    setDock('lock');
+    setQaIdx(0);
+    fetch(`/api/mission?order=${mOrder}`)
+      .then((r) => r.json())
+      .then(setMission)
+      .catch(console.error);
+  }, [mOrder]);
+
+  // ── Show Pip's opening message once mission data has loaded ───────────────────
+  // Cleanup ensures strict-mode double-fire clears first-set timers before second
+  // fires — so we always get exactly one message.
+  useEffect(() => {
+    if (!mission) return;
+    _idCounter = 0;
     const t1 = setTimeout(() => showTyping(), 300);
     const t2 = setTimeout(() => {
       push({
@@ -503,7 +517,7 @@ function PipGuideChatInner() {
     }, 1600);
     return () => { clearTimeout(t1); clearTimeout(t2); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [mission]);
 
   // ── Flow: Generate World Brief ───────────────────────────────────────────────
   function handleGenerateBrief() {
@@ -511,7 +525,7 @@ function PipGuideChatInner() {
     push({ id: uid(), role: 'user', type: 'chip', icon: '🌐', text: 'Generate World Brief' });
     setTimeout(showTyping, 400);
     setTimeout(() => {
-      push({ id: uid(), role: 'pip', type: 'brief', content: mission.worldBrief });
+      push({ id: uid(), role: 'pip', type: 'brief', content: mission!.worldBrief });
       setTimeout(showTyping, 300);
       setTimeout(() => {
         push({
@@ -536,11 +550,11 @@ function PipGuideChatInner() {
         body:    JSON.stringify({ studentId, message: text, screen: 'mission_landscape_hub' }),
       });
       const data = await res.json();
-      push({ id: uid(), role: 'pip', type: 'text', html: data.message ?? mission.qaAnswers[0] });
+      push({ id: uid(), role: 'pip', type: 'text', html: data.message ?? mission!.qaAnswers[0] });
     } catch {
       // Fallback to hardcoded answer if AI is unreachable
       setQaIdx((q) => {
-        push({ id: uid(), role: 'pip', type: 'text', html: mission.qaAnswers[q % mission.qaAnswers.length] });
+        push({ id: uid(), role: 'pip', type: 'text', html: mission!.qaAnswers[q % mission!.qaAnswers.length] });
         return q + 1;
       });
     }
@@ -555,15 +569,15 @@ function PipGuideChatInner() {
     setTimeout(() => {
       push({
         id: uid(), role: 'pip', type: 'mission',
-        chapter: mission.chapter,
-        title:   mission.projectTitle,
-        objective: mission.projectObjective,
+        chapter: mission!.chapter,
+        title:   mission!.projectTitle,
+        objective: mission!.projectObjective,
       });
     }, 1400);
     // How-To card
     setTimeout(showTyping, 2500);
     setTimeout(() => {
-      push({ id: uid(), role: 'pip', type: 'howto', planets: mission.planets });
+      push({ id: uid(), role: 'pip', type: 'howto', planets: mission!.planets });
       setDock('launch');
     }, 3900);
   }
@@ -618,6 +632,15 @@ function PipGuideChatInner() {
             M{n}
           </button>
         ))}
+      </div>
+    );
+  }
+
+  // ── Loading guard ────────────────────────────────────────────────────────────
+  if (!mission) {
+    return (
+      <div style={{ background: T.bg, minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ color: T.ac, fontSize: 12, letterSpacing: '0.2em', opacity: 0.6 }}>LOADING…</div>
       </div>
     );
   }
