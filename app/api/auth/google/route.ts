@@ -28,6 +28,45 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { parseBody, AuthCodeSchema } from '@/lib/validate';
+import { enrollStudentInJourneys } from '@/lib/enroll-student';
+
+// ── Alien identity helpers (mirrors /api/student) ─────────────────────────────
+
+const ALIEN_PREFIXES = ['Xylo','Kael','Zyr','Vor','Nexo','Ael','Crix','Thal','Grix','Oru','Vex','Nyx','Zara','Phos','Quill'];
+const ALIEN_SUFFIXES = ['-9','-Flux','-Prime','-Zyx','-Omni','-Sol','-Nix','-Ren','-X','-Pulse','-Arc','-Zero'];
+
+function fallbackAlienName(): string {
+  const p = ALIEN_PREFIXES[Math.floor(Math.random() * ALIEN_PREFIXES.length)];
+  const s = ALIEN_SUFFIXES[Math.floor(Math.random() * ALIEN_SUFFIXES.length)];
+  return p + s;
+}
+
+async function generateAlienName(): Promise<string> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return fallbackAlienName();
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 16,
+        messages: [{ role: 'user', content: "Invent one unique sci-fi alien name for a student's avatar companion in a space learning game. One word, 5–10 characters, kid-friendly, memorable, no real words. Reply with ONLY the name." }],
+      }),
+    });
+    if (!res.ok) return fallbackAlienName();
+    const json = await res.json();
+    const n = (json.content?.[0]?.text ?? '').trim().replace(/[^A-Za-z0-9\-]/g, '');
+    return n.length >= 3 && n.length <= 20 ? n : fallbackAlienName();
+  } catch {
+    return fallbackAlienName();
+  }
+}
+
+function pickAvatarUrl(): string {
+  const index = Math.floor(Math.random() * 10) + 1;
+  return `/avatars/base/base-${String(index).padStart(2, '0')}.png`;
+}
 
 // ── Shared helpers (mirrors /api/auth/identify) ───────────────────────────────
 
@@ -212,19 +251,45 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 4b. Student path ──────────────────────────────────────────────────────
+  // Check existence before upsert so we know whether to generate an identity.
+  const { data: existing } = await supabaseAdmin
+    .from('users')
+    .select('user_id, first_name, base_avatar_url, alien_name')
+    .eq('email', email)
+    .maybeSingle();
+
+  const isNewStudent = !existing;
+
+  // Upsert user row — safe to call on every sign-in.
   const { data: student, error: studentError } = await supabaseAdmin
     .from('users')
     .upsert(
       { email, role: 'student', full_name: name ?? '', first_name: nameParts[0] ?? '' },
       { onConflict: 'email' },
     )
-    .select('user_id')
+    .select('user_id, first_name, base_avatar_url, alien_name')
     .single();
 
   if (studentError || !student) {
     console.error('[google] upsert student error:', studentError);
     return NextResponse.json({ error: 'Failed to save student' }, { status: 503 });
   }
+
+  // Generate alien identity for new students; reuse existing for returning ones.
+  let alienName    = student.alien_name   as string | null;
+  let baseAvatarUrl = student.base_avatar_url as string | null;
+
+  if (isNewStudent) {
+    [alienName, baseAvatarUrl] = await Promise.all([generateAlienName(), Promise.resolve(pickAvatarUrl())]);
+    // Persist async — don't block the response.
+    void supabaseAdmin
+      .from('users')
+      .update({ alien_name: alienName, base_avatar_url: baseAvatarUrl })
+      .eq('user_id', student.user_id);
+  }
+
+  // Sync journey enrollment fire-and-forget — uses server-side access token.
+  enrollStudentInJourneys(student.user_id, accessToken).catch(() => {});
 
   const authResult = await upsertAuthUserAndToken(email, {
     role: 'student', student_id: student.user_id, teacher_id: null,
@@ -235,5 +300,14 @@ export async function POST(req: NextRequest) {
 
   await supabaseAdmin.from('users').update({ auth_user_id: authResult.authUserId }).eq('user_id', student.user_id);
 
-  return NextResponse.json({ role: 'student', name, email, courses: [], authToken: authResult.authToken });
+  return NextResponse.json({
+    role:         'student',
+    name,
+    email,
+    authToken:    authResult.authToken,
+    isNewStudent,
+    firstName:    (student.first_name ?? nameParts[0]) as string,
+    baseAvatarUrl,
+    alienName,
+  });
 }

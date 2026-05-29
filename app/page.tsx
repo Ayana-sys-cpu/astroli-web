@@ -80,84 +80,44 @@ export default function LoginPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleGoogleUser = async (accessToken: string) => {
+  // Authorization code flow — the code is exchanged server-side for an access
+  // token so it never touches the browser. One round-trip replaces the old
+  // identify + student-status + registration chain.
+  const handleGoogleCode = async (code: string) => {
     try {
-      // Identify role via Google Classroom check (server-side)
-      const identifyRes = await fetch('/api/auth/identify', {
+      const res = await fetch('/api/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken }),
+        body: JSON.stringify({ code }),
       });
-      if (!identifyRes.ok) throw new Error('Identity check failed');
-      const identity = await identifyRes.json();
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(`Auth failed (${res.status}): ${err.error ?? 'unknown'}`);
+      }
+      const data = await res.json();
 
-      // Exchange the one-time authToken for a Supabase session stored in cookies.
-      // This must happen before any subsequent authenticated API call.
-      if (identity.authToken) {
+      // Establish the Supabase session in cookies before any page navigation.
+      if (data.authToken) {
         await getSupabaseBrowserClient().auth.verifyOtp({
-          token_hash: identity.authToken,
+          token_hash: data.authToken,
           type: 'email',
         });
       }
 
-      if (identity.role === 'teacher') {
-        // Save display-only data — teacherId/email are in the session cookie.
-        saveTeacher({ name: identity.name });
-        saveCourses(identity.courses ?? []);
+      if (data.role === 'teacher') {
+        saveTeacher({ name: data.name });
+        saveCourses(data.courses ?? []);
         router.push('/teacher');
         return;
       }
 
       // ── Student path ──────────────────────────────────────────────────────
-      const g = { email: identity.email, name: identity.name, given_name: identity.name.split(' ')[0] };
+      saveStudent({ firstName: data.firstName, baseAvatarUrl: data.baseAvatarUrl ?? null });
+      if (data.alienName)     saveAlienName(data.alienName);
+      if (data.baseAvatarUrl) saveBaseAvatarUrl(data.baseAvatarUrl);
+      if (!data.isNewStudent) markOnboardingComplete();
 
-      // Server-side routing gate: resolves the student's onboarding state from
-      // the DB. A non-2xx here means a real server error — surface it rather
-      // than silently treating the user as new (which caused the regression).
-      const statusRes = await fetch('/api/auth/student-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken }),
-      });
-      if (!statusRes.ok) {
-        const err = await statusRes.json().catch(() => ({}));
-        throw new Error(`Identity check failed (${statusRes.status}): ${err.error ?? 'unknown'}`);
-      }
-      const status = await statusRes.json();
-
-      if (status.exists) {
-        // ── Existing user — save display-layer data only ──────────────────
-        // studentId and email are NOT stored in localStorage; they live in
-        // the Supabase session cookie set by verifyOtp above.
-        saveStudent({
-          firstName:    status.firstName ?? g.given_name,
-          baseAvatarUrl: status.baseAvatarUrl ?? null,
-        });
-        if (status.alienName)    saveAlienName(status.alienName);
-        if (status.baseAvatarUrl) saveBaseAvatarUrl(status.baseAvatarUrl);
-        if (status.onboardingComplete) markOnboardingComplete();
-
-        // NOTE: Do not auto-create Journeys here. Journey creation requires
-        // explicit teacher activation (docs/architecture/DB_ARCHITECTURE.md §4.2).
-        router.push(status.onboardingComplete ? '/syncing' : '/onboarding/interest');
-      } else {
-        // ── New user: register then onboard ──────────────────────────────
-        const regRes = await fetch('/api/student', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: g.email, full_name: g.name, first_name: g.given_name, accessToken }),
-        });
-        if (!regRes.ok) throw new Error('Registration failed');
-        const reg = await regRes.json();
-        // Save display-layer data only — studentId/email stay in the session cookie.
-        saveStudent({
-          firstName:    g.given_name,
-          baseAvatarUrl: reg.base_avatar_url ?? null,
-        });
-        if (reg.alien_name)    saveAlienName(reg.alien_name);
-        if (reg.base_avatar_url) saveBaseAvatarUrl(reg.base_avatar_url);
-        router.push('/onboarding/interest');
-      }
+      router.push(data.isNewStudent ? '/onboarding/interest' : '/syncing');
     } catch (err) {
       console.error('[login]', err);
       setError("Couldn't sign you in. Check your connection and try again.");
@@ -191,19 +151,22 @@ export default function LoginPage() {
     if (!gisReady || loading) return;
     setLoading(true);
     setError(null);
-    const client = (window as any).google.accounts.oauth2.initTokenClient({
+    // Authorization code flow — Google returns a one-time code, not a token.
+    // The code is exchanged server-side in /api/auth/google using GOOGLE_CLIENT_SECRET.
+    const client = (window as any).google.accounts.oauth2.initCodeClient({
       client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
       scope: 'email profile https://www.googleapis.com/auth/classroom.courses.readonly',
+      ux_mode: 'popup',
       callback: (resp: any) => {
-        if (resp.error || !resp.access_token) {
+        if (resp.error || !resp.code) {
           setError("Couldn't sign you in. Please try again.");
           setLoading(false);
           return;
         }
-        handleGoogleUser(resp.access_token);
+        handleGoogleCode(resp.code);
       },
     });
-    client.requestAccessToken();
+    client.requestCode();
   };
 
   return (
