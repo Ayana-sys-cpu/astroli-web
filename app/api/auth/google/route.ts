@@ -171,7 +171,11 @@ export async function POST(req: NextRequest) {
   if (!tokenRes.ok) {
     const detail = await tokenRes.json().catch(() => ({}));
     console.error('[google] token exchange failed:', detail);
-    return NextResponse.json({ error: 'Failed to exchange authorization code' }, { status: 401 });
+    // detail.error + detail.error_description surfaced temporarily for debugging
+    return NextResponse.json(
+      { error: 'Failed to exchange authorization code', reason: detail.error, description: detail.error_description },
+      { status: 401 },
+    );
   }
 
   const { access_token: accessToken } = await tokenRes.json();
