@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server';
 
 // Routes that do NOT require a session. Everything else under /api/* does.
 const PUBLIC_API_ROUTES = new Set([
+  '/api/auth/google',    // login endpoint — must be reachable before a session exists
   '/api/auth/identify',
   '/api/auth/student-status',
   '/api/vote-counts',
