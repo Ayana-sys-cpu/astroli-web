@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Script from 'next/script';
 import StarField from '@/components/StarField';
-import { saveStudent, markOnboardingComplete, saveAlienName, saveBaseAvatarUrl } from '@/lib/student-store';
+import { saveStudent, markOnboardingComplete, saveAlienName, saveBaseAvatarUrl, clearSession } from '@/lib/student-store';
 import { saveTeacher, saveCourses } from '@/lib/teacher-store';
 import { createBrowserClient } from '@supabase/ssr';
 
@@ -112,6 +112,12 @@ export default function LoginPage() {
       }
 
       // ── Student path ──────────────────────────────────────────────────────
+      // If the server treats this as a new student, wipe any stale localStorage
+      // (e.g. onboarding_complete flag from a deleted account or a previous user
+      // on the same device) before writing fresh values. This ensures the
+      // interest page never bypasses onboarding based on outdated local state.
+      if (data.isNewStudent) clearSession();
+
       saveStudent({ firstName: data.firstName, baseAvatarUrl: data.baseAvatarUrl ?? null });
       if (data.alienName)     saveAlienName(data.alienName);
       if (data.baseAvatarUrl) saveBaseAvatarUrl(data.baseAvatarUrl);
