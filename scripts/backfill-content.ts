@@ -4,22 +4,46 @@
 // One-time backfill: populates the new content columns on all existing
 // missions and plants rows in Supabase.
 //
-// Run AFTER adding the DB columns (see SQL below), BEFORE deploying.
+// Run AFTER adding the DB columns in Supabase dashboard.
 //
 // Usage (from src/astroli-web directory):
-//   export NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-//   export SUPABASE_SERVICE_ROLE_KEY=eyJ...
-//   npx tsx scripts/backfill-content.ts
+//   pnpm dlx tsx scripts/backfill-content.ts
 //
-// Or in one line:
-//   NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... npx tsx scripts/backfill-content.ts
+// Reads credentials automatically from .env.local — no env vars needed.
 // =============================================================================
+
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
+// ── Load .env.local automatically ─────────────────────────────────────────────
+try {
+  const envPath = join(process.cwd(), '.env.local');
+  const lines   = readFileSync(envPath, 'utf-8').split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eqIdx = trimmed.indexOf('=');
+    if (eqIdx === -1) continue;
+    const key = trimmed.slice(0, eqIdx).trim();
+    let   val = trimmed.slice(eqIdx + 1).trim();
+    // Strip surrounding quotes (single or double)
+    if (val.length >= 2 &&
+        ((val.startsWith('"') && val.endsWith('"')) ||
+         (val.startsWith("'") && val.endsWith("'")))) {
+      val = val.slice(1, -1);
+    }
+    if (!process.env[key]) process.env[key] = val;
+  }
+} catch {
+  // .env.local not found — fall back to environment variables already set
+}
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
 if (!SUPABASE_URL || !SERVICE_KEY) {
-  console.error('❌  Missing env vars: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.');
+  console.error('❌  Could not find NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.');
+  console.error('    Make sure you run this from the src/astroli-web directory (where .env.local lives).');
   process.exit(1);
 }
 

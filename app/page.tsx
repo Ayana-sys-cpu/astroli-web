@@ -159,7 +159,6 @@ export default function LoginPage() {
       ux_mode: 'popup',
       callback: (resp: any) => {
         if (resp.error || !resp.code) {
-          console.error('[google-popup] error:', resp.error, resp);
           setError("Couldn't sign you in. Please try again.");
           setLoading(false);
           return;
