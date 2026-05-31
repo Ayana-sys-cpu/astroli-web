@@ -1,7 +1,7 @@
 'use client';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface Plant {
+interface Planet {
   id: string;
   title: string;
 }
@@ -11,7 +11,7 @@ export interface PreviewMission {
   questionDescription?: string | null;
   projectTitle: string;
   order: number;
-  plants?: Plant[];
+  planets?: Planet[];
 }
 
 interface StudentMobilePreviewProps {
@@ -72,22 +72,22 @@ export default function StudentMobilePreview({ mission, onClose }: StudentMobile
                 <p className="font-space font-bold text-sm leading-snug" style={{ color: '#E8E8F0' }}>{mission.question}</p>
               </div>
 
-              {mission.plants && mission.plants.length > 0 && (
+              {mission.planets && mission.planets.length > 0 && (
                 <div>
                   <p className="font-space text-[9px] tracking-[0.2em] mb-2" style={{ color: 'rgba(232,232,240,0.3)' }}>
                     YOUR PLANETS TO EXPLORE
                   </p>
                   <div className="flex flex-col gap-2">
-                    {mission.plants.map((plant, pi) => (
+                    {mission.planets.map((planet, pi) => (
                       <div
-                        key={plant.id}
+                        key={planet.id}
                         className="flex items-center gap-3 rounded-xl px-3 py-2.5"
                         style={{ background: 'rgba(232,232,240,0.03)', border: '1px solid rgba(232,232,240,0.07)', opacity: pi === 0 ? 1 : 0.45 }}
                       >
                         <div style={{ width: 28, height: 28, borderRadius: '50%', background: pi === 0 ? 'rgba(124,58,237,0.3)' : 'rgba(232,232,240,0.05)', border: `1px solid ${pi === 0 ? 'rgba(124,58,237,0.5)' : 'rgba(232,232,240,0.1)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                           <span style={{ fontSize: 11, color: pi === 0 ? '#A78BFA' : 'rgba(232,232,240,0.3)' }}>🪐</span>
                         </div>
-                        <p className="font-space font-bold text-xs" style={{ color: pi === 0 ? '#E8E8F0' : 'rgba(232,232,240,0.4)' }}>{plant.title}</p>
+                        <p className="font-space font-bold text-xs" style={{ color: pi === 0 ? '#E8E8F0' : 'rgba(232,232,240,0.4)' }}>{planet.title}</p>
                         {pi === 0 && (
                           <span className="ml-auto font-space text-[9px] font-bold px-2 py-0.5 rounded" style={{ background: 'rgba(124,58,237,0.2)', color: '#A78BFA', border: '1px solid rgba(124,58,237,0.3)' }}>
                             START

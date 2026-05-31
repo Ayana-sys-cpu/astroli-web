@@ -15,12 +15,12 @@ export interface ChatMessage  {
 }
 
 // screen      — which screen the student is on (big_question, plant_screen, etc.)
-// contentId   — the mission or plant DB id (e.g. 'seed-mission-1', 'seed-plant-2-3')
-// contentType — 'mission' | 'plant' — determines which table to query
+// contentId   — the mission or planet DB id (e.g. 'seed-mission-1', 'seed-planet-2-3')
+// contentType — 'mission' | 'planet' — determines which table to query
 export function useOrinChat(
   screen:       string,
   contentId?:   string,
-  contentType?: 'mission' | 'plant'
+  contentType?: 'mission' | 'planet'
 ) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input,    setInput]    = useState('');
@@ -68,7 +68,7 @@ export function useOrinChat(
           studentId,
           message:        msg,
           screen,
-          currentPlant:   contentType === 'plant'   ? contentId : undefined,
+          currentPlanet:  contentType === 'planet'  ? contentId : undefined,
           currentMission: contentType === 'mission' ? contentId : undefined,
         }),
       });

@@ -10,7 +10,7 @@
 //   For each course:
 //     1. Upsert a journey row (keyed by google_course_id — safe to re-call).
 //     2. If the journey is brand new (no missions yet), seed it with the
-//        3 hardcoded missions and all 16 hardcoded plants automatically.
+//        3 hardcoded missions and all 16 hardcoded planets automatically.
 //
 // Returns the first journey's id as journeyId (matches existing contract).
 //
@@ -215,8 +215,8 @@ export async function POST(req: NextRequest) {
 }
 
 // -----------------------------------------------------------------------------
-// seedJourney — inserts 3 hardcoded missions + all plants for a new journey.
-// Runs missions one at a time (sequential) so the plants FK is always satisfied.
+// seedJourney — inserts 3 hardcoded missions + all planets for a new journey.
+// Runs missions one at a time (sequential) so the planets FK is always satisfied.
 // -----------------------------------------------------------------------------
 async function seedJourney(journeyId: string, teacherId: string): Promise<void> {
   for (const missionSeed of HARDCODED_MISSIONS) {
@@ -254,10 +254,10 @@ async function seedJourney(journeyId: string, teacherId: string): Promise<void> 
       continue;
     }
 
-    const { error: plantsError } = await supabaseAdmin
-      .from('plants')
+    const { error: planetsError } = await supabaseAdmin
+      .from('planets')
       .insert(
-        missionSeed.plants.map(p => ({
+        missionSeed.planets.map(p => ({
           mission_id:      mission.id,
           title:           p.title,
           label:           p.label,
@@ -271,8 +271,8 @@ async function seedJourney(journeyId: string, teacherId: string): Promise<void> 
         })),
       );
 
-    if (plantsError) {
-      console.error('[seedJourney] insert plants for mission', mission.id, plantsError);
+    if (planetsError) {
+      console.error('[seedJourney] insert planets for mission', mission.id, planetsError);
     }
   }
 }

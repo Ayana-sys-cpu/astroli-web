@@ -11,16 +11,16 @@ const FALLBACK_ID = '00000000-0000-0000-0000-000000000001';
 
 function screenFromPath(pathname: string): string {
   if (pathname.startsWith('/onboarding'))   return 'onboarding';
-  if (pathname.startsWith('/landscape'))    return 'plant_screen';
+  if (pathname.startsWith('/landscape'))    return 'planet_screen';
   if (pathname.startsWith('/mission'))      return 'mission_landscape_hub';
   return 'mission_landscape_hub';
 }
 
 // Derive content type + ID from the URL so the floating bot can load opening messages.
-// landscape/[id] → plant  |  mission/[id] → mission (ID extracted from URL segment)
-function contentFromPath(pathname: string): { contentType: 'mission' | 'plant'; contentId: string } | null {
-  const plantMatch = pathname.match(/^\/landscape\/([^/]+)/);
-  if (plantMatch) return { contentType: 'plant', contentId: plantMatch[1] };
+// landscape/[id] → planet  |  mission/[id] → mission (ID extracted from URL segment)
+function contentFromPath(pathname: string): { contentType: 'mission' | 'planet'; contentId: string } | null {
+  const planetMatch = pathname.match(/^\/landscape\/([^/]+)/);
+  if (planetMatch) return { contentType: 'planet', contentId: planetMatch[1] };
 
   const missionMatch = pathname.match(/^\/mission\/([^/]+)/);
   if (missionMatch) return { contentType: 'mission', contentId: missionMatch[1] };
@@ -53,7 +53,7 @@ export default function AvatarBot() {
   const screen  = screenFromPath(pathname);
   const content = contentFromPath(pathname);
 
-  // When the panel opens for the first time on a mission/plant screen,
+  // When the panel opens for the first time on a mission/planet screen,
   // fetch Pip's opening message from the shared bot API.
   useEffect(() => {
     if (!open || !content || openingFetched.current) return;
@@ -94,7 +94,7 @@ export default function AvatarBot() {
           studentId,
           message:        text,
           screen,
-          currentPlant:   content?.contentType === 'plant'   ? content.contentId : undefined,
+          currentPlanet:  content?.contentType === 'planet'  ? content.contentId : undefined,
           currentMission: content?.contentType === 'mission' ? content.contentId : undefined,
         }),
       });

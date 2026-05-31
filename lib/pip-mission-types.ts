@@ -10,7 +10,7 @@
 
 export interface PipPlanet {
   icon: string;
-  name: string; // = plant label
+  name: string; // = planet label
   hint: string; // short one-line description
 }
 

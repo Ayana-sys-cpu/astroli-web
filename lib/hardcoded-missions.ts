@@ -8,7 +8,7 @@
 // To add a mission: append to the MISSIONS array (keep mission_order sequential).
 // =============================================================================
 
-export interface PlantSeed {
+export interface PlanetSeed {
   title:           string;
   label:           string;
   content:         string;
@@ -22,7 +22,7 @@ export interface MissionSeed {
   project_title:        string;
   project_description:  string;
   opening_message:      string;
-  plants:               PlantSeed[];
+  planets:              PlanetSeed[];
 }
 
 export const HARDCODED_MISSIONS: MissionSeed[] = [
@@ -44,7 +44,7 @@ TEAM EMPEROR — You represent the Imperial position. Your argument: the Emperor
 Your task: Build an argument defending your side's claim to be the ultimate source of truth and order on earth. Your argument must:
 
 1. State your position clearly and explain the theological or political logic behind it.
-2. Include at least two pieces of evidence drawn from the Plants in this Mission.
+2. Include at least two pieces of evidence drawn from the Planets in this Mission.
 3. Anticipate and directly respond to at least one argument the opposing side is likely to make.
 4. Close with a statement about why, if your side loses, the consequences would be catastrophic for the world.
 
@@ -52,7 +52,7 @@ How to submit — choose one:
 📝 Written argument — A structured 2–3 page written speech in your character's voice.
 🎙️ Recorded argument — A 3–5 minute audio or video recording of you delivering the argument in character.`,
     opening_message: `traveler. my scanners are glitching — two historical leaders are claiming they own the Ultimate truth. At the exact same time.`,
-    plants: [
+    planets: [
       {
         title: 'The Central Role of the Catholic Church in Medieval Society',
         label: 'Church',
@@ -150,7 +150,7 @@ How to submit — choose one:
 No police. No army. No government to call. Raiders could arrive in your village tonight, and no one is coming to help. That's not a hypothetical. For most people in medieval Europe, that was just a Tuesday.
 
 The question your mission is asking — how much freedom would you trade for safety — was the most important question of their lives. So I'll ask you first: what would you give up? And what would you refuse to give up, no matter what?`,
-    plants: [
+    planets: [
       {
         title: 'The Fall of Rome and the Conditions That Created Feudalism',
         label: 'Rome',
@@ -263,7 +263,7 @@ How to submit — choose one:
 Jerusalem, 1099 CE. The Crusaders are at the walls. Inside: a Muslim population that has lived there for four centuries, and a Jewish community caught between two forces neither of which considers them allies.
 
 Here's what I want to know before we start. When you think about two cultures clashing — does someone always have to lose? Or is that just the story we tell afterwards?`,
-    plants: [
+    planets: [
       {
         title: 'Judaism in the Christian Worldview: How the Medieval Church Saw Jews',
         label: 'Toleration',

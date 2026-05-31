@@ -2,7 +2,7 @@
 // GET /api/mission?order=N
 //
 // Returns a PipMission object for the given mission order number.
-// Data is read from Supabase (missions + plants tables) — this is the single
+// Data is read from Supabase (missions + planets tables) — this is the single
 // source of truth after the content migration.
 //
 // Picks the first mission in the DB with the given order that has been
@@ -48,14 +48,14 @@ export async function GET(req: NextRequest) {
   // Prefer a row that has been backfilled (non-null world_brief_summary)
   const mission = rows.find((r) => r.world_brief_summary != null) ?? rows[0];
 
-  // ── Fetch plants for this mission instance ─────────────────────────────────
-  const { data: plants, error: plantsError } = await supabaseAdmin
-    .from('plants')
+  // ── Fetch planets for this mission instance ────────────────────────────────
+  const { data: planets, error: planetsError } = await supabaseAdmin
+    .from('planets')
     .select('label, title, icon, hint')
     .eq('mission_id', mission.id);
 
-  if (plantsError) {
-    console.error('[GET /api/mission] plants lookup error:', plantsError);
+  if (planetsError) {
+    console.error('[GET /api/mission] planets lookup error:', planetsError);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 
@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
     openingMessage2:   (mission.opening_message_2 as string | null) ?? '',
     missionBrief,
     chapter:           (mission.chapter as string | null) ?? `Medieval History · Ch.${order}`,
-    planets: (plants ?? []).map((p): PipPlanet => ({
+    planets: (planets ?? []).map((p): PipPlanet => ({
       icon: (p.icon as string | null) ?? '🌍',
       name: p.label as string,
       hint: (p.hint as string | null) ?? (p.title as string).slice(0, 45),

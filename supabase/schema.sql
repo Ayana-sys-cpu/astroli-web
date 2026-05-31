@@ -11,7 +11,7 @@
 --   journeys            — One per Google Classroom course
 --   vote_sessions       — One per teacher-initiated vote round
 --   missions            — Voting candidates and active learning missions
---   plants              — Activities within a mission
+--   planets             — Activities within a mission
 --   student_journeys    — Join table: students enrolled in journeys
 --   votes               — One row per student per journey vote window
 -- =============================================================================
@@ -21,7 +21,7 @@
 DROP TABLE IF EXISTS student_journeys CASCADE;
 DROP TABLE IF EXISTS votes            CASCADE;
 DROP TABLE IF EXISTS vote_sessions    CASCADE;
-DROP TABLE IF EXISTS plants           CASCADE;
+DROP TABLE IF EXISTS planets           CASCADE;
 DROP TABLE IF EXISTS missions         CASCADE;
 DROP TABLE IF EXISTS journeys         CASCADE;
 DROP TABLE IF EXISTS authorized_teachers CASCADE;
@@ -183,10 +183,10 @@ CREATE TRIGGER missions_updated_at
 
 -- -----------------------------------------------------------------------------
 -- PLANTS
--- Activities that live inside a mission. Each plant is one learning task.
+-- Activities that live inside a mission. Each planet is one learning task.
 -- Displayed in order of created_at within a mission.
 -- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS plants (
+CREATE TABLE IF NOT EXISTS planets (
   id               UUID         DEFAULT gen_random_uuid() PRIMARY KEY,
   mission_id       UUID         NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
   title            TEXT         NOT NULL,
@@ -199,7 +199,7 @@ CREATE TABLE IF NOT EXISTS plants (
   media_url        TEXT,
   media_type       TEXT,
 
-  -- Phase 2 scaffold: null for all Phase 1 hardcoded plants
+  -- Phase 2 scaffold: null for all Phase 1 hardcoded planets
   generation_job_id UUID,
 
   created_by       UUID         NOT NULL REFERENCES users(user_id),
@@ -207,10 +207,10 @@ CREATE TABLE IF NOT EXISTS plants (
   updated_at       TIMESTAMPTZ  DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS plants_mission_id_idx ON plants(mission_id);
+CREATE INDEX IF NOT EXISTS planets_mission_id_idx ON planets(mission_id);
 
-CREATE TRIGGER plants_updated_at
-  BEFORE UPDATE ON plants
+CREATE TRIGGER planets_updated_at
+  BEFORE UPDATE ON planets
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 
@@ -278,7 +278,7 @@ ALTER TABLE users               ENABLE ROW LEVEL SECURITY;
 ALTER TABLE journeys         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vote_sessions    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE missions         ENABLE ROW LEVEL SECURITY;
-ALTER TABLE plants           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE planets           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE votes            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE student_journeys ENABLE ROW LEVEL SECURITY;
 
@@ -299,8 +299,8 @@ CREATE POLICY "vote_sessions_select" ON vote_sessions
 CREATE POLICY "missions_select" ON missions
   FOR SELECT USING (true);
 
--- Plants: public reads (students and teachers both need to read plant content)
-CREATE POLICY "plants_select" ON plants
+-- Planets: public reads (students and teachers both need to read plant content)
+CREATE POLICY "planets_select" ON planets
   FOR SELECT USING (true);
 
 -- Votes: students can see only their own row; service role sees everything.

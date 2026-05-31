@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { requireAuth, assertStudentSession } from '@/lib/auth';
 
-// GET /api/student/mission?missionId=<uuid>  — mission + all plants (for landscape hub)
-// GET /api/student/mission?plantId=<uuid>    — single plant (for planet detail page)
+// GET /api/student/mission?missionId=<uuid>  — mission + all planets (for landscape hub)
+// GET /api/student/mission?planetId=<uuid>   — single planet (for planet detail page)
 //
-// Mission and plant data are curriculum content accessible to any enrolled
+// Mission and planet data are curriculum content accessible to any enrolled
 // student — no per-student ownership check is needed beyond a valid session.
 export async function GET(req: NextRequest) {
   const auth = await requireAuth();
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   if (sessionError) return sessionError;
 
   const missionId = req.nextUrl.searchParams.get('missionId');
-  const plantId   = req.nextUrl.searchParams.get('plantId');
+  const planetId  = req.nextUrl.searchParams.get('planetId');
 
   if (missionId) {
     const { data, error } = await supabaseAdmin
@@ -23,10 +23,10 @@ export async function GET(req: NextRequest) {
       .select(`
         id, question, question_description, project_title, project_description,
         opening_message, mission_order, state,
-        plants ( id, title, label, short_title, planet_question, content, opening_message, media_url, media_type )
+        planets ( id, title, label, short_title, planet_question, content, opening_message, media_url, media_type )
       `)
       .eq('id', missionId)
-      .order('created_at', { referencedTable: 'plants' })
+      .order('created_at', { referencedTable: 'planets' })
       .single();
 
     if (error || !data) {
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
         openingMessage:      data.opening_message,
         order:               data.mission_order,
         state:               data.state,
-        plants: (data.plants ?? []).map((p: any) => ({
+        planets: (data.planets ?? []).map((p: any) => ({
           id:             p.id,
           title:          p.title,
           label:          p.label ?? null,
@@ -58,19 +58,19 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  if (plantId) {
+  if (planetId) {
     const { data, error } = await supabaseAdmin
-      .from('plants')
+      .from('planets')
       .select('id, title, label, short_title, planet_question, content, opening_message, media_url, media_type, mission_id')
-      .eq('id', plantId)
+      .eq('id', planetId)
       .single();
 
     if (error || !data) {
-      return NextResponse.json({ error: 'Plant not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Planet not found' }, { status: 404 });
     }
 
     return NextResponse.json({
-      plant: {
+      planet: {
         id:             data.id,
         title:          data.title,
         label:          data.label ?? null,
@@ -85,5 +85,5 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  return NextResponse.json({ error: 'missionId or plantId required' }, { status: 400 });
+  return NextResponse.json({ error: 'missionId or planetId required' }, { status: 400 });
 }

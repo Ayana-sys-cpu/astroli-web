@@ -4,12 +4,12 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
 import OrinOrb from '@/components/OrinOrb';
-import { getPlantMeta } from '@/lib/plant-meta';
+import { getPlanetMeta } from '@/lib/planet-meta';
 import { PLANET_EXPERIENCE, NOTEBOOK_INSIGHTS, type Message } from '@/lib/planet-experience';
 import { useOrinChat } from '@/lib/useOrinChat';
 import { getFirstName } from '@/lib/student-store';
 
-interface Plant {
+interface Planet {
   id: string;
   title: string;
   label: string | null;
@@ -69,7 +69,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
   const [activeTab, setActiveTab] = useState<Tab>('chat');
   const [savedIds, setSavedIds] = useState<number[]>([]);
   const [showReward, setShowReward] = useState(false);
-  const [plant, setPlant] = useState<Plant | null>(null);
+  const [planet, setPlanet] = useState<Planet | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAvatarThinking, setIsAvatarThinking] = useState(false);
   const [shownMsgCount, setShownMsgCount] = useState(0);
@@ -77,7 +77,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
   const processedMsgCount = useRef(0);
   const isThinkingRef     = useRef(false);
   const firstName = getFirstName() || 'Traveler';
-  const orin = useOrinChat('plant_screen', params.id, 'plant');
+  const orin = useOrinChat('planet_screen', params.id, 'planet');
 
   // Keep isThinkingRef in sync for use inside async closures.
   useEffect(() => { isThinkingRef.current = isAvatarThinking; }, [isAvatarThinking]);
@@ -111,7 +111,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
   useEffect(() => {
     fetch(`/api/student/mission?plantId=${params.id}`)
       .then(r => r.json())
-      .then(({ plant }) => { setPlant(plant); setLoading(false); })
+      .then(({ planet }) => { setPlanet(planet); setLoading(false); })
       .catch(() => setLoading(false));
   }, [params.id]);
 
@@ -123,7 +123,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
     );
   }
 
-  if (!plant) {
+  if (!planet) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
@@ -136,7 +136,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
     );
   }
 
-  const label = plant.label ?? getPlantMeta(plant.title).label;
+  const label = planet.label ?? getPlanetMeta(planet.title).label;
   const experience = PLANET_EXPERIENCE[label] ?? null;
 
   const handleSave = (id: number) => {
@@ -234,7 +234,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
           <div className="w-full max-w-md">
             <div className="px-4 py-3 rounded-lg border border-white/8 bg-white/3">
               <p className="text-sm font-caveat text-white/75 italic leading-snug">
-                "{experience?.greeting ?? plant.openingMessage ?? plant.title}"
+                "{experience?.greeting ?? planet.openingMessage ?? planet.title}"
               </p>
             </div>
             {experience && (
@@ -289,12 +289,12 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
-                  {/* Orin intro — from DB plant opening_message */}
-                  {plant.openingMessage && (
+                  {/* Orin intro — from DB planet opening_message */}
+                  {planet.openingMessage && (
                     <div className="flex flex-col gap-1.5">
                       <span className="text-[9px] tracking-[0.2em] text-[#00C4CC]/50 font-space uppercase">ORIN · GUIDE</span>
                       <div className="px-3 py-2.5 rounded-lg border border-[#00C4CC]/15" style={{ background: 'rgba(0,196,204,0.04)' }}>
-                        <p className="text-xs text-white/60 font-inter leading-relaxed whitespace-pre-line">{plant.openingMessage}</p>
+                        <p className="text-xs text-white/60 font-inter leading-relaxed whitespace-pre-line">{planet.openingMessage}</p>
                       </div>
                     </div>
                   )}

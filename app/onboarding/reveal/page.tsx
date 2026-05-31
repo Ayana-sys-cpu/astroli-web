@@ -21,6 +21,7 @@ export default function RevealPage() {
   // Avatar URL is always assigned server-side during registration. Fall back
   // to base-01 only if the localStorage cache was lost (e.g. browser data cleared).
   const baseUrl    = storedBase ?? '/avatars/base/base-01.png';
+  const videoUrl   = baseUrl.replace('.png', '.mp4');
 
   // Returning users (already onboarded) should never see this screen
   useEffect(() => {
@@ -113,12 +114,16 @@ export default function RevealPage() {
           ))}
         </AnimatePresence>
 
-        {/* Avatar image — free-floating, no border/clip */}
+        {/* Avatar video — free-floating, no border/clip */}
         <AnimatePresence>
           {displayUrl && (
-            <motion.img
-              src={displayUrl}
-              alt="Your alien"
+            <motion.video
+              src={videoUrl}
+              poster={displayUrl}
+              autoPlay
+              loop
+              muted
+              playsInline
               initial={{ scale: 0.7, opacity: 0, filter: 'blur(16px)' }}
               animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
               transition={{ duration: 0.8, ease: 'easeOut' }}

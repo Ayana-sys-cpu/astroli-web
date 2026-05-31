@@ -1,7 +1,7 @@
 // =============================================================================
 // /api/teacher/missions
 //
-// GET  ?id=<missionId>    — single mission with its plants
+// GET  ?id=<missionId>    — single mission with its planets
 // GET  ?journeyId=<uuid>  — all missions for a journey
 // PATCH { missionId, state } — update a mission's state
 //
@@ -26,7 +26,7 @@ function toMission(m: any) {
     openingMessage:      m.opening_message,
     state:               m.state,
     order:               m.mission_order,
-    plants:              (m.plants ?? []).map((p: any) => ({
+    planets:             (m.planets ?? []).map((p: any) => ({
       id:             p.id,
       title:          p.title,
       content:        p.content,
@@ -60,7 +60,7 @@ async function verifyJourneyOwnership(journeyId: string, teacherId: string): Pro
 
 // ---------------------------------------------------------------------------
 // GET /api/teacher/missions?journeyId=   — list all missions for a journey
-// GET /api/teacher/missions?id=          — single mission with its plants
+// GET /api/teacher/missions?id=          — single mission with its planets
 // ---------------------------------------------------------------------------
 export async function GET(req: NextRequest) {
   const auth = await requireAuth();
@@ -93,9 +93,9 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabaseAdmin
       .from('missions')
-      .select('*, plants(*)')
+      .select('*, planets(*)')
       .eq('id', missionId)
-      .order('created_at', { referencedTable: 'plants' })
+      .order('created_at', { referencedTable: 'planets' })
       .single();
 
     if (error || !data) {
@@ -117,7 +117,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabaseAdmin
     .from('missions')
-    .select('*, plants(*)')
+    .select('*, planets(*)')
     .eq('journey_id', journeyId)
     .order('mission_order');
 

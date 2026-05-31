@@ -5,7 +5,7 @@
 --   1. Creates authorized_teachers — founder-controlled teacher whitelist
 --   2. Creates users — unified account table (replaces teachers + app_students)
 --   3. Migrates existing rows, preserving UUIDs so dependent FK values are untouched
---   4. Re-points FK constraints on journeys/missions/plants/student_journeys/votes
+--   4. Re-points FK constraints on journeys/missions/planets/student_journeys/votes
 --   5. Drops teachers and app_students
 --
 -- Run via: Supabase Dashboard → SQL Editor → New Query → paste → Run
@@ -60,7 +60,7 @@ CREATE POLICY "users_select" ON users FOR SELECT USING (true);
 
 -- ── 3a. Migrate teachers → users (preserving teacher_id as user_id) ───────────
 -- Preserving the UUID means journeys.teacher_id, missions.created_by, and
--- plants.created_by already contain the correct user_id values — no data updates needed.
+-- planets.created_by already contain the correct user_id values — no data updates needed.
 DO $$ BEGIN
   IF to_regclass('public.teachers') IS NOT NULL THEN
     INSERT INTO users (
@@ -131,9 +131,9 @@ ALTER TABLE missions
   ADD CONSTRAINT missions_created_by_fkey
     FOREIGN KEY (created_by) REFERENCES users(user_id);
 
-ALTER TABLE plants
-  DROP CONSTRAINT IF EXISTS plants_created_by_fkey,
-  ADD CONSTRAINT plants_created_by_fkey
+ALTER TABLE planets
+  DROP CONSTRAINT IF EXISTS planets_created_by_fkey,
+  ADD CONSTRAINT planets_created_by_fkey
     FOREIGN KEY (created_by) REFERENCES users(user_id);
 
 ALTER TABLE student_journeys

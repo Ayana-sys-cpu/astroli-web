@@ -43,7 +43,7 @@ enum JobStatus {
 }
 
 // Types of material that can exist in a Google Classroom course.
-// Used by CurriculumMaterial and as optional metadata on Plant.
+// Used by CurriculumMaterial and as optional metadata on Planet.
 enum MaterialType {
   ASSIGNMENT
   MATERIAL
@@ -68,7 +68,7 @@ model User {
 
   journeys        Journey[]
   missionsCreated Mission[]
-  plantsCreated   Plant[]
+  planetsCreated  Planet[]
   generationJobs  GenerationJob[]
 
   @@map("users")
@@ -136,13 +136,13 @@ model Mission {
   journey       Journey        @relation(fields: [journeyId], references: [id], onDelete: Cascade)
   creator       User           @relation(fields: [createdBy], references: [id])
   generationJob GenerationJob? @relation(fields: [generationJobId], references: [id])
-  plants        Plant[]
+  planets       Planet[]
 
   @@index([journeyId])
   @@map("missions")
 }
 
-model Plant {
+model Planet {
   id        String @id @default(uuid())
   missionId String @map("mission_id")
 
@@ -159,17 +159,17 @@ model Plant {
   // Phase 2 scaffold: tag content origin. Phase 1 hardcoded = HARDCODED.
   source ContentSource @default(HARDCODED)
 
-  // Pip's first-entrance message shown the first time a student opens this Plant.
+  // Pip's first-entrance message shown the first time a student opens this Planet.
   openingMessage      String? @map("opening_message") @db.Text
   // Optional quick-reply buttons attached to the opening message (JSON array of {label, value}).
   openingQuickReplies Json?   @map("opening_quick_replies")
 
-  // Phase 2 scaffold: for plants that ARE a media resource (YouTube, Drive doc, link)
-  // rather than written text. Null for all Phase 1 text plants.
+  // Phase 2 scaffold: for planets that ARE a media resource (YouTube, Drive doc, link)
+  // rather than written text. Null for all Phase 1 text planets.
   mediaUrl  String?      @map("media_url")
   mediaType MaterialType? @map("media_type")
 
-  // Phase 2 scaffold: links back to the AI run that generated this Plant.
+  // Phase 2 scaffold: links back to the AI run that generated this Planet.
   // Null for all Phase 1 hardcoded content.
   generationJobId String? @map("generation_job_id")
 
@@ -180,12 +180,12 @@ model Plant {
   mission         Mission        @relation(fields: [missionId], references: [id], onDelete: Cascade)
   creator         User           @relation(fields: [createdBy], references: [id])
   generationJob   GenerationJob? @relation(fields: [generationJobId], references: [id])
-  // Phase 2 scaffold: which source materials informed this Plant.
-  // Empty for all Phase 1 hardcoded plants.
-  sourceMaterials PlantSource[]
+  // Phase 2 scaffold: which source materials informed this Planet.
+  // Empty for all Phase 1 hardcoded planets.
+  sourceMaterials PlanetSource[]
 
   @@index([missionId])
-  @@map("plants")
+  @@map("planets")
 }
 
 // Phase 2 scaffold: one row per Google Classroom course material.
@@ -193,7 +193,7 @@ model Plant {
 // Phase 2: a sync job reads the teacher's GC course via the Classroom API
 // and writes one row per material (assignment, Drive file, YouTube video, link, etc.).
 // The AI generation pipeline reads this table to understand what content exists
-// in the teacher's course before generating Missions and Plants.
+// in the teacher's course before generating Missions and Planets.
 model CurriculumMaterial {
   id               String       @id @default(uuid())
   journeyId        String       @map("journey_id")
@@ -212,7 +212,7 @@ model CurriculumMaterial {
   updatedAt        DateTime     @updatedAt @map("updated_at")
 
   journey      Journey       @relation(fields: [journeyId], references: [id], onDelete: Cascade)
-  plantSources PlantSource[]
+  planetSources PlanetSource[]
 
   // A material can only appear once per Journey.
   @@unique([journeyId, googleMaterialId])
@@ -220,19 +220,19 @@ model CurriculumMaterial {
   @@map("curriculum_materials")
 }
 
-// Phase 2 scaffold: join table linking AI-generated Plants back to
+// Phase 2 scaffold: join table linking AI-generated Planets back to
 // the specific CurriculumMaterials that the AI drew from to create them.
-// Provides traceability: teacher can see exactly which GC material each Plant came from.
-// Phase 1: table exists but is empty (hardcoded plants have no source materials).
-model PlantSource {
-  plantId    String @map("plant_id")
+// Provides traceability: teacher can see exactly which GC material each Planet came from.
+// Phase 1: table exists but is empty (hardcoded planets have no source materials).
+model PlanetSource {
+  planetId   String @map("planet_id")
   materialId String @map("material_id")
 
-  plant    Plant              @relation(fields: [plantId], references: [id], onDelete: Cascade)
+  planet   Planet             @relation(fields: [planetId], references: [id], onDelete: Cascade)
   material CurriculumMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
 
-  @@id([plantId, materialId])
-  @@map("plant_sources")
+  @@id([planetId, materialId])
+  @@map("planet_sources")
 }
 
 // Phase 2 scaffold: one row per AI generation run.
@@ -255,7 +255,7 @@ model GenerationJob {
   journey         Journey   @relation(fields: [journeyId], references: [id], onDelete: Cascade)
   triggeredByUser User      @relation(fields: [triggeredBy], references: [id])
   missions        Mission[]
-  plants          Plant[]
+  planets         Planet[]
 
   @@index([journeyId])
   @@map("generation_jobs")

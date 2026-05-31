@@ -3,10 +3,10 @@ import { PrismaClient, MissionState, ContentSource } from '@prisma/client'
 // Seed script — Phase 1 Medieval History Journey
 // All content is tagged source: HARDCODED.
 // generationJobId is omitted (null) for all hardcoded content.
-// sourceMaterials join table (PlantSource) is not populated — hardcoded plants
+// sourceMaterials join table (PlanetSource) is not populated — hardcoded planets
 // have no GC source material.
 //
-// Phase 2: the AI generation pipeline will write Missions and Plants with
+// Phase 2: the AI generation pipeline will write Missions and Planets with
 // source: AI_GENERATED and a generationJobId linking back to the GenerationJob.
 //
 // Before running against production, replace:
@@ -89,7 +89,7 @@ TEAM EMPEROR — You represent the Imperial position. Your argument: the Emperor
 Your task: Build an argument defending your side's claim to be the ultimate source of truth and order on earth. Your argument must:
 
 1. State your position clearly and explain the theological or political logic behind it.
-2. Include at least two pieces of evidence drawn from the Plants in this Mission.
+2. Include at least two pieces of evidence drawn from the Planets in this Mission.
 3. Anticipate and directly respond to at least one argument the opposing side is likely to make.
 4. Close with a statement about why, if your side loses, the consequences would be catastrophic for the world.
 
@@ -101,12 +101,12 @@ How to submit — choose one:
     },
   })
 
-  // Mission 1 — Plant 1
-  await prisma.plant.upsert({
-    where: { id: 'seed-plant-1-1' },
+  // Mission 1 — Planet 1
+  await prisma.planet.upsert({
+    where: { id: 'seed-planet-1-1' },
     update: {},
     create: {
-      id: 'seed-plant-1-1',
+      id: 'seed-planet-1-1',
       missionId: mission1.id,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,
@@ -136,12 +136,12 @@ Think about this: If the Church controlled education, law, spiritual salvation, 
     },
   })
 
-  // Mission 1 — Plant 2
-  await prisma.plant.upsert({
-    where: { id: 'seed-plant-1-2' },
+  // Mission 1 — Planet 2
+  await prisma.planet.upsert({
+    where: { id: 'seed-planet-1-2' },
     update: {},
     create: {
-      id: 'seed-plant-1-2',
+      id: 'seed-planet-1-2',
       missionId: mission1.id,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,
@@ -173,12 +173,12 @@ Think about this: Both the Pope and the Emperor believed they were defending God
     },
   })
 
-  // Mission 1 — Plant 3
-  await prisma.plant.upsert({
-    where: { id: 'seed-plant-1-3' },
+  // Mission 1 — Planet 3
+  await prisma.planet.upsert({
+    where: { id: 'seed-planet-1-3' },
     update: {},
     create: {
-      id: 'seed-plant-1-3',
+      id: 'seed-planet-1-3',
       missionId: mission1.id,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,
@@ -208,12 +208,12 @@ Think about this: How did Jewish communities maintain their own system of law, t
     },
   })
 
-  // Mission 1 — Plant 4
-  await prisma.plant.upsert({
-    where: { id: 'seed-plant-1-4' },
+  // Mission 1 — Planet 4
+  await prisma.planet.upsert({
+    where: { id: 'seed-planet-1-4' },
     update: {},
     create: {
-      id: 'seed-plant-1-4',
+      id: 'seed-planet-1-4',
       missionId: mission1.id,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,
@@ -308,12 +308,12 @@ How to submit — choose one:
     },
   })
 
-  // Mission 2 — Plant 1
-  await prisma.plant.upsert({
-    where: { id: 'seed-plant-2-1' },
+  // Mission 2 — Planet 1
+  await prisma.planet.upsert({
+    where: { id: 'seed-planet-2-1' },
     update: {},
     create: {
-      id: 'seed-plant-2-1',
+      id: 'seed-planet-2-1',
       missionId: mission2.id,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,
@@ -345,12 +345,12 @@ Think about this: If there were no police, no army, and no government — and ra
     },
   })
 
-  // Mission 2 — Plant 2
-  await prisma.plant.upsert({
-    where: { id: 'seed-plant-2-2' },
+  // Mission 2 — Planet 2
+  await prisma.planet.upsert({
+    where: { id: 'seed-planet-2-2' },
     update: {},
     create: {
-      id: 'seed-plant-2-2',
+      id: 'seed-planet-2-2',
       missionId: mission2.id,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,
@@ -380,12 +380,12 @@ Think about this: Every level of this hierarchy had obligations running in both 
     },
   })
 
-  // Mission 2 — Plant 3
-  await prisma.plant.upsert({
-    where: { id: 'seed-plant-2-3' },
+  // Mission 2 — Planet 3
+  await prisma.planet.upsert({
+    where: { id: 'seed-planet-2-3' },
     update: {},
     create: {
-      id: 'seed-plant-2-3',
+      id: 'seed-planet-2-3',
       missionId: mission2.id,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,
@@ -417,12 +417,12 @@ Think about this: When a social hierarchy is described as God's design, what eff
     },
   })
 
-  // Mission 2 — Plant 4
-  await prisma.plant.upsert({
-    where: { id: 'seed-plant-2-4' },
+  // Mission 2 — Planet 4
+  await prisma.planet.upsert({
+    where: { id: 'seed-planet-2-4' },
     update: {},
     create: {
-      id: 'seed-plant-2-4',
+      id: 'seed-planet-2-4',
       missionId: mission2.id,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,
@@ -454,12 +454,12 @@ Think about this: Based on what you've learned about daily life, was the Feudal 
     },
   })
 
-  // Mission 2 — Plant 5
-  await prisma.plant.upsert({
-    where: { id: 'seed-plant-2-5' },
+  // Mission 2 — Planet 5
+  await prisma.planet.upsert({
+    where: { id: 'seed-planet-2-5' },
     update: {},
     create: {
-      id: 'seed-plant-2-5',
+      id: 'seed-planet-2-5',
       missionId: mission2.id,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,
@@ -543,7 +543,7 @@ Your broadcast must include all three of the following on-the-ground interviews:
 
 The news anchor introduces the broadcast, sets the historical scene, and closes with a 1–2 sentence reflection on what this moment reveals about what happens when cultures that see the world completely differently are forced to share the same space.
 
-Each interviewee must draw from at least one Plant in this Mission. The interviews should contain specific historical details, names, dates, and concepts.
+Each interviewee must draw from at least one Planet in this Mission. The interviews should contain specific historical details, names, dates, and concepts.
 
 This is not a project about who was right. The goal is to practise the most important skill in historical thinking: genuinely inhabiting a perspective that is not your own, understanding it from the inside, and representing it with accuracy and respect.
 
@@ -553,12 +553,12 @@ How to submit — choose one:
     },
   })
 
-  // Mission 3 — Plant 1
-  await prisma.plant.upsert({
-    where: { id: 'seed-plant-3-1' },
+  // Mission 3 — Planet 1
+  await prisma.planet.upsert({
+    where: { id: 'seed-planet-3-1' },
     update: {},
     create: {
-      id: 'seed-plant-3-1',
+      id: 'seed-planet-3-1',
       missionId: mission3.id,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,
@@ -590,12 +590,12 @@ Think about this: How is it possible for an institution to simultaneously protec
     },
   })
 
-  // Mission 3 — Plant 2
-  await prisma.plant.upsert({
-    where: { id: 'seed-plant-3-2' },
+  // Mission 3 — Planet 2
+  await prisma.planet.upsert({
+    where: { id: 'seed-planet-3-2' },
     update: {},
     create: {
-      id: 'seed-plant-3-2',
+      id: 'seed-planet-3-2',
       missionId: mission3.id,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,
@@ -625,12 +625,12 @@ Think about this: Islam, Judaism, and Christianity all claim the same God and ma
     },
   })
 
-  // Mission 3 — Plant 3
-  await prisma.plant.upsert({
-    where: { id: 'seed-plant-3-3' },
+  // Mission 3 — Planet 3
+  await prisma.planet.upsert({
+    where: { id: 'seed-planet-3-3' },
     update: {},
     create: {
-      id: 'seed-plant-3-3',
+      id: 'seed-planet-3-3',
       missionId: mission3.id,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,
@@ -660,12 +660,12 @@ Think about this: Religious expansion and political expansion were completely in
     },
   })
 
-  // Mission 3 — Plant 4
-  await prisma.plant.upsert({
-    where: { id: 'seed-plant-3-4' },
+  // Mission 3 — Planet 4
+  await prisma.planet.upsert({
+    where: { id: 'seed-planet-3-4' },
     update: {},
     create: {
-      id: 'seed-plant-3-4',
+      id: 'seed-planet-3-4',
       missionId: mission3.id,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,
@@ -699,12 +699,12 @@ Think about this: The Dhimmi system offered genuine protection alongside genuine
     },
   })
 
-  // Mission 3 — Plant 5
-  await prisma.plant.upsert({
-    where: { id: 'seed-plant-3-5' },
+  // Mission 3 — Planet 5
+  await prisma.planet.upsert({
+    where: { id: 'seed-planet-3-5' },
     update: {},
     create: {
-      id: 'seed-plant-3-5',
+      id: 'seed-planet-3-5',
       missionId: mission3.id,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,
@@ -736,12 +736,12 @@ Think about this: The scientific knowledge that eventually powered the European 
     },
   })
 
-  // Mission 3 — Plant 6
-  await prisma.plant.upsert({
-    where: { id: 'seed-plant-3-6' },
+  // Mission 3 — Planet 6
+  await prisma.planet.upsert({
+    where: { id: 'seed-planet-3-6' },
     update: {},
     create: {
-      id: 'seed-plant-3-6',
+      id: 'seed-planet-3-6',
       missionId: mission3.id,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,
@@ -771,12 +771,12 @@ Think about this: The Crusaders believed they were doing God's work. The communi
     },
   })
 
-  // Mission 3 — Plant 7
-  await prisma.plant.upsert({
-    where: { id: 'seed-plant-3-7' },
+  // Mission 3 — Planet 7
+  await prisma.planet.upsert({
+    where: { id: 'seed-planet-3-7' },
     update: {},
     create: {
-      id: 'seed-plant-3-7',
+      id: 'seed-planet-3-7',
       missionId: mission3.id,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,

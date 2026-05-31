@@ -1,13 +1,13 @@
-// Static metadata derived from hardcoded plant titles.
+// Static metadata derived from hardcoded planet titles.
 // Avoids extra DB columns — titles are stable since all content is hardcoded.
 // Used by landscape pages to display one-word planet labels and hover questions.
 
-export interface PlantMeta {
+export interface PlanetMeta {
   label: string;    // one-word display name shown below the planet
   question: string; // hook question shown on hover tooltip
 }
 
-export const PLANT_META: Record<string, PlantMeta> = {
+export const PLANET_META: Record<string, PlanetMeta> = {
   // Mission 1 — Who Owns The Truth?
   'The Central Role of the Catholic Church in Medieval Society': {
     label: 'Church',
@@ -80,8 +80,8 @@ export const PLANT_META: Record<string, PlantMeta> = {
 };
 
 // Falls back to the last word of the title before any colon.
-export function getPlantMeta(title: string): PlantMeta {
-  return PLANT_META[title] ?? {
+export function getPlanetMeta(title: string): PlanetMeta {
+  return PLANET_META[title] ?? {
     label: (title.split(':')[0].trim().split(' ').pop() ?? title),
     question: '',
   };

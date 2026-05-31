@@ -2,7 +2,7 @@
 // scripts/backfill-content.ts
 //
 // One-time backfill: populates the new content columns on all existing
-// missions and plants rows in Supabase.
+// missions and planets rows in Supabase.
 //
 // Run AFTER adding the DB columns in Supabase dashboard.
 //
@@ -206,27 +206,27 @@ async function main() {
   }
   console.log(`   Missions: ${missionOk} updated, ${missionErr} errors`);
 
-  // ── 2. Backfill plants ───────────────────────────────────────────────────────
-  const plants = await get<{ id: string; label: string }>('plants', 'select=id,label');
-  console.log(`   Found ${plants.length} plant rows`);
+  // ── 2. Backfill planets ──────────────────────────────────────────────────────
+  const planets = await get<{ id: string; label: string }>('planets', 'select=id,label');
+  console.log(`   Found ${planets.length} planet rows`);
 
-  let plantOk = 0;
-  let plantErr = 0;
-  for (const p of plants) {
+  let planetOk = 0;
+  let planetErr = 0;
+  for (const p of planets) {
     const meta = PLANET_META[p.label];
     if (!meta) {
       console.warn(`   ⚠ Skipping plant ${p.id} — label "${p.label}" not in PLANET_META`);
       continue;
     }
     try {
-      await patch('plants', `id=eq.${p.id}`, { icon: meta.icon, hint: meta.hint });
-      plantOk++;
+      await patch('planets', `id=eq.${p.id}`, { icon: meta.icon, hint: meta.hint });
+      planetOk++;
     } catch (err) {
-      console.error(`   ✗ Plant ${p.id} (${p.label}):`, err);
-      plantErr++;
+      console.error(`   ✗ Planet ${p.id} (${p.label}):`, err);
+      planetErr++;
     }
   }
-  console.log(`   Plants: ${plantOk} updated, ${plantErr} errors`);
+  console.log(`   Planets: ${planetOk} updated, ${planetErr} errors`);
 
   console.log('✅ Backfill complete.');
 }

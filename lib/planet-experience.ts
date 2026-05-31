@@ -1,5 +1,5 @@
 // Hardcoded storytelling data for the planet detail (time-travel) experience.
-// Keyed by planet label (from PLANT_META) so it stays stable even when plant
+// Keyed by planet label (from PLANET_META) so it stays stable even when plant
 // DB IDs are real UUIDs rather than the seed-plant-* slugs.
 // Only Mission 1 planets have experience data in Phase 1.
 

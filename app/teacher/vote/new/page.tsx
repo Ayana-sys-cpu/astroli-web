@@ -7,7 +7,7 @@ import Countdown from '@/components/Countdown';
 import StudentMobilePreview from '@/components/StudentMobilePreview';
 import VoteManageModals from '@/components/VoteManageModals';
 
-interface Plant {
+interface Planet {
   id: string;
   title: string;
   content: string;
@@ -21,7 +21,7 @@ interface Mission {
   projectDescription: string | null;
   order: number;
   state: string;
-  plants: Plant[];
+  planets: Planet[];
 }
 
 function VoteSetupInner() {
@@ -312,18 +312,18 @@ function VoteSetupInner() {
                         style={{ background: 'rgba(232,232,240,0.02)', border: '1px solid rgba(232,232,240,0.07)' }}
                       >
                         <p className="font-space text-[9px] tracking-[0.2em]" style={{ color: 'rgba(232,232,240,0.3)' }}>
-                          WHAT STUDENTS WILL DO · {mission.plants.length} ACTIVITIES
+                          WHAT STUDENTS WILL DO · {mission.planets.length} ACTIVITIES
                         </p>
                         <div className="flex flex-col gap-2">
-                          {mission.plants.map((plant, pi) => (
-                            <div key={plant.id} className="flex items-start gap-3 rounded-lg px-3 py-2.5" style={{ background: 'rgba(232,232,240,0.03)', border: '1px solid rgba(232,232,240,0.06)' }}>
+                          {mission.planets.map((planet, pi) => (
+                            <div key={planet.id} className="flex items-start gap-3 rounded-lg px-3 py-2.5" style={{ background: 'rgba(232,232,240,0.03)', border: '1px solid rgba(232,232,240,0.06)' }}>
                               <span className="font-space font-black text-[10px] mt-0.5 flex-shrink-0" style={{ color: 'rgba(232,232,240,0.2)' }}>
                                 {String(pi + 1).padStart(2, '0')}
                               </span>
                               <div>
-                                <p className="font-space font-bold text-xs mb-0.5" style={{ color: '#E8E8F0' }}>{plant.title}</p>
+                                <p className="font-space font-bold text-xs mb-0.5" style={{ color: '#E8E8F0' }}>{planet.title}</p>
                                 <p className="font-inter text-[11px] leading-relaxed" style={{ color: 'rgba(232,232,240,0.4)' }}>
-                                  {plant.content.slice(0, 120)}{plant.content.length > 120 ? '…' : ''}
+                                  {planet.content.slice(0, 120)}{planet.content.length > 120 ? '…' : ''}
                                 </p>
                               </div>
                             </div>

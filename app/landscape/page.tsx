@@ -9,9 +9,9 @@ import Planet from '@/components/Planet';
 import MissionOverlay from '@/components/MissionOverlay';
 import PipGuidePanel from '@/components/PipGuidePanel';
 import { getBotName, loadStudent } from '@/lib/student-store';
-import { getPlantMeta, PLANET_LAYOUT, PLANET_EDGES } from '@/lib/plant-meta';
+import { getPlanetMeta, PLANET_LAYOUT, PLANET_EDGES } from '@/lib/planet-meta';
 
-interface Plant {
+interface Planet {
   id: string;
   title: string;
   label: string | null;
@@ -29,7 +29,7 @@ interface Mission {
   questionDescription:  string | null;
   projectTitle:         string | null;
   projectDescription:   string | null;
-  plants: Plant[];
+  planets: Planet[];
 }
 
 export default function LandscapePage() {
@@ -86,8 +86,8 @@ export default function LandscapePage() {
     }
   };
 
-  const planets = (mission?.plants ?? []).map((p, i) => {
-    const meta  = getPlantMeta(p.title);
+  const planets = (mission?.planets ?? []).map((p, i) => {
+    const meta  = getPlanetMeta(p.title);
     const label = p.label ?? meta.label;
     const pos   = PLANET_LAYOUT[i] ?? { x: 50, y: 50 };
     return {

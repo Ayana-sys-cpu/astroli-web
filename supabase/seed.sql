@@ -9,11 +9,11 @@
 --   3. POST /api/teacher/connect creates:
 --        - A teacher row (upserted by google_id)
 --        - A journey row for each connected course
---        - 3 hardcoded missions + 16 hardcoded plants for each new journey
+--        - 3 hardcoded missions + 16 hardcoded planets for each new journey
 --
--- All hardcoded mission and plant content lives in:
+-- All hardcoded mission and planet content lives in:
 --   src/astroli-web/lib/hardcoded-missions.ts
 --
 -- That file is the single source of truth for Phase 1 content.
--- To update mission or plant text, edit that file — not this one.
+-- To update mission or planet text, edit that file — not this one.
 -- =============================================================================

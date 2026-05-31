@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface Plant {
+interface Planet {
   id: string;
   title: string;
   content: string;
@@ -21,7 +21,7 @@ interface Mission {
   openingMessage: string | null;
   status: string;
   order: number;
-  plants: Plant[];
+  planets: Planet[];
 }
 
 export default function MissionReview() {
@@ -30,7 +30,7 @@ export default function MissionReview() {
   const [mission, setMission] = useState<Mission | null>(null);
   const [loading, setLoading] = useState(true);
   const [briefOpen, setBriefOpen] = useState(false);
-  const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null);
+  const [selectedPlanet, setSelectedPlanet] = useState<Planet | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -169,13 +169,13 @@ export default function MissionReview() {
             transition={{ delay: 0.15 }}
           >
             <p className="font-space text-[10px] tracking-[0.2em] mb-3" style={{ color: 'rgba(232,232,240,0.35)' }}>
-              PLANETS · {mission.plants.length} KNOWLEDGE STOPS
+              PLANETS · {mission.planets.length} KNOWLEDGE STOPS
             </p>
             <div className="grid grid-cols-2 gap-3">
-              {mission.plants.map((plant, pi) => (
+              {mission.planets.map((planet, pi) => (
                 <motion.button
-                  key={plant.id}
-                  onClick={() => setSelectedPlant(plant)}
+                  key={planet.id}
+                  onClick={() => setSelectedPlanet(planet)}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   className="text-left p-4 rounded-xl relative overflow-hidden"
@@ -188,10 +188,10 @@ export default function MissionReview() {
                     {String(pi + 1).padStart(2, '0')}
                   </span>
                   <p className="font-space font-bold text-xs leading-snug pr-6" style={{ color: '#E8E8F0' }}>
-                    {plant.title}
+                    {planet.title}
                   </p>
                   <p className="font-inter text-[11px] mt-1.5 line-clamp-2" style={{ color: 'rgba(232,232,240,0.4)' }}>
-                    {plant.content.slice(0, 90)}…
+                    {planet.content.slice(0, 90)}…
                   </p>
                 </motion.button>
               ))}
@@ -235,11 +235,11 @@ export default function MissionReview() {
             </button>
           </motion.div>
 
-          {/* Plant detail preview */}
+          {/* Planet detail preview */}
           <AnimatePresence mode="wait">
-            {selectedPlant ? (
+            {selectedPlanet ? (
               <motion.div
-                key={selectedPlant.id}
+                key={selectedPlanet.id}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
@@ -248,10 +248,10 @@ export default function MissionReview() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-space font-bold text-sm" style={{ color: '#E8E8F0' }}>
-                    {selectedPlant.title}
+                    {selectedPlanet.title}
                   </p>
                   <button
-                    onClick={() => setSelectedPlant(null)}
+                    onClick={() => setSelectedPlanet(null)}
                     className="text-lg leading-none"
                     style={{ color: 'rgba(232,232,240,0.3)' }}
                   >
@@ -259,16 +259,16 @@ export default function MissionReview() {
                   </button>
                 </div>
                 <p className="font-inter text-xs leading-relaxed" style={{ color: 'rgba(232,232,240,0.5)' }}>
-                  {selectedPlant.content}
+                  {selectedPlanet.content}
                 </p>
-                {selectedPlant.openingMessage && (
+                {selectedPlanet.openingMessage && (
                   <div
                     className="rounded-lg p-3 mt-1"
                     style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.15)' }}
                   >
                     <p className="font-space text-[9px] tracking-widest mb-1.5" style={{ color: '#7C3AED' }}>PIP BOT</p>
                     <p className="font-inter text-xs leading-relaxed italic" style={{ color: 'rgba(232,232,240,0.5)' }}>
-                      "{selectedPlant.openingMessage}"
+                      "{selectedPlanet.openingMessage}"
                     </p>
                   </div>
                 )}
