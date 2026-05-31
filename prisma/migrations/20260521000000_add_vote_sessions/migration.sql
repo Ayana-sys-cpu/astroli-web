@@ -1,10 +1,19 @@
 -- Migration: add vote_sessions, scope votes per session
 -- Run this in Supabase SQL Editor (or via prisma migrate deploy).
 
+-- 0. Ensure set_updated_at trigger function exists
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- 1. Add vote_sessions table
 CREATE TABLE IF NOT EXISTS vote_sessions (
-  id          UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
-  journey_id  UUID        NOT NULL REFERENCES journeys(id) ON DELETE CASCADE,
+  id          TEXT        DEFAULT gen_random_uuid()::TEXT PRIMARY KEY,
+  journey_id  TEXT        NOT NULL REFERENCES journeys(id) ON DELETE CASCADE,
   ends_at     TIMESTAMPTZ,
   winner_id   TEXT,
   status      TEXT        NOT NULL DEFAULT 'open',
@@ -21,14 +30,14 @@ CREATE TRIGGER vote_sessions_updated_at
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- 2. Add vote_session_id column to votes FIRST (before the data migration below)
-ALTER TABLE votes ADD COLUMN IF NOT EXISTS vote_session_id UUID REFERENCES vote_sessions(id) ON DELETE CASCADE;
+ALTER TABLE votes ADD COLUMN IF NOT EXISTS vote_session_id TEXT REFERENCES vote_sessions(id) ON DELETE CASCADE;
 
 -- 3. Migrate existing votes: create one concluded session per journey that had
 --    vote_ends_at set, then attach all existing votes to it.
 DO $$
 DECLARE
   j RECORD;
-  sess_id UUID;
+  sess_id TEXT;
 BEGIN
   FOR j IN
     SELECT id, vote_ends_at FROM journeys WHERE vote_ends_at IS NOT NULL
