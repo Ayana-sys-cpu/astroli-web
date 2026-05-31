@@ -24,13 +24,14 @@ BEGIN
   ALTER TABLE "planets" ADD CONSTRAINT "planets_mission_id_fkey"
     FOREIGN KEY ("mission_id") REFERENCES "missions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
-  -- 6. Recreate FK → users (only if users table exists with an id column)
+  -- 6. Recreate FK → users.
+  --    The live Supabase users table uses user_id (UUID) as its PK, not id.
   IF EXISTS (
     SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'users' AND column_name = 'id'
+    WHERE table_name = 'users' AND column_name = 'user_id'
   ) THEN
     ALTER TABLE "planets" ADD CONSTRAINT "planets_created_by_fkey"
-      FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+      FOREIGN KEY ("created_by") REFERENCES "users"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
   END IF;
 
   -- 7. Recreate FK → generation_jobs (Phase 2 scaffold — only if table exists)
