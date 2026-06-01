@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
-import { requireAuth, assertStudentSession } from '@/lib/auth';
+import { requireAuth, resolveStudentId } from '@/lib/auth';
 
 // GET /api/student/journey
 //
@@ -15,10 +15,10 @@ export async function GET(req: NextRequest) {
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
 
-  const sessionError = assertStudentSession(auth.user);
-  if (sessionError) return sessionError;
-
-  const studentId = auth.user.user_metadata.student_id as string;
+  const studentId = await resolveStudentId(auth.user);
+  if (!studentId) {
+    return NextResponse.json({ error: 'Forbidden: student session required' }, { status: 403 });
+  }
 
   try {
     // Resolve enrolled journey IDs for this student.
@@ -166,10 +166,10 @@ export async function PATCH(req: NextRequest) {
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
 
-  const sessionError = assertStudentSession(auth.user);
-  if (sessionError) return sessionError;
-
-  const studentId = auth.user.user_metadata.student_id as string;
+  const studentId = await resolveStudentId(auth.user);
+  if (!studentId) {
+    return NextResponse.json({ error: 'Forbidden: student session required' }, { status: 403 });
+  }
 
   try {
     const { missionId, status = 'started' } = await req.json();

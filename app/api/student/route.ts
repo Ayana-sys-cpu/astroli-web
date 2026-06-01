@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { enrollStudentInJourneys } from '@/lib/enroll-student';
-import { requireAuth, assertStudentSession } from '@/lib/auth';
+import { requireAuth, assertStudentSession, resolveStudentId } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { z, parseBody } from '@/lib/validate';
 
@@ -141,10 +141,10 @@ export async function PATCH(req: NextRequest) {
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
 
-  const sessionError = assertStudentSession(auth.user);
-  if (sessionError) return sessionError;
-
-  const studentId = auth.user.user_metadata.student_id as string;
+  const studentId = await resolveStudentId(auth.user);
+  if (!studentId) {
+    return NextResponse.json({ error: 'Forbidden: student session required' }, { status: 403 });
+  }
 
   const parsed = await parseBody(req, PatchStudentSchema);
   if (!parsed.ok) return parsed.response;

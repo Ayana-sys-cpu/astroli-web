@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { User } from '@supabase/supabase-js';
-import { createSSRServerClient } from './supabase-server';
+import { createSSRServerClient, supabaseAdmin } from './supabase-server';
 
 type AuthOk   = { ok: true;  user: User };
 type AuthFail = { ok: false; response: NextResponse };
@@ -29,6 +29,44 @@ export async function requireAuth(): Promise<AuthResult> {
   }
 
   return { ok: true, user };
+}
+
+/**
+ * Resolves the student_id for an authenticated user.
+ *
+ * Primary source: user.user_metadata.student_id (set during sign-in).
+ * Fallback: DB lookup by email — handles the Supabase edge case where
+ * verifyOtp() overwrites raw_user_meta_data before our updateUserById()
+ * value takes effect, leaving student_id null in the JWT.
+ *
+ * Also self-heals: when the fallback is used, it backfills the metadata
+ * on the auth user so subsequent requests hit the fast path.
+ */
+export async function resolveStudentId(user: User): Promise<string | null> {
+  const fromMeta = user.user_metadata?.student_id as string | undefined;
+  if (fromMeta) return fromMeta;
+
+  // Fallback: look up by email
+  const { data } = await supabaseAdmin
+    .from('users')
+    .select('id')
+    .eq('email', user.email!.toLowerCase())
+    .eq('role', 'student')
+    .maybeSingle();
+
+  if (!data?.id) return null;
+
+  // Self-heal: backfill metadata so the next request uses the fast path.
+  supabaseAdmin.auth.admin.updateUserById(user.id, {
+    user_metadata: {
+      ...user.user_metadata,
+      role:       'student',
+      student_id: data.id,
+      teacher_id: null,
+    },
+  }).catch((err) => console.error('[resolveStudentId] metadata backfill failed:', err));
+
+  return data.id;
 }
 
 /**
