@@ -112,7 +112,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
   }
 
   useEffect(() => {
-    fetch(`/api/student/mission?plantId=${params.id}`)
+    fetch(`/api/student/mission?planetId=${params.id}`)
       .then(r => r.json())
       .then(({ planet }) => { setPlanet(planet); setLoading(false); })
       .catch(() => setLoading(false));
