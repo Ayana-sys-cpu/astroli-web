@@ -51,28 +51,34 @@ export function usePlanetVoice(planetId: string) {
     return () => { isMounted.current = false; };
   }, []);
 
-  // Load student ID once
-  useEffect(() => {
-    getSessionStudentId().then(id => {
-      studentIdRef.current = id ?? '00000000-0000-0000-0000-000000000001';
-    });
-  }, []);
-
-  // Fetch approved character for this planet
+  // Resolve student ID, then fetch character + conversation history together
   useEffect(() => {
     if (!planetId) return;
     setCharLoading(true);
-    fetch(`${BOT_URL}/api/planet-voice/character?planetId=${encodeURIComponent(planetId)}`)
-      .then(r => r.json())
-      .then(data => {
-        if (isMounted.current) {
-          setCharacter(data.character ?? null);
-          setCharLoading(false);
-        }
-      })
-      .catch(() => {
-        if (isMounted.current) setCharLoading(false);
-      });
+
+    getSessionStudentId().then(id => {
+      const studentId = id ?? '00000000-0000-0000-0000-000000000001';
+      studentIdRef.current = studentId;
+
+      return Promise.all([
+        fetch(`${BOT_URL}/api/planet-voice/character?planetId=${encodeURIComponent(planetId)}`).then(r => r.json()),
+        fetch(`${BOT_URL}/api/planet-voice/history?studentId=${encodeURIComponent(studentId)}&planetId=${encodeURIComponent(planetId)}`).then(r => r.json()),
+      ]);
+    }).then(([charData, histData]) => {
+      if (!isMounted.current) return;
+      setCharacter(charData.character ?? null);
+      if (Array.isArray(histData.messages) && histData.messages.length > 0) {
+        const prior: PlanetVoiceMessage[] = histData.messages.map((m: { role: string; content: string; speaker: string | null }) => ({
+          id: nextId(m.speaker ?? m.role),
+          speaker: m.role === 'user' ? 'student' : (m.speaker === 'orin' ? 'orin' : 'figure'),
+          content: m.content,
+        }));
+        setMessages(prior);
+      }
+      setCharLoading(false);
+    }).catch(() => {
+      if (isMounted.current) setCharLoading(false);
+    });
   }, [planetId]);
 
   const sendText = useCallback(async (text: string) => {
