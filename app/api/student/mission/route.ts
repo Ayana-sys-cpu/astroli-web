@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
-import { requireAuth, assertStudentSession } from '@/lib/auth';
+import { requireAuth, resolveStudentId } from '@/lib/auth';
 
 // GET /api/student/mission?missionId=<uuid>  — mission + all planets (for landscape hub)
 // GET /api/student/mission?planetId=<uuid>   — single planet (for planet detail page)
@@ -11,8 +11,8 @@ export async function GET(req: NextRequest) {
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
 
-  const sessionError = assertStudentSession(auth.user);
-  if (sessionError) return sessionError;
+  const studentId = await resolveStudentId(auth.user);
+  if (!studentId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const missionId = req.nextUrl.searchParams.get('missionId');
   const planetId  = req.nextUrl.searchParams.get('planetId');

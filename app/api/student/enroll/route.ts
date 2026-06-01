@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { enrollStudentInJourneys } from '@/lib/enroll-student';
-import { requireAuth, assertStudentSession } from '@/lib/auth';
+import { requireAuth, resolveStudentId } from '@/lib/auth';
 
 // POST /api/student/enroll
 // Called after a student signs in (both new and returning).
@@ -13,10 +13,8 @@ export async function POST(req: NextRequest) {
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
 
-  const sessionError = assertStudentSession(auth.user);
-  if (sessionError) return sessionError;
-
-  const studentId = auth.user.user_metadata.student_id as string;
+  const studentId = await resolveStudentId(auth.user);
+  if (!studentId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   let body: { accessToken?: string };
   try {

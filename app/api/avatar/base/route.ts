@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { requireAuth, assertStudentSession } from '@/lib/auth';
+import { requireAuth, resolveStudentId } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase-server';
 
 const BASE_URL     = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3001';
@@ -31,10 +31,8 @@ export async function POST(req: NextRequest) {
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
 
-  const sessionError = assertStudentSession(auth.user);
-  if (sessionError) return sessionError;
-
-  const studentId = auth.user.user_metadata.student_id as string;
+  const studentId = await resolveStudentId(auth.user);
+  if (!studentId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   // Step 1 — Return early if base avatar already assigned.
   const { data: existing } = await supabaseAdmin

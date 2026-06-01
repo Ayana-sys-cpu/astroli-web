@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
-import { requireAuth, assertStudentSession } from '@/lib/auth';
+import { requireAuth, resolveStudentId } from '@/lib/auth';
 import { z, parseBody } from '@/lib/validate';
 
 const VoteSchema = z.object({
@@ -16,10 +16,8 @@ export async function POST(req: NextRequest) {
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
 
-  const sessionError = assertStudentSession(auth.user);
-  if (sessionError) return sessionError;
-
-  const studentId = auth.user.user_metadata.student_id as string;
+  const studentId = await resolveStudentId(auth.user);
+  if (!studentId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const parsed = await parseBody(req, VoteSchema);
   if (!parsed.ok) return parsed.response;
@@ -67,10 +65,8 @@ export async function GET(req: NextRequest) {
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
 
-  const sessionError = assertStudentSession(auth.user);
-  if (sessionError) return sessionError;
-
-  const studentId     = auth.user.user_metadata.student_id as string;
+  const studentId = await resolveStudentId(auth.user);
+  if (!studentId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   const voteSessionId = req.nextUrl.searchParams.get('voteSessionId');
 
   if (!voteSessionId) {

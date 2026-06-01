@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { enrollStudentInJourneys } from '@/lib/enroll-student';
-import { requireAuth, assertStudentSession, resolveStudentId } from '@/lib/auth';
+import { requireAuth, resolveStudentId } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { z, parseBody } from '@/lib/validate';
 
