@@ -12,10 +12,13 @@ interface Props {
   send: () => void;
   loading: boolean;
   thinking: boolean;
+  studentFirstName?: string;
+  missionTitle?: string;
 }
 
 export default function PlanetVoicePanel({
   character, messages, input, setInput, send, loading, thinking,
+  studentFirstName, missionTitle,
 }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -44,11 +47,29 @@ export default function PlanetVoicePanel({
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
-        {messages.length === 0 && (
-          <p className="text-[11px] text-white/25 font-space text-center mt-8 leading-relaxed">
-            Ask {character.name} anything<br />about their world.
-          </p>
-        )}
+        {messages.length === 0 && (() => {
+          const name = studentFirstName ?? 'Explorer';
+          const mission = missionTitle ?? 'this mission';
+          const prefill = `Hello, I'm ${name}. I'm on a mission to uncover "${mission}" and I'd love your help. Tell me a little about yourself and how you connect to it.`;
+          return (
+            <div className="flex flex-col items-center gap-4 mt-8 px-2">
+              <p className="text-[10px] text-white/25 font-space text-center tracking-[0.15em] uppercase">
+                Start the conversation
+              </p>
+              <button
+                onClick={() => { setInput(prefill); }}
+                className="w-full text-left px-3 py-2.5 rounded-lg border border-[#9b8fd4]/20 bg-[#9b8fd4]/5 hover:bg-[#9b8fd4]/10 hover:border-[#9b8fd4]/35 transition-all group"
+              >
+                <p className="text-[11px] font-inter text-white/50 group-hover:text-white/70 leading-relaxed transition-colors">
+                  {prefill}
+                </p>
+                <p className="text-[9px] tracking-[0.2em] font-space text-[#9b8fd4]/50 group-hover:text-[#9b8fd4]/80 mt-2 transition-colors uppercase">
+                  Send &amp; Uncover →
+                </p>
+              </button>
+            </div>
+          );
+        })()}
 
         {messages.map(msg => {
           if (msg.speaker === 'student') {

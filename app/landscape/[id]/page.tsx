@@ -281,6 +281,8 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
               send={planetVoice.send}
               loading={planetVoice.loading}
               thinking={planetVoice.thinking}
+              studentFirstName={firstName}
+              missionTitle={planet?.title}
             />
           ) : planetVoice.charLoading ? (
             <div className="flex-1 flex items-center justify-center">
