@@ -75,6 +75,52 @@ export function usePlanetVoice(planetId: string) {
       });
   }, [planetId]);
 
+  const sendText = useCallback(async (text: string) => {
+    if (!text.trim() || loading || !character) return;
+
+    const studentId = studentIdRef.current ?? '00000000-0000-0000-0000-000000000001';
+
+    setInput('');
+    setLoading(true);
+
+    setMessages(prev => [...prev, {
+      id: nextId('student'),
+      speaker: 'student',
+      content: text.trim(),
+    }]);
+
+    try {
+      if (isMounted.current) setThinking(true);
+
+      const res = await fetch(`${BOT_URL}/api/planet-voice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId, planetId, message: text.trim() }),
+      });
+
+      if (!isMounted.current) return;
+      if (!res.ok) throw new Error(`API error ${res.status}`);
+
+      const data = await res.json();
+      const newMessages: PlanetVoiceMessage[] = [
+        { id: nextId('figure'), speaker: 'figure', content: data.figureMessage },
+      ];
+      if (data.orinMessage) {
+        newMessages.push({ id: nextId('orin'), speaker: 'orin', content: data.orinMessage });
+      }
+      if (isMounted.current) setMessages(prev => [...prev, ...newMessages]);
+    } catch {
+      if (!isMounted.current) return;
+      setMessages(prev => [...prev, {
+        id: nextId('error'),
+        speaker: 'figure',
+        content: '...forgive me. The words have left me for a moment.',
+      }]);
+    } finally {
+      if (isMounted.current) { setThinking(false); setLoading(false); }
+    }
+  }, [loading, character, planetId]);
+
   const send = useCallback(async () => {
     const text = input.trim();
     if (!text || loading || !character) return;
@@ -135,6 +181,7 @@ export function usePlanetVoice(planetId: string) {
     input,
     setInput,
     send,
+    sendText,
     loading,
     thinking,
   };

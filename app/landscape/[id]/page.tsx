@@ -346,6 +346,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
                     input={planetVoice.input}
                     setInput={planetVoice.setInput}
                     send={planetVoice.send}
+                    sendText={planetVoice.sendText}
                     loading={planetVoice.loading}
                     thinking={planetVoice.thinking}
                     studentFirstName={firstName}
