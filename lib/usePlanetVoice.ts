@@ -42,7 +42,8 @@ export function usePlanetVoice(planetId: string) {
   const isMounted    = useRef(true);
   const studentIdRef = useRef<string | null>(null);
 
-  const nextId = (prefix: string) => `${prefix}-${++msgIdRef.current}`;
+  const nextIdRef = useRef((prefix: string) => `${prefix}-${++msgIdRef.current}`);
+  const nextId = nextIdRef.current;
 
   // Cleanup on unmount
   useEffect(() => {
@@ -99,7 +100,6 @@ export function usePlanetVoice(planetId: string) {
       });
 
       if (!isMounted.current) return;
-      setThinking(false);
 
       if (!res.ok) throw new Error(`API error ${res.status}`);
 
@@ -115,14 +115,16 @@ export function usePlanetVoice(planetId: string) {
       if (isMounted.current) setMessages(prev => [...prev, ...newMessages]);
     } catch {
       if (!isMounted.current) return;
-      setThinking(false);
       setMessages(prev => [...prev, {
         id: nextId('error'),
         speaker: 'figure',
         content: '...forgive me. The words have left me for a moment.',
       }]);
     } finally {
-      if (isMounted.current) setLoading(false);
+      if (isMounted.current) {
+        setThinking(false);
+        setLoading(false);
+      }
     }
   }, [input, loading, character, planetId]);
 
