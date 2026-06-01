@@ -66,20 +66,28 @@ export default function PlanetVoicePanel({
           const mission = missionTitle ?? 'this mission';
           const prefill = `Hello, I'm ${name}. I'm on a mission to uncover "${mission}" and I'd love your help. Tell me a little about yourself and how you connect to it.`;
           return (
-            <div className="flex flex-col items-center gap-3 mt-4 px-1">
-              <p className="text-[9px] text-white/20 font-space text-center tracking-[0.15em] uppercase">
-                Start the conversation
-              </p>
+            <div className="flex flex-col gap-3 mt-4 px-1">
+              {/* Message preview */}
+              <div className="px-3 py-2.5 rounded-lg border border-white/6 bg-white/[0.02]">
+                <p className="text-[11px] font-inter text-white/35 leading-relaxed italic">
+                  &ldquo;{prefill}&rdquo;
+                </p>
+              </div>
+              {/* CTA button — styled like pip-guide "Got it" */}
               <button
-                onClick={() => setInput(prefill)}
-                className="w-full text-left px-3 py-2.5 rounded-lg border border-[#9b8fd4]/20 bg-[#9b8fd4]/5 hover:bg-[#9b8fd4]/10 hover:border-[#9b8fd4]/35 transition-all group"
+                onClick={() => { setInput(prefill); send(); }}
+                style={{
+                  width: '100%', padding: '13px 18px', borderRadius: 12,
+                  background: 'rgba(155,143,212,0.10)',
+                  border: '1.5px solid rgba(155,143,212,0.28)',
+                  color: '#b8aedc', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                  letterSpacing: '0.06em', transition: 'all 0.15s',
+                  textTransform: 'uppercase' as const,
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(155,143,212,0.17)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(155,143,212,0.10)'; }}
               >
-                <p className="text-[11px] font-inter text-white/45 group-hover:text-white/65 leading-relaxed transition-colors">
-                  {prefill}
-                </p>
-                <p className="text-[9px] tracking-[0.2em] font-space text-[#9b8fd4]/45 group-hover:text-[#9b8fd4]/75 mt-2 transition-colors uppercase">
-                  Send &amp; Uncover →
-                </p>
+                Send &amp; Uncover →
               </button>
             </div>
           );
