@@ -68,8 +68,9 @@ const RegisterSchema = z.object({
 });
 
 const PatchStudentSchema = z.object({
-  alien_name:     z.string().trim().min(1).max(50).optional(),
-  base_avatar_url: z.string().trim().url('Must be a valid URL').optional(),
+  alien_name:      z.string().trim().min(1).max(50).optional(),
+  // Accept both relative paths (/avatars/…) and absolute URLs (https://…)
+  base_avatar_url: z.string().trim().min(1).optional(),
 }).refine(d => d.alien_name || d.base_avatar_url, {
   message: 'At least one of alien_name or base_avatar_url is required',
 });

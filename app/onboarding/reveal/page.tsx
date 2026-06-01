@@ -40,19 +40,25 @@ export default function RevealPage() {
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [displayUrl]);
 
-  const handleBegin = () => {
+  const handleBegin = async () => {
     saveBaseAvatarUrl(baseUrl);
     saveAlienName(alienName);
     markOnboardingComplete();
 
-    // Persist alien name and avatar URL to Supabase so every screen
-    // can always load them from the DB rather than recomputing them.
+    // Persist alien name and avatar URL to Supabase BEFORE navigating.
+    // Must be awaited — Vercel serverless kills in-flight fetch calls the
+    // moment the client navigates away and the function is no longer running.
     // student_id is read from the verified session on the server — not sent here.
-    fetch('/api/student', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ alien_name: alienName, base_avatar_url: baseUrl }),
-    }).catch(() => {});
+    try {
+      await fetch('/api/student', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alien_name: alienName, base_avatar_url: baseUrl }),
+      });
+    } catch {
+      // Non-blocking — student can still proceed even if the persist fails.
+      // isNewStudent will remain true on next sign-in and re-generate identity.
+    }
 
     router.push('/syncing');
   };
