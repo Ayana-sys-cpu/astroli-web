@@ -38,3 +38,4 @@ prisma/migrations/dev.db-journal
 .env.local.sb-*
 .env.locecho
 .vercel
+.env*.local

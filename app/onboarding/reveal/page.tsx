@@ -21,7 +21,7 @@ export default function RevealPage() {
   // Avatar URL is always assigned server-side during registration. Fall back
   // to base-01 only if the localStorage cache was lost (e.g. browser data cleared).
   const baseUrl    = storedBase ?? '/avatars/base/base-01.png';
-  const videoUrl   = baseUrl.replace('.png', '.mp4');
+  const webmUrl    = baseUrl.replace('.png', '.webm');
 
   // Returning users (already onboarded) should never see this screen
   useEffect(() => {
@@ -114,21 +114,21 @@ export default function RevealPage() {
           ))}
         </AnimatePresence>
 
-        {/* Avatar video — free-floating, no border/clip */}
+        {/* Avatar — WebM/VP9 with alpha channel keyed from the original MP4.
+            True alpha transparency: no box, no checkerboard. */}
         <AnimatePresence>
           {displayUrl && (
             <motion.video
-              src={videoUrl}
-              poster={displayUrl}
+              src={webmUrl}
               autoPlay
               loop
               muted
               playsInline
+              className="absolute"
+              style={{ width: 300, height: 300, objectFit: 'contain' }}
               initial={{ scale: 0.7, opacity: 0, filter: 'blur(16px)' }}
               animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
               transition={{ duration: 0.8, ease: 'easeOut' }}
-              className="absolute"
-              style={{ width: 300, height: 300, objectFit: 'contain' }}
             />
           )}
         </AnimatePresence>
