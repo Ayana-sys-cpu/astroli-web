@@ -141,8 +141,11 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
   const character = planetVoice.character;
 
   const figureDisplayName = character?.name ?? experience?.figure ?? null;
-  const figureEra         = character?.era  ?? experience?.year     ?? null;
   const figureLocation    = character?.location ?? experience?.location ?? null;
+  const figureEra         = character?.era
+    ?? (experience?.year && figureLocation
+          ? `${figureLocation} · ${experience.year} CE`
+          : experience?.year ? `${experience.year} CE` : null);
 
   const handleSave = (id: number) => {
     if (!savedIds.includes(id)) {
