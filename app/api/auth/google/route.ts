@@ -296,8 +296,11 @@ export async function POST(req: NextRequest) {
     // has explicitly completed onboarding.
   }
 
-  // Sync journey enrollment fire-and-forget — uses server-side access token.
-  enrollStudentInJourneys(student.id, accessToken).catch(() => {});
+  // Enroll student in matching journeys before returning — must be awaited so
+  // the enrollment completes before the client navigates to /syncing and checks
+  // journey status. Fire-and-forget silently fails on Vercel (function exits on
+  // response, killing in-flight async work).
+  await enrollStudentInJourneys(student.id, accessToken);
 
   const authResult = await upsertAuthUserAndToken(email, {
     role: 'student', student_id: student.id, teacher_id: null,
