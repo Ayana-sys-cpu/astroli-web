@@ -213,7 +213,7 @@ export async function POST(req: NextRequest) {
       ? lastJourneyError.message
       : JSON.stringify(lastJourneyError);
     console.error('[teacher/connect] all journey upserts failed. Last error:', detail);
-    return NextResponse.json({ error: 'Failed to create any journeys', detail }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to create any journeys' }, { status: 500 });
   }
 
   // Match the exact response shape the frontend expects.
