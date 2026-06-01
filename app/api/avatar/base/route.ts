@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   const { data: existing } = await supabaseAdmin
     .from('users')
     .select('base_avatar_url')
-    .eq('user_id', studentId)
+    .eq('id', studentId)
     .maybeSingle();
 
   if (existing?.base_avatar_url) {
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
   const { error } = await supabaseAdmin
     .from('users')
     .update({ base_avatar_url })
-    .eq('user_id', studentId);
+    .eq('id', studentId);
 
   if (error) {
     console.error('[POST /api/avatar/base] Supabase error', error);

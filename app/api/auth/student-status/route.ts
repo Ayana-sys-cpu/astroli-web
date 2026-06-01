@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
   // ── 2. Look up in users ──────────────────────────────────────────────────
   const { data, error } = await supabaseAdmin
     .from('users')
-    .select('user_id, first_name, base_avatar_url, avatar_url, alien_name')
+    .select('id, first_name, base_avatar_url, avatar_url, alien_name')
     .eq('email', email)
     .maybeSingle();
 
@@ -68,12 +68,12 @@ export async function POST(req: NextRequest) {
 
     // Sync enrollment — fire-and-forget so sign-in latency is unaffected.
     // Idempotent upsert: safe to call on every sign-in.
-    enrollStudentInJourneys(data.user_id, accessToken).catch(() => {});
+    enrollStudentInJourneys(data.id, accessToken).catch(() => {});
 
     return NextResponse.json({
       exists:             true,
       onboardingComplete: true,
-      studentId:          data.user_id,
+      studentId:          data.id,
       firstName:          data.first_name ?? firstName,
       baseAvatarUrl:      data.base_avatar_url ?? null,
       avatarUrl:          data.avatar_url ?? null,

@@ -168,7 +168,7 @@ async function handlePOST(req: NextRequest) {
         },
         { onConflict: 'email' },
       )
-      .select('user_id')
+      .select('id')
       .single();
 
     if (upsertError || !teacher) {
@@ -178,7 +178,7 @@ async function handlePOST(req: NextRequest) {
 
     const authResult = await upsertAuthUserAndToken(email, {
       role:       'teacher',
-      teacher_id: teacher.user_id,
+      teacher_id: teacher.id,
       student_id: null,
     });
 
@@ -190,12 +190,12 @@ async function handlePOST(req: NextRequest) {
     const { error: teacherLinkError } = await supabaseAdmin
       .from('users')
       .update({ auth_user_id: authResult.authUserId })
-      .eq('user_id', teacher.user_id);
+      .eq('id', teacher.id);
     if (teacherLinkError) console.warn('[identify] auth_user_id linkage failed (teacher):', teacherLinkError);
 
     return NextResponse.json({
       role:      'teacher',
-      userId:    teacher.user_id,
+      userId:    teacher.id,
       googleId,
       email,
       name,
@@ -216,7 +216,7 @@ async function handlePOST(req: NextRequest) {
       },
       { onConflict: 'email' },
     )
-    .select('user_id')
+    .select('id')
     .single();
 
   if (studentError || !student) {
@@ -226,7 +226,7 @@ async function handlePOST(req: NextRequest) {
 
   const authResult = await upsertAuthUserAndToken(email, {
     role:       'student',
-    student_id: student.user_id,
+    student_id: student.id,
     teacher_id: null,
   });
 
@@ -238,12 +238,12 @@ async function handlePOST(req: NextRequest) {
   const { error: studentLinkError } = await supabaseAdmin
     .from('users')
     .update({ auth_user_id: authResult.authUserId })
-    .eq('user_id', student.user_id);
+    .eq('id', student.id);
   if (studentLinkError) console.warn('[identify] auth_user_id linkage failed (student):', studentLinkError);
 
   return NextResponse.json({
     role:      'student',
-    userId:    student.user_id,
+    userId:    student.id,
     googleId,
     email,
     name,

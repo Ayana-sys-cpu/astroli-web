@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   const { data: user, error } = await supabaseAdmin
     .from('users')
     .select('gc_courses')
-    .eq('user_id', teacherId)
+    .eq('id', teacherId)
     .single();
 
   if (error || !user) {

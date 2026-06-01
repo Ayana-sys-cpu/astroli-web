@@ -156,7 +156,7 @@ export async function PATCH(req: NextRequest) {
   const { error } = await supabaseAdmin
     .from('users')
     .update(patch)
-    .eq('user_id', studentId);
+    .eq('id', studentId);
 
   if (error) {
     console.error('[PATCH /api/student] Supabase error', error);

@@ -233,7 +233,7 @@ export async function POST(req: NextRequest) {
         { email, role: 'teacher', full_name: name ?? '', first_name: nameParts[0] ?? '', google_id: googleId, gc_courses: courses },
         { onConflict: 'email' },
       )
-      .select('user_id')
+      .select('id')
       .single();
 
     if (upsertError || !teacher) {
@@ -242,13 +242,13 @@ export async function POST(req: NextRequest) {
     }
 
     const authResult = await upsertAuthUserAndToken(email, {
-      role: 'teacher', teacher_id: teacher.user_id, student_id: null,
+      role: 'teacher', teacher_id: teacher.id, student_id: null,
     });
     if (!authResult) {
       return NextResponse.json({ error: 'Failed to create auth session' }, { status: 503 });
     }
 
-    await supabaseAdmin.from('users').update({ auth_user_id: authResult.authUserId }).eq('user_id', teacher.user_id);
+    await supabaseAdmin.from('users').update({ auth_user_id: authResult.authUserId }).eq('id', teacher.id);
 
     return NextResponse.json({ role: 'teacher', name, email, courses, authToken: authResult.authToken });
   }
@@ -257,7 +257,7 @@ export async function POST(req: NextRequest) {
   // Check existence before upsert so we know whether to generate an identity.
   const { data: existing } = await supabaseAdmin
     .from('users')
-    .select('user_id, first_name, base_avatar_url, alien_name')
+    .select('id, first_name, base_avatar_url, alien_name')
     .eq('email', email)
     .maybeSingle();
 
@@ -273,7 +273,7 @@ export async function POST(req: NextRequest) {
       { email, role: 'student', full_name: name ?? '', first_name: nameParts[0] ?? '' },
       { onConflict: 'email' },
     )
-    .select('user_id, first_name, base_avatar_url, alien_name')
+    .select('id, first_name, base_avatar_url, alien_name')
     .single();
 
   if (studentError || !student) {
@@ -297,16 +297,16 @@ export async function POST(req: NextRequest) {
   }
 
   // Sync journey enrollment fire-and-forget — uses server-side access token.
-  enrollStudentInJourneys(student.user_id, accessToken).catch(() => {});
+  enrollStudentInJourneys(student.id, accessToken).catch(() => {});
 
   const authResult = await upsertAuthUserAndToken(email, {
-    role: 'student', student_id: student.user_id, teacher_id: null,
+    role: 'student', student_id: student.id, teacher_id: null,
   });
   if (!authResult) {
     return NextResponse.json({ error: 'Failed to create auth session' }, { status: 503 });
   }
 
-  await supabaseAdmin.from('users').update({ auth_user_id: authResult.authUserId }).eq('user_id', student.user_id);
+  await supabaseAdmin.from('users').update({ auth_user_id: authResult.authUserId }).eq('id', student.id);
 
   return NextResponse.json({
     role:         'student',
