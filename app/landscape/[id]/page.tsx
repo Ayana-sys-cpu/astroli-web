@@ -215,6 +215,17 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
         {/* ── Left — Cinematic figure panel ── */}
         <div className="flex-1 relative overflow-hidden bg-[#050508]">
 
+          {/* SPEAKING WITH badge — top left overlay */}
+          {figureDisplayName && (
+            <div className="absolute top-4 left-5 z-40 flex items-center gap-2 px-2.5 py-1.5 rounded-full border border-white/12 bg-black/50 backdrop-blur-sm">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00C4CC] opacity-60" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#00C4CC]" />
+              </span>
+              <span className="text-[9px] tracking-[0.18em] text-white/50 font-space uppercase">SPEAKING WITH</span>
+            </div>
+          )}
+
           {/* Scanline texture */}
           <div
             className="absolute inset-0 z-10 pointer-events-none opacity-[0.04]"
@@ -260,7 +271,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
             <div className="absolute bottom-11 left-0 right-0 z-30 px-7 pb-5">
               {figureEra && (
                 <p className="text-[9px] tracking-[0.3em] text-white/35 font-space uppercase mb-1.5">
-                  {figureEra}{figureLocation ? ` · ${figureLocation}` : ''}
+                  {figureEra}
                 </p>
               )}
               <p className="text-2xl font-space text-white/85 font-bold tracking-wide leading-tight">
@@ -291,14 +302,14 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
         <aside className="panel w-[380px] flex-shrink-0 flex flex-col overflow-hidden">
 
           {/* Mission context — always pinned */}
-          <div className="px-4 py-3 border-b border-white/5 flex-shrink-0">
-            <p className="text-[9px] tracking-[0.18em] text-white/25 font-space uppercase mb-1">YOUR MISSION</p>
-            <p className="text-[12px] text-white/70 font-inter leading-snug">{planet.title}</p>
+          <div className="px-4 py-3 border-b border-white/5 flex-shrink-0 border-l-2 border-l-[#9b8fd4]/40" style={{ borderLeft: '2px solid rgba(155,143,212,0.35)' }}>
+            <p className="text-[9px] tracking-[0.18em] text-[#9b8fd4]/50 font-space uppercase mb-1.5">YOUR MISSION</p>
+            <p className="text-[15px] font-semibold text-white/80 font-inter leading-snug mb-2">{planet.title}</p>
             <button
               onClick={() => router.push('/landscape')}
-              className="mt-1.5 text-[9px] tracking-[0.12em] text-[#9b8fd4]/45 hover:text-[#9b8fd4]/80 font-space uppercase transition-colors"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded border border-[#9b8fd4]/30 bg-[#9b8fd4]/8 text-[#9b8fd4]/70 hover:text-[#9b8fd4] hover:border-[#9b8fd4]/50 hover:bg-[#9b8fd4]/14 transition-all text-[9px] tracking-[0.12em] font-space uppercase"
             >
-              REVIEW PROJECT →
+              PROJECT →
             </button>
           </div>
 
@@ -316,14 +327,14 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
               >
                 {tab === 'notebook' ? (
                   <>
-                    NOTEBOOK
+                    📓 MY NOTES
                     {savedCount > 0 && (
                       <span className="text-[9px] bg-[#00C4CC]/20 text-[#00C4CC] px-1.5 py-0.5 rounded">
                         {savedCount}
                       </span>
                     )}
                   </>
-                ) : 'CONVERSATION'}
+                ) : '💬 CHAT'}
               </button>
             ))}
           </div>
