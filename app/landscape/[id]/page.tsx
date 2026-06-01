@@ -8,6 +8,8 @@ import { getPlanetMeta } from '@/lib/planet-meta';
 import { PLANET_EXPERIENCE, NOTEBOOK_INSIGHTS, type Message } from '@/lib/planet-experience';
 import { useOrinChat } from '@/lib/useOrinChat';
 import { getFirstName } from '@/lib/student-store';
+import { usePlanetVoice } from '@/lib/usePlanetVoice';
+import PlanetVoicePanel from '@/components/PlanetVoicePanel';
 
 interface Planet {
   id: string;
@@ -78,6 +80,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
   const isThinkingRef     = useRef(false);
   const firstName = getFirstName() || 'Traveler';
   const orin = useOrinChat('planet_screen', params.id, 'planet');
+  const planetVoice = usePlanetVoice(params.id);
 
   // Keep isThinkingRef in sync for use inside async closures.
   useEffect(() => { isThinkingRef.current = isAvatarThinking; }, [isAvatarThinking]);
@@ -208,17 +211,39 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
                 <p className="text-[9px] tracking-[0.3em] text-white/25 font-space uppercase mb-6">
                   {experience.figure.split(' ')[0].toUpperCase()} · {experience.year}
                 </p>
-                <div
-                  className="w-24 h-24 rounded-full border border-white/15 flex items-center justify-center mb-4"
-                  style={{
-                    background: 'radial-gradient(circle, #1a1a1a, #060606)',
-                    boxShadow: '0 0 30px rgba(0,196,204,0.08)',
-                  }}
-                >
-                  <span className="text-3xl text-white/10 font-space font-bold">
-                    {experience.figure.split(' ').map((w) => w[0]).join('')}
-                  </span>
-                </div>
+                {planetVoice.character?.listening_video_url ? (
+                  <video
+                    src={planetVoice.thinking && planetVoice.character.thinking_video_url
+                      ? planetVoice.character.thinking_video_url
+                      : planetVoice.character.listening_video_url}
+                    className="w-48 h-48 rounded-lg object-cover mb-4"
+                    style={{ boxShadow: '0 0 30px rgba(155,143,212,0.15)' }}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                  />
+                ) : planetVoice.character?.portrait_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={planetVoice.character.portrait_url}
+                    alt={planetVoice.character.name}
+                    className="w-48 h-48 rounded-lg object-cover mb-4"
+                    style={{ boxShadow: '0 0 30px rgba(155,143,212,0.15)' }}
+                  />
+                ) : (
+                  <div
+                    className="w-24 h-24 rounded-full border border-white/15 flex items-center justify-center mb-4"
+                    style={{
+                      background: 'radial-gradient(circle, #1a1a1a, #060606)',
+                      boxShadow: '0 0 30px rgba(0,196,204,0.08)',
+                    }}
+                  >
+                    <span className="text-3xl text-white/10 font-space font-bold">
+                      {experience.figure.split(' ').map((w: string) => w[0]).join('')}
+                    </span>
+                  </div>
+                )}
                 <p className="text-[10px] tracking-[0.15em] text-white/30 font-space uppercase">
                   {label.toUpperCase()} · {experience.location.toUpperCase()}
                 </p>
@@ -247,168 +272,185 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
 
         {/* Right — Chat / Notebook panel */}
         <aside className="panel w-[320px] flex-shrink-0 flex flex-col overflow-hidden">
-          <div className="flex border-b border-white/5">
-            {(['chat', 'notebook'] as Tab[]).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`flex-1 py-3 text-[10px] tracking-[0.18em] font-space uppercase flex items-center justify-center gap-1.5 transition-colors ${
-                  activeTab === tab
-                    ? 'text-white border-b-2 border-[#00C4CC]'
-                    : 'text-white/30 hover:text-white/55'
-                }`}
-              >
-                {tab === 'notebook' ? (
-                  <>
-                    NOTEBOOK
-                    <span className="text-[9px] bg-[#00C4CC]/20 text-[#00C4CC] px-1.5 py-0.5 rounded">
-                      {savedCount}
-                    </span>
-                  </>
-                ) : (
-                  'IN-CALL MESSAGES'
-                )}
-              </button>
-            ))}
-          </div>
+          {planetVoice.character ? (
+            <PlanetVoicePanel
+              character={planetVoice.character}
+              messages={planetVoice.messages}
+              input={planetVoice.input}
+              setInput={planetVoice.setInput}
+              send={planetVoice.send}
+              loading={planetVoice.loading}
+              thinking={planetVoice.thinking}
+            />
+          ) : planetVoice.charLoading ? (
+            <div className="flex-1 flex items-center justify-center">
+              <span className="w-4 h-4 rounded-full border-2 border-[#00C4CC]/30 border-t-[#00C4CC] animate-spin" />
+            </div>
+          ) : (
+            <>
+              <div className="flex border-b border-white/5">
+                {(['chat', 'notebook'] as Tab[]).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`flex-1 py-3 text-[10px] tracking-[0.18em] font-space uppercase flex items-center justify-center gap-1.5 transition-colors ${
+                      activeTab === tab
+                        ? 'text-white border-b-2 border-[#00C4CC]'
+                        : 'text-white/30 hover:text-white/55'
+                    }`}
+                  >
+                    {tab === 'notebook' ? (
+                      <>
+                        NOTEBOOK
+                        <span className="text-[9px] bg-[#00C4CC]/20 text-[#00C4CC] px-1.5 py-0.5 rounded">
+                          {savedCount}
+                        </span>
+                      </>
+                    ) : (
+                      'IN-CALL MESSAGES'
+                    )}
+                  </button>
+                ))}
+              </div>
 
-          <AnimatePresence mode="wait">
-            {activeTab === 'chat' ? (
-              <motion.div
-                key="chat"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex-1 flex flex-col overflow-hidden"
-              >
-                <div className="px-4 py-2.5 border-b border-white/5">
-                  <p className="text-[10px] tracking-wide text-white/35 font-space">
-                    Live conversation · hover any message to{' '}
-                    <span className="text-[#06D6A0]/60">Save for project</span>
-                  </p>
-                </div>
-
-                <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
-                  {/* Orin intro — from DB planet opening_message */}
-                  {planet.openingMessage && (
-                    <div className="flex flex-col gap-1.5">
-                      <span className="text-[9px] tracking-[0.2em] text-[#00C4CC]/50 font-space uppercase">ORIN · GUIDE</span>
-                      <div className="px-3 py-2.5 rounded-lg border border-[#00C4CC]/15" style={{ background: 'rgba(0,196,204,0.04)' }}>
-                        <p className="text-xs text-white/60 font-inter leading-relaxed whitespace-pre-line">{planet.openingMessage}</p>
-                      </div>
+              <AnimatePresence mode="wait">
+                {activeTab === 'chat' ? (
+                  <motion.div
+                    key="chat"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex-1 flex flex-col overflow-hidden"
+                  >
+                    <div className="px-4 py-2.5 border-b border-white/5">
+                      <p className="text-[10px] tracking-wide text-white/35 font-space">
+                        Live conversation · hover any message to{' '}
+                        <span className="text-[#06D6A0]/60">Save for project</span>
+                      </p>
                     </div>
-                  )}
 
-                  {allMessages.map((msg) => (
-                    <ChatMessage key={msg.id} msg={msg} onSave={handleSave} />
-                  ))}
+                    <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
+                      {planet.openingMessage && (
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-[9px] tracking-[0.2em] text-[#00C4CC]/50 font-space uppercase">ORIN · GUIDE</span>
+                          <div className="px-3 py-2.5 rounded-lg border border-[#00C4CC]/15" style={{ background: 'rgba(0,196,204,0.04)' }}>
+                            <p className="text-xs text-white/60 font-inter leading-relaxed whitespace-pre-line">{planet.openingMessage}</p>
+                          </div>
+                        </div>
+                      )}
 
-                  {orin.messages.slice(0, shownMsgCount).map((m, i) => (
-                    <ChatMessage
-                      key={`live-${i}`}
-                      msg={{ id: 9000 + i, sender: m.role === 'user' ? 'you' : 'figure', text: m.content, time: 'now', saved: false }}
-                      onSave={() => {}}
-                    />
-                  ))}
+                      {allMessages.map((msg) => (
+                        <ChatMessage key={msg.id} msg={msg} onSave={handleSave} />
+                      ))}
 
-                  {isAvatarThinking && (
-                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-white/8 bg-white/3 w-fit">
-                      {[0, 1, 2].map(i => (
-                        <motion.span
-                          key={i}
-                          className="w-1.5 h-1.5 rounded-full"
-                          style={{ background: 'rgba(0,196,204,0.6)' }}
-                          animate={{ opacity: [0.25, 1, 0.25] }}
-                          transition={{ duration: 1, repeat: Infinity, delay: i * 0.18, ease: 'easeInOut' }}
+                      {orin.messages.slice(0, shownMsgCount).map((m, i) => (
+                        <ChatMessage
+                          key={`live-${i}`}
+                          msg={{ id: 9000 + i, sender: m.role === 'user' ? 'you' : 'figure', text: m.content, time: 'now', saved: false }}
+                          onSave={() => {}}
                         />
                       ))}
-                    </div>
-                  )}
-                </div>
 
-                <div className="px-4 py-3 border-t border-white/5 flex gap-2">
-                  <input
-                    className="input-dark text-xs flex-1 disabled:opacity-40 disabled:cursor-not-allowed"
-                    placeholder={isAvatarThinking ? 'thinking...' : 'Send a message'}
-                    value={orin.input}
-                    disabled={isAvatarThinking}
-                    onChange={(e) => orin.setInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                  />
-                  <button
-                    onClick={handleSend}
-                    disabled={isAvatarThinking}
-                    className="text-[#00C4CC]/60 hover:text-[#00C4CC] disabled:opacity-30 transition-colors text-sm px-1"
-                  >→</button>
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="notebook"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex-1 flex flex-col overflow-hidden"
-              >
-                <div className="px-4 py-2.5 border-b border-white/5">
-                  <p className="text-[9px] tracking-[0.18em] text-white/30 font-space uppercase">
-                    {savedCount} SAVED
-                    {experience ? ` · ${experience.location.toUpperCase()} · ${experience.year}` : ''}
-                  </p>
-                  {experience && (
-                    <div className="flex gap-3 mt-2">
-                      {['ALL', 'BY ' + experience.figure.split(' ')[0].toUpperCase(), 'YOURS'].map((tab) => (
-                        <button
-                          key={tab}
-                          className="text-[9px] tracking-wide font-space text-white/35 hover:text-white/70 transition-colors first:text-white/70"
-                        >
-                          {tab}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-2.5">
-                  {NOTEBOOK_INSIGHTS.map((insight) => (
-                    <div
-                      key={insight.id}
-                      className="px-3 py-2.5 rounded-md border border-white/7 bg-white/2 group"
-                    >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[9px] tracking-wide font-space text-white/35 uppercase">
-                          {insight.source}
-                        </span>
-                        <span className="text-[9px] text-white/20 font-inter">{insight.time}</span>
-                      </div>
-                      <p className="text-[12px] text-white/65 font-inter leading-relaxed">{insight.text}</p>
-                      {insight.tag && (
-                        <span className="mt-1.5 inline-block text-[8px] tracking-widest font-space text-[#00C4CC]/40 border border-[#00C4CC]/20 rounded px-1.5 py-0.5">
-                          {insight.tag}
-                        </span>
+                      {isAvatarThinking && (
+                        <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-white/8 bg-white/3 w-fit">
+                          {[0, 1, 2].map(i => (
+                            <motion.span
+                              key={i}
+                              className="w-1.5 h-1.5 rounded-full"
+                              style={{ background: 'rgba(0,196,204,0.6)' }}
+                              animate={{ opacity: [0.25, 1, 0.25] }}
+                              transition={{ duration: 1, repeat: Infinity, delay: i * 0.18, ease: 'easeInOut' }}
+                            />
+                          ))}
+                        </div>
                       )}
                     </div>
-                  ))}
-                </div>
 
-                <div className="px-4 py-3 border-t border-white/5 flex items-center gap-2">
-                  <button
-                    onClick={() => setActiveTab('chat')}
-                    className="btn-ghost text-[10px] font-space tracking-wide flex-1"
+                    <div className="px-4 py-3 border-t border-white/5 flex gap-2">
+                      <input
+                        className="input-dark text-xs flex-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                        placeholder={isAvatarThinking ? 'thinking...' : 'Send a message'}
+                        value={orin.input}
+                        disabled={isAvatarThinking}
+                        onChange={(e) => orin.setInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                      />
+                      <button
+                        onClick={handleSend}
+                        disabled={isAvatarThinking}
+                        className="text-[#00C4CC]/60 hover:text-[#00C4CC] disabled:opacity-30 transition-colors text-sm px-1"
+                      >→</button>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="notebook"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex-1 flex flex-col overflow-hidden"
                   >
-                    ← BACK TO CHAT
-                  </button>
-                  <button className="btn-teal text-[10px] font-space tracking-[0.1em] flex-1">
-                    SEND TO CASE →
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                    <div className="px-4 py-2.5 border-b border-white/5">
+                      <p className="text-[9px] tracking-[0.18em] text-white/30 font-space uppercase">
+                        {savedCount} SAVED
+                        {experience ? ` · ${experience.location.toUpperCase()} · ${experience.year}` : ''}
+                      </p>
+                      {experience && (
+                        <div className="flex gap-3 mt-2">
+                          {['ALL', 'BY ' + experience.figure.split(' ')[0].toUpperCase(), 'YOURS'].map((tab) => (
+                            <button
+                              key={tab}
+                              className="text-[9px] tracking-wide font-space text-white/35 hover:text-white/70 transition-colors first:text-white/70"
+                            >
+                              {tab}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
-          <div className="flex justify-center py-3 border-t border-white/5">
-            <OrinOrb size={32} pulse={false} />
-          </div>
+                    <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-2.5">
+                      {NOTEBOOK_INSIGHTS.map((insight) => (
+                        <div
+                          key={insight.id}
+                          className="px-3 py-2.5 rounded-md border border-white/7 bg-white/2 group"
+                        >
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[9px] tracking-wide font-space text-white/35 uppercase">
+                              {insight.source}
+                            </span>
+                            <span className="text-[9px] text-white/20 font-inter">{insight.time}</span>
+                          </div>
+                          <p className="text-[12px] text-white/65 font-inter leading-relaxed">{insight.text}</p>
+                          {insight.tag && (
+                            <span className="mt-1.5 inline-block text-[8px] tracking-widest font-space text-[#00C4CC]/40 border border-[#00C4CC]/20 rounded px-1.5 py-0.5">
+                              {insight.tag}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="px-4 py-3 border-t border-white/5 flex items-center gap-2">
+                      <button
+                        onClick={() => setActiveTab('chat')}
+                        className="btn-ghost text-[10px] font-space tracking-wide flex-1"
+                      >
+                        ← BACK TO CHAT
+                      </button>
+                      <button className="btn-teal text-[10px] font-space tracking-[0.1em] flex-1">
+                        SEND TO CASE →
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div className="flex justify-center py-3 border-t border-white/5">
+                <OrinOrb size={32} pulse={false} />
+              </div>
+            </>
+          )}
         </aside>
       </div>
 
