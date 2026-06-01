@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
 
   if (error) {
     console.error('[GET /api/teacher/journeys]', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message, detail: error }, { status: 500 });
   }
 
   const journeys = (data ?? []).map(j => {

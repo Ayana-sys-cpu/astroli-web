@@ -172,6 +172,7 @@ export async function POST(req: NextRequest) {
   const { courses } = parsed.data;
 
   let firstJourneyId: string | null = null;
+  let lastJourneyError: unknown = null;
 
   for (const course of courses) {
     // ── Upsert journey ────────────────────────────────────────────────────────
@@ -187,6 +188,7 @@ export async function POST(req: NextRequest) {
 
     if (journeyError || !journey) {
       console.error('[teacher/connect] upsert journey', course.id, journeyError);
+      lastJourneyError = journeyError;
       continue;
     }
 
@@ -207,7 +209,11 @@ export async function POST(req: NextRequest) {
   }
 
   if (!firstJourneyId) {
-    return NextResponse.json({ error: 'Failed to create any journeys' }, { status: 500 });
+    const detail = lastJourneyError instanceof Error
+      ? lastJourneyError.message
+      : JSON.stringify(lastJourneyError);
+    console.error('[teacher/connect] all journey upserts failed. Last error:', detail);
+    return NextResponse.json({ error: 'Failed to create any journeys', detail }, { status: 500 });
   }
 
   // Match the exact response shape the frontend expects.
