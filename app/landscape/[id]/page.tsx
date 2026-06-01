@@ -180,11 +180,20 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
 
       {/* Top bar */}
       <header className="relative z-20 flex-shrink-0 flex items-center justify-between px-5 h-11 border-b border-white/5 bg-black/40 backdrop-blur-sm">
-        <span className="text-[10px] tracking-[0.2em] text-white/35 font-space uppercase">
-          {figureEra && figureLocation
-            ? `PLANET · ${figureLocation.toUpperCase()} · ${figureEra}`
-            : `PLANET · ${label.toUpperCase()}`}
-        </span>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => router.push('/landscape')}
+            className="flex items-center gap-1.5 text-[10px] tracking-[0.15em] font-space text-white/50 hover:text-white/90 transition-colors uppercase"
+          >
+            ← MAP
+          </button>
+          <span className="text-white/10 text-xs">|</span>
+          <span className="text-[10px] tracking-[0.2em] text-white/30 font-space uppercase">
+            {figureEra && figureLocation
+              ? `${figureLocation.toUpperCase()} · ${figureEra}`
+              : label.toUpperCase()}
+          </span>
+        </div>
         {figureDisplayName && (
           <span className="text-[10px] tracking-wide text-[#00C4CC]/60 font-space flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#00C4CC] inline-block" />
