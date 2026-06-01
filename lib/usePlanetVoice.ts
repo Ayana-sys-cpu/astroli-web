@@ -180,6 +180,32 @@ export function usePlanetVoice(planetId: string) {
     }
   }, [input, loading, character, planetId]);
 
+  const askOrin = useCallback(async () => {
+    if (loading) return;
+    const studentId = studentIdRef.current ?? '00000000-0000-0000-0000-000000000001';
+    setLoading(true);
+    try {
+      const res = await fetch(`${BOT_URL}/api/planet-voice/orin-help`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId, planetId }),
+      });
+      if (!isMounted.current) return;
+      const data = await res.json();
+      if (data.orinMessage) {
+        setMessages(prev => [...prev, {
+          id: nextId('orin'),
+          speaker: 'orin',
+          content: data.orinMessage,
+        }]);
+      }
+    } catch {
+      // silent — Orin help is optional
+    } finally {
+      if (isMounted.current) setLoading(false);
+    }
+  }, [loading, planetId]);
+
   return {
     character,
     charLoading,
@@ -188,6 +214,7 @@ export function usePlanetVoice(planetId: string) {
     setInput,
     send,
     sendText,
+    askOrin,
     loading,
     thinking,
   };

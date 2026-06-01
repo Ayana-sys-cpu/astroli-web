@@ -29,6 +29,7 @@ interface Props {
   setInput: (v: string) => void;
   send: () => void;
   sendText: (text: string) => void;
+  askOrin: () => void;
   loading: boolean;
   thinking: boolean;
   studentFirstName?: string;
@@ -84,7 +85,7 @@ function TypingBubble() {
 }
 
 export default function PlanetVoicePanel({
-  character, messages, input, setInput, send, sendText, loading, thinking,
+  character, messages, input, setInput, send, sendText, askOrin, loading, thinking,
   studentFirstName, missionTitle, savedIds = [], onSave, openingGreeting,
 }: Props) {
   const bottomRef  = useRef<HTMLDivElement>(null);
@@ -305,6 +306,28 @@ export default function PlanetVoicePanel({
 
         <div ref={bottomRef} style={{ height: 1 }} />
       </div>
+
+      {/* ── Ask Orin button — only after at least one exchange ── */}
+      {messages.length >= 2 && (
+        <div style={{ padding: '0 12px 8px', flexShrink: 0 }}>
+          <button
+            onClick={askOrin}
+            disabled={loading}
+            style={{
+              width: '100%', padding: '9px 14px', borderRadius: 10,
+              background: 'rgba(6,214,160,0.07)', border: '1px solid rgba(6,214,160,0.2)',
+              color: loading ? 'rgba(6,214,160,0.3)' : 'rgba(6,214,160,0.75)',
+              fontSize: 11, fontWeight: 700, cursor: loading ? 'default' : 'pointer',
+              letterSpacing: '0.1em', textTransform: 'uppercase',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => { if (!loading) (e.currentTarget as HTMLElement).style.background = 'rgba(6,214,160,0.13)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(6,214,160,0.07)'; }}
+          >
+            ✦ Ask Orin for a hint
+          </button>
+        </div>
+      )}
 
       {/* ── Input dock — pinned, never scrolls ── */}
       <div style={{ borderTop: `1px solid ${T.b1}`, padding: '12px', flexShrink: 0 }}>
