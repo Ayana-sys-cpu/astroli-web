@@ -198,11 +198,6 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
           >
             ← MAP
           </button>
-          {figureEra && (
-            <span className="text-[10px] tracking-[0.15em] text-white/35 font-space">
-              {figureEra}
-            </span>
-          )}
         </div>
         {figureDisplayName && (
           <span className="text-[10px] tracking-wide text-[#00C4CC]/60 font-space flex items-center gap-1.5">
@@ -228,12 +223,27 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
 
           {/* SPEAKING WITH badge — top left overlay */}
           {figureDisplayName && (
-            <div className="absolute top-4 left-5 z-40 flex items-center gap-2 px-2.5 py-1.5 rounded-full border border-white/12 bg-black/50 backdrop-blur-sm">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00C4CC] opacity-60" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#00C4CC]" />
-              </span>
-              <span className="text-[9px] tracking-[0.18em] text-white/50 font-space uppercase">SPEAKING WITH</span>
+            <div className="absolute top-4 left-5 z-40">
+              {/* Connection beam — from badge diagonally toward figure face area */}
+              <div style={{
+                position: 'absolute',
+                top: '50%',
+                left: '100%',
+                width: 160,
+                height: 1,
+                transformOrigin: 'left center',
+                transform: 'rotate(28deg)',
+                background: 'linear-gradient(90deg, rgba(0,212,212,0.18) 0%, rgba(155,92,255,0.10) 55%, transparent 100%)',
+                animation: 'edgeFlow 4s ease-in-out infinite alternate',
+                pointerEvents: 'none',
+              }} />
+              <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-full border border-white/12 bg-black/50 backdrop-blur-sm">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00C4CC] opacity-60" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#00C4CC]" />
+                </span>
+                <span className="text-[9px] tracking-[0.18em] text-white/50 font-space uppercase">SPEAKING WITH</span>
+              </div>
             </div>
           )}
 
