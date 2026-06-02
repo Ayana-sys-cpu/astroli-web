@@ -346,12 +346,21 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`flex-1 py-2.5 text-[10px] tracking-[0.18em] font-space uppercase flex items-center justify-center gap-1.5 transition-colors ${
-                  activeTab === tab
-                    ? 'text-white border-b-2 border-[#00C4CC]'
-                    : 'text-white/30 hover:text-white/55'
+                className={`flex-1 py-2.5 text-[10px] tracking-[0.18em] font-space uppercase flex items-center justify-center gap-1.5 transition-colors relative ${
+                  activeTab === tab ? 'text-white' : 'text-white/30 hover:text-white/55'
                 }`}
+                style={activeTab === tab ? {
+                  boxShadow: 'inset 0 -2px 0 0 transparent',
+                } : undefined}
               >
+                {activeTab === tab && (
+                  <span style={{
+                    position: 'absolute', bottom: 0, left: '10%', right: '10%', height: 2,
+                    borderRadius: '2px 2px 0 0',
+                    background: 'linear-gradient(90deg, #00D4D4, #9B5CFF)',
+                    boxShadow: '0 0 8px rgba(0,212,212,0.7)',
+                  }} />
+                )}
                 {tab === 'notebook' ? (
                   <>
                     📓 MY NOTES

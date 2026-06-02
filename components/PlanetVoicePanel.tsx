@@ -91,6 +91,7 @@ export default function PlanetVoicePanel({
   const bottomRef  = useRef<HTMLDivElement>(null);
   const inputRef   = useRef<HTMLInputElement>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [inputFocused, setInputFocused] = useState(false);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -344,8 +345,11 @@ export default function PlanetVoicePanel({
       <div style={{ borderTop: `1px solid ${T.b1}`, padding: '12px', flexShrink: 0 }}>
         <div style={{
           display: 'flex', gap: 8, alignItems: 'center',
-          background: T.s2, border: `1px solid ${T.b1}`,
+          background: T.s2,
+          border: `1px solid ${inputFocused ? 'rgba(155,92,255,0.5)' : T.b1}`,
+          boxShadow: inputFocused ? '0 0 16px rgba(155,92,255,0.12)' : 'none',
           borderRadius: 12, padding: '4px 4px 4px 14px',
+          transition: 'border-color 0.2s, box-shadow 0.2s',
         }}>
           <input
             ref={inputRef}
@@ -353,6 +357,8 @@ export default function PlanetVoicePanel({
             disabled={loading}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !loading) send(); }}
+            onFocus={() => setInputFocused(true)}
+            onBlur={() => setInputFocused(false)}
             placeholder={loading
               ? `${character.name.split(' ')[0]} is thinking…`
               : `Ask ${character.name.split(' ')[0]}…`}
