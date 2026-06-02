@@ -44,8 +44,8 @@ function FigureOrb({ size = 24 }: { size?: number }) {
     <div style={{
       width: size, height: size, borderRadius: '50%', flexShrink: 0,
       background: 'radial-gradient(circle at 35% 35%, #d0c0ff, #7755bb 60%, #2a1a44)',
-      boxShadow: `0 0 ${size * 0.6}px rgba(160,144,212,0.5)`,
       border: '1px solid rgba(160,144,212,0.5)',
+      animation: 'figOrbPulse 3s ease-in-out infinite',
     }} />
   );
 }
@@ -55,8 +55,8 @@ function OrinOrb({ size = 24 }: { size?: number }) {
     <div style={{
       width: size, height: size, borderRadius: '50%', flexShrink: 0,
       background: 'radial-gradient(circle at 35% 35%, #80ffcc, #00aa77 60%, #003322)',
-      boxShadow: `0 0 ${size * 0.6}px rgba(6,214,160,0.5)`,
       border: '1px solid rgba(6,214,160,0.5)',
+      animation: 'orinOrbPulse 2s ease-in-out infinite',
     }} />
   );
 }
@@ -154,14 +154,25 @@ export default function PlanetVoicePanel({
                 onClick={() => sendText(prefill)}
                 style={{
                   width: '100%', padding: '13px 18px', borderRadius: 12,
-                  background: T.figDim, border: `1.5px solid ${T.figBdr}`,
-                  color: T.fig, fontSize: 14, fontWeight: 800, cursor: 'pointer',
-                  transition: 'all 0.15s', letterSpacing: '0.04em',
+                  background: 'linear-gradient(135deg, rgba(0,212,212,0.10), rgba(155,92,255,0.10))',
+                  border: '1.5px solid transparent',
+                  backgroundClip: 'padding-box',
+                  outline: '1.5px solid rgba(0,212,212,0.3)',
+                  outlineOffset: '-1.5px',
+                  color: T.ac, fontSize: 14, fontWeight: 800, cursor: 'pointer',
+                  letterSpacing: '0.04em', position: 'relative', overflow: 'hidden',
+                  animation: 'ctaGlow 3s ease-in-out infinite',
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(160,144,212,0.17)'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = T.figDim; }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.outline = '1.5px solid rgba(0,212,212,0.6)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.outline = '1.5px solid rgba(0,212,212,0.3)'; }}
               >
-                Send &amp; Uncover →
+                <span style={{ position: 'relative', zIndex: 1 }}>Send &amp; Uncover →</span>
+                <span style={{
+                  position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                  background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.07) 50%, transparent 100%)',
+                  animation: 'ctaShimmer 4s ease-in-out infinite',
+                  pointerEvents: 'none',
+                }} />
               </button>
             </div>
           );

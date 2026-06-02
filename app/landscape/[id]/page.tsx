@@ -276,6 +276,11 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
             className="absolute inset-0 z-20 pointer-events-none"
             style={{ background: 'linear-gradient(to right, transparent 65%, rgba(0,0,0,0.55) 100%)' }}
           />
+          {/* Ambient bleed — purple energy from the chat panel bleeds back onto the figure */}
+          <div
+            className="absolute inset-0 z-20 pointer-events-none"
+            style={{ background: 'radial-gradient(ellipse 30% 60% at 95% 50%, rgba(155,92,255,0.12) 0%, transparent 70%)' }}
+          />
 
           {/* Character name — bottom overlay (above the nav bar) */}
           {figureDisplayName && (
@@ -313,7 +318,15 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
         </div>
 
         {/* ── Right — Chat + Notebook panel ── */}
-        <aside className="panel w-[380px] flex-shrink-0 flex flex-col overflow-hidden">
+        <aside className="panel w-[380px] flex-shrink-0 flex flex-col overflow-hidden" style={{ position: 'relative' }}>
+          {/* Atmospheric depth — nebula tint + animated left-edge strip */}
+          <div className="absolute inset-0 pointer-events-none z-0" style={{
+            background: 'radial-gradient(ellipse 100% 60% at 50% 0%, rgba(155,92,255,0.04) 0%, transparent 60%)',
+          }} />
+          <div className="absolute top-0 bottom-0 left-0 w-px pointer-events-none z-0" style={{
+            background: 'linear-gradient(to bottom, transparent 0%, rgba(155,92,255,0.4) 30%, rgba(255,45,120,0.25) 65%, transparent 100%)',
+            animation: 'edgeFlow 5s ease-in-out infinite alternate',
+          }} />
 
           {/* Mission context — always pinned */}
           <div className="px-4 py-3 border-b border-white/5 flex-shrink-0 border-l-2 border-l-[#9b8fd4]/40" style={{ borderLeft: '2px solid rgba(155,143,212,0.35)' }}>
