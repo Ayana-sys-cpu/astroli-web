@@ -240,3 +240,8 @@ html, body {
   font-weight: 700;
   font-family: var(--font-space);
 }
+
+@keyframes nameGlow {
+  0%   { text-shadow: 0 0 20px rgba(155,92,255,.35), 0 0 40px rgba(155,92,255,.15), 0 2px 16px rgba(0,0,0,.9); }
+  100% { text-shadow: 0 0 40px rgba(155,92,255,.7),  0 0 80px rgba(155,92,255,.3),  0 2px 16px rgba(0,0,0,.9); }
+}

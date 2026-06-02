@@ -277,7 +277,10 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
                   {figureEra}
                 </p>
               )}
-              <p className="text-2xl font-space text-white/85 font-bold tracking-wide leading-tight">
+              <p
+                className="text-2xl font-space font-extrabold tracking-wide leading-tight text-white"
+                style={{ animation: 'nameGlow 4s ease-in-out infinite alternate' }}
+              >
                 {figureDisplayName}
               </p>
             </div>
