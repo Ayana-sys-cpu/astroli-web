@@ -241,6 +241,11 @@ html, body {
   font-family: var(--font-space);
 }
 
+@keyframes mapPulse {
+  0%,100% { box-shadow: 0 0 0px rgba(255,45,120,0); }
+  50%      { box-shadow: 0 0 12px rgba(255,45,120,.35), inset 0 0 8px rgba(255,45,120,.06); }
+}
+
 @keyframes nameGlow {
   0%   { text-shadow: 0 0 20px rgba(155,92,255,.35), 0 0 40px rgba(155,92,255,.15), 0 2px 16px rgba(0,0,0,.9); }
   100% { text-shadow: 0 0 40px rgba(155,92,255,.7),  0 0 80px rgba(155,92,255,.3),  0 2px 16px rgba(0,0,0,.9); }

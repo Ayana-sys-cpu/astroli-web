@@ -186,7 +186,15 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.push('/landscape')}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-white/20 bg-white/8 hover:bg-white/14 hover:border-white/35 text-white/85 hover:text-white transition-all text-[11px] font-space tracking-[0.12em] font-semibold uppercase"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-md text-[11px] font-space tracking-[0.12em] font-semibold uppercase transition-all"
+            style={{
+              border: '1px solid rgba(255,45,120,.4)',
+              background: 'rgba(255,45,120,.08)',
+              color: '#FF2D78',
+              animation: 'mapPulse 3s ease-in-out infinite',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,45,120,.16)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,45,120,.08)'; }}
           >
             ← MAP
           </button>
