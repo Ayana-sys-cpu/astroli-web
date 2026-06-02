@@ -6,10 +6,10 @@ import { type PlanetCharacter, type PlanetVoiceMessage } from '@/lib/usePlanetVo
 
 // Design tokens — matches PipGuidePanel exactly
 const T = {
-  s2:    '#0d0d1f',
-  s3:    '#111128',
-  b1:    '#16162a',
-  b2:    '#1f1f38',
+  s2:    '#000000',
+  s3:    '#080808',
+  b1:    '#111111',
+  b2:    '#161616',
   tp:    '#e2e8f0',
   ts:    '#8896a8',
   tm:    '#3d4a60',

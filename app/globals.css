@@ -15,8 +15,8 @@
   --color-gold: #FFD600;
   --color-green: #00FF88;
   /* Surfaces */
-  --color-panel: #07070F;
-  --color-panel-mid: #0C0C18;
+  --color-panel: #000000;
+  --color-panel-mid: #080808;
   --color-panel-border: rgba(255, 255, 255, 0.07);
   --color-panel-border-bright: rgba(255, 255, 255, 0.14);
   /* Legacy compat */

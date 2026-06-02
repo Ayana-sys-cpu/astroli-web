@@ -216,7 +216,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
       <div className="flex flex-1 overflow-hidden min-h-0">
 
         {/* ── Left — Cinematic figure panel ── */}
-        <div className="flex-1 relative overflow-hidden bg-[#050508]">
+        <div className="flex-1 relative overflow-hidden bg-black">
 
           {/* SPEAKING WITH badge — top left overlay */}
           {figureDisplayName && (
