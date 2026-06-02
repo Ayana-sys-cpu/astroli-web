@@ -92,12 +92,22 @@ export default function PlanetVoicePanel({
   const inputRef   = useRef<HTMLInputElement>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [inputFocused, setInputFocused] = useState(false);
+  const [orinFlash, setOrinFlash] = useState(false);
 
   useEffect(() => {
     if (messages.length > 0) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages.length]);
+
+  // Flash the input dock border when an Orin message arrives
+  const lastOrinId = messages.filter(m => m.speaker === 'orin').at(-1)?.id;
+  useEffect(() => {
+    if (!lastOrinId) return;
+    setOrinFlash(true);
+    const t = setTimeout(() => setOrinFlash(false), 1500);
+    return () => clearTimeout(t);
+  }, [lastOrinId]);
 
   const figureName = character.name.split(' ')[0].toUpperCase();
 
@@ -219,11 +229,12 @@ export default function PlanetVoicePanel({
                 >
                   <OrinOrb size={24} />
                   <div style={{
-                    flex: 1, background: T.s2,
+                    flex: 1, background: 'rgba(0,255,209,0.04)',
                     border: `1px solid rgba(6,214,160,0.2)`,
                     borderLeft: `2px solid ${T.orin}`,
                     borderRadius: '4px 14px 14px 14px',
                     padding: '12px 14px',
+                    boxShadow: '0 0 16px rgba(0,255,209,0.04)',
                   }}>
                     <div style={{
                       fontSize: 9, fontWeight: 800, color: T.orin,
@@ -346,8 +357,8 @@ export default function PlanetVoicePanel({
         <div style={{
           display: 'flex', gap: 8, alignItems: 'center',
           background: T.s2,
-          border: `1px solid ${inputFocused ? 'rgba(155,92,255,0.5)' : T.b1}`,
-          boxShadow: inputFocused ? '0 0 16px rgba(155,92,255,0.12)' : 'none',
+          border: `1px solid ${orinFlash ? 'rgba(0,255,209,0.5)' : inputFocused ? 'rgba(155,92,255,0.5)' : T.b1}`,
+          boxShadow: orinFlash ? '0 0 16px rgba(0,255,209,0.18)' : inputFocused ? '0 0 16px rgba(155,92,255,0.12)' : 'none',
           borderRadius: 12, padding: '4px 4px 4px 14px',
           transition: 'border-color 0.2s, box-shadow 0.2s',
         }}>
