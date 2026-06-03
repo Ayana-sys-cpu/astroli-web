@@ -8,7 +8,295 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// ─── Enums ────────────────────────────────────────────────────────────────────
+model User {
+  id                          String                       @id @default(dbgenerated("(gen_random_uuid())::text"))
+  googleId                    String?                      @unique @map("google_id")
+  email                       String                       @unique(map: "users_email_unique")
+  name                        String?
+  role                        Role
+  gcCourses                   String?                      @map("gc_courses")
+  createdAt                   DateTime                     @default(now()) @map("created_at")
+  updatedAt                   DateTime                     @default(now()) @updatedAt @map("updated_at")
+  first_name                  String?
+  full_name                   String?
+  alien_name                  String?
+  base_avatar_url             String?
+  avatar_url                  String?
+  area_of_interest            String?
+  last_avatar_personalised_at DateTime?                    @db.Timestamptz(6)
+  auth_user_id                String?                      @db.Uuid
+  generationJobs              GenerationJob[]
+  journeys                    Journey[]
+  mission_started_by_student  mission_started_by_student[]
+  missionsCreated             Mission[]
+  planetsCreated              Planet[]
+  student_journeys            student_journeys[]
+
+  @@map("users")
+}
+
+model Journey {
+  id                  String               @id @default(dbgenerated("(gen_random_uuid())::text"))
+  googleCourseId      String               @unique @map("google_course_id")
+  title               String
+  teacherId           String               @map("teacher_id")
+  voteEndsAt          DateTime?            @map("vote_ends_at")
+  lastMaterialSyncAt  DateTime?            @map("last_material_sync_at")
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @default(now()) @updatedAt @map("updated_at")
+  curriculumMaterials CurriculumMaterial[]
+  generationJobs      GenerationJob[]
+  teacher             User                 @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  missions            Mission[]
+  student_journeys    student_journeys[]
+  vote_sessions       vote_sessions[]
+
+  @@index([teacherId])
+  @@map("journeys")
+}
+
+model Mission {
+  id                         String                       @id @default(dbgenerated("(gen_random_uuid())::text"))
+  journeyId                  String                       @map("journey_id")
+  question                   String
+  questionDescription        String                       @map("question_description")
+  projectTitle               String                       @map("project_title")
+  projectDescription         String                       @map("project_description")
+  state                      MissionState                 @default(locked)
+  source                     ContentSource                @default(HARDCODED)
+  openingMessage             String?                      @map("opening_message")
+  openingQuickReplies        Json?                        @map("opening_quick_replies")
+  startDate                  DateTime?                    @map("start_date") @db.Date
+  endDate                    DateTime?                    @map("end_date") @db.Date
+  mission_order              Int                          @map("order")
+  generationJobId            String?                      @map("generation_job_id")
+  createdBy                  String                       @map("created_by")
+  createdAt                  DateTime                     @default(now()) @map("created_at")
+  updatedAt                  DateTime                     @default(now()) @updatedAt @map("updated_at")
+  chapter                    String?
+  mission_brief              String?
+  opening_message_2          String?
+  world_brief_summary        String?
+  world_brief_items          Json?
+  qa_answers                 Json?
+  mission_qa_answers         Json?
+  mission_started_by_student mission_started_by_student[]
+  creator                    User                         @relation(fields: [createdBy], references: [id])
+  generationJob              GenerationJob?               @relation(fields: [generationJobId], references: [id])
+  journey                    Journey                      @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  planets                    Planet[]
+
+  @@index([journeyId])
+  @@map("missions")
+}
+
+model Planet {
+  id                   String         @id @default(dbgenerated("(gen_random_uuid())::text"))
+  missionId            String         @map("mission_id")
+  title                String
+  label                String?
+  shortTitle           String?        @map("short_title")
+  planetQuestion       String?        @map("planet_question")
+  content              String
+  source               ContentSource  @default(HARDCODED)
+  openingMessage       String?        @map("opening_message")
+  openingQuickReplies  Json?          @map("opening_quick_replies")
+  mediaUrl             String?        @map("media_url")
+  mediaType            MaterialType?  @map("media_type")
+  generationJobId      String?        @map("generation_job_id")
+  createdBy            String         @map("created_by")
+  createdAt            DateTime       @default(now()) @map("created_at")
+  updatedAt            DateTime       @default(now()) @updatedAt @map("updated_at")
+  icon                 String?
+  hint                 String?
+  characterFigure      String?        @map("character_figure")
+  characterYear        String?        @map("character_year")
+  characterLocation    String?        @map("character_location")
+  studentRevealMessage String?        @map("student_reveal_message")
+  sourceMaterials      PlanetSource[]
+  creator              User           @relation(fields: [createdBy], references: [id])
+  generationJob        GenerationJob? @relation(fields: [generationJobId], references: [id])
+  mission              Mission        @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  @@index([missionId])
+  @@map("planets")
+}
+
+model CurriculumMaterial {
+  id               String         @id @default(uuid())
+  journeyId        String         @map("journey_id")
+  googleMaterialId String         @map("google_material_id")
+  type             MaterialType   @default(OTHER)
+  title            String
+  description      String?
+  url              String?
+  extractedContent String?        @map("extracted_content")
+  syncedAt         DateTime       @map("synced_at")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+  journey          Journey        @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  planetSources    PlanetSource[]
+
+  @@unique([journeyId, googleMaterialId])
+  @@index([journeyId])
+  @@map("curriculum_materials")
+}
+
+model PlanetSource {
+  planetId   String             @map("planet_id")
+  materialId String             @map("material_id")
+  material   CurriculumMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  planet     Planet             @relation(fields: [planetId], references: [id], onDelete: Cascade)
+
+  @@id([planetId, materialId])
+  @@map("planet_sources")
+}
+
+model GenerationJob {
+  id              String    @id @default(uuid())
+  journeyId       String    @map("journey_id")
+  triggeredBy     String    @map("triggered_by")
+  status          JobStatus @default(PENDING)
+  model           String?
+  errorMessage    String?   @map("error_message")
+  completedAt     DateTime? @map("completed_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  journey         Journey   @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  triggeredByUser User      @relation(fields: [triggeredBy], references: [id])
+  missions        Mission[]
+  planets         Planet[]
+
+  @@index([journeyId])
+  @@map("generation_jobs")
+}
+
+model Vote {
+  id              String         @id @default(dbgenerated("(gen_random_uuid())::text"))
+  studentId       String         @map("student_id")
+  journeyId       String         @map("journey_id")
+  bigIdeaId       String         @map("big_idea_id")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @default(now()) @updatedAt @map("updated_at")
+  vote_session_id String?
+  vote_sessions   vote_sessions? @relation(fields: [vote_session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([studentId, journeyId])
+  @@unique([studentId, vote_session_id], map: "votes_student_session_unique")
+  @@index([journeyId])
+  @@map("votes")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model app_context {
+  student_id     String    @id @db.Uuid
+  screen         String?   @default("mission_hub")
+  mission        String?
+  project        String?
+  viewed_content String[]  @default([])
+  updated_at     DateTime? @default(now()) @db.Timestamptz(6)
+  students       students  @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model authorized_teachers {
+  email String @id
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model messages {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  student_id     String?   @db.Uuid
+  role           String
+  content        String
+  screen_context String?
+  created_at     DateTime? @default(now()) @db.Timestamptz(6)
+  speaker        String?
+  students       students? @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model mission_started_by_student {
+  id         String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  student_id String
+  mission_id String
+  status     String    @default("started")
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+  missions   Mission   @relation(fields: [mission_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      User      @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([student_id, mission_id], map: "mission_started_unique")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model planet_characters {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  planet_id           String   @unique(map: "one_character_per_planet")
+  name                String
+  mode                String
+  bio                 String
+  era                 String
+  location            String
+  voice_profile       String
+  teaching_goal       String
+  knowledge_cutoff    String
+  sources             String?
+  portrait_url        String?
+  listening_video_url String?
+  thinking_video_url  String?
+  is_approved         Boolean  @default(false)
+  created_at          DateTime @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime @default(now()) @db.Timestamptz(6)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model student_journeys {
+  id          String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  student_id  String
+  journey_id  String
+  enrolled_at DateTime? @default(now()) @db.Timestamptz(6)
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime? @default(now()) @db.Timestamptz(6)
+  journeys    Journey   @relation(fields: [journey_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users       User      @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([student_id, journey_id], map: "student_journeys_student_journey_unique")
+  @@index([journey_id])
+  @@index([student_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model students {
+  id              String       @id @db.Uuid
+  alien_name      String
+  bot_base_avatar String?
+  grade_level     Int?
+  interests       String[]
+  created_at      DateTime?    @default(now()) @db.Timestamptz(6)
+  app_context     app_context?
+  messages        messages[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model vote_sessions {
+  id         String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  journey_id String
+  starts_at  DateTime? @db.Timestamptz(6)
+  ends_at    DateTime? @db.Timestamptz(6)
+  winner_id  String?
+  status     String    @default("open")
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+  journeys   Journey   @relation(fields: [journey_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  votes      Vote[]
+
+  @@index([journey_id])
+  @@index([status])
+}
 
 enum Role {
   teacher
@@ -24,17 +312,12 @@ enum MissionState {
   skipped
 }
 
-// Tracks whether content was hand-authored, AI-generated, or written by the teacher.
-// Phase 1: all content is HARDCODED.
-// Phase 2: AI pipeline writes AI_GENERATED; teacher edits produce TEACHER_CREATED.
 enum ContentSource {
   HARDCODED
   AI_GENERATED
   TEACHER_CREATED
 }
 
-// Lifecycle of an AI generation run.
-// Phase 1: table is empty. Phase 2: one row per AI generation attempt.
 enum JobStatus {
   PENDING
   RUNNING
@@ -42,8 +325,6 @@ enum JobStatus {
   FAILED
 }
 
-// Types of material that can exist in a Google Classroom course.
-// Used by CurriculumMaterial and as optional metadata on Planet.
 enum MaterialType {
   ASSIGNMENT
   MATERIAL
@@ -52,228 +333,4 @@ enum MaterialType {
   YOUTUBE
   LINK
   OTHER
-}
-
-// ─── Models ───────────────────────────────────────────────────────────────────
-
-model User {
-  id        String   @id @default(uuid())
-  googleId  String   @unique @map("google_id")
-  email     String
-  name      String
-  role      Role
-  gcCourses String?  @map("gc_courses") @db.Text
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  journeys        Journey[]
-  missionsCreated Mission[]
-  planetsCreated  Planet[]
-  generationJobs  GenerationJob[]
-
-  @@map("users")
-}
-
-model Journey {
-  id                 String    @id @default(uuid())
-  googleCourseId     String    @unique @map("google_course_id")
-  title              String
-  teacherId          String    @map("teacher_id")
-  // Set when a mission-selection vote is active; cleared when vote closes or teacher cancels.
-  voteEndsAt         DateTime? @map("vote_ends_at")
-  // Phase 2: updated each time the GC materials sync job runs for this Journey.
-  lastMaterialSyncAt DateTime? @map("last_material_sync_at")
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
-
-  teacher             User                 @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  missions            Mission[]
-  curriculumMaterials CurriculumMaterial[]
-  generationJobs      GenerationJob[]
-
-  @@index([teacherId])
-  @@map("journeys")
-}
-
-model Mission {
-  id String @id @default(uuid())
-
-  journeyId String @map("journey_id")
-
-  // The big open-ended question — displayed as the Mission headline.
-  question String
-
-  // Phase 1 addition: orientation paragraph shown below the question.
-  questionDescription String @map("question_description") @db.Text
-
-  // Phase 1 addition: name of the student deliverable.
-  projectTitle String @map("project_title")
-
-  // Phase 1 addition: full project brief shown to students.
-  projectDescription String @map("project_description") @db.Text
-
-  state     MissionState  @default(locked)
-  // Phase 2 scaffold: tag content origin. Phase 1 hardcoded = HARDCODED.
-  source    ContentSource @default(HARDCODED)
-
-  // Pip's first-entrance message shown the first time a student opens this Mission.
-  openingMessage      String? @map("opening_message") @db.Text
-  // Optional quick-reply buttons attached to the opening message (JSON array of {label, value}).
-  openingQuickReplies Json?   @map("opening_quick_replies")
-
-  startDate DateTime? @map("start_date") @db.Date
-  endDate   DateTime? @map("end_date") @db.Date
-  order     Int
-
-  // Phase 2 scaffold: links back to the AI run that generated this Mission.
-  // Null for all Phase 1 hardcoded content.
-  generationJobId String? @map("generation_job_id")
-
-  createdBy String   @map("created_by")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  journey       Journey        @relation(fields: [journeyId], references: [id], onDelete: Cascade)
-  creator       User           @relation(fields: [createdBy], references: [id])
-  generationJob GenerationJob? @relation(fields: [generationJobId], references: [id])
-  planets       Planet[]
-
-  @@index([journeyId])
-  @@map("missions")
-}
-
-model Planet {
-  id        String @id @default(uuid())
-  missionId String @map("mission_id")
-
-  title   String
-  // One-word display label shown on the planet card (e.g. "Church", "Canossa").
-  label         String?
-  // Short display title for the planet (e.g. "The Medieval Church").
-  shortTitle    String? @map("short_title")
-  // The guiding question students explore on this planet.
-  planetQuestion String? @map("planet_question") @db.Text
-  // Written text content. Phase 1: hand-authored. Phase 2: AI-generated or extracted from source material.
-  content String @db.Text
-
-  // Phase 2 scaffold: tag content origin. Phase 1 hardcoded = HARDCODED.
-  source ContentSource @default(HARDCODED)
-
-  // Pip's first-entrance message shown the first time a student opens this Planet.
-  openingMessage      String? @map("opening_message") @db.Text
-  // Optional quick-reply buttons attached to the opening message (JSON array of {label, value}).
-  openingQuickReplies Json?   @map("opening_quick_replies")
-
-  // Phase 2 scaffold: for planets that ARE a media resource (YouTube, Drive doc, link)
-  // rather than written text. Null for all Phase 1 text planets.
-  mediaUrl  String?      @map("media_url")
-  mediaType MaterialType? @map("media_type")
-
-  // Phase 2 scaffold: links back to the AI run that generated this Planet.
-  // Null for all Phase 1 hardcoded content.
-  generationJobId String? @map("generation_job_id")
-
-  createdBy String   @map("created_by")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  mission         Mission        @relation(fields: [missionId], references: [id], onDelete: Cascade)
-  creator         User           @relation(fields: [createdBy], references: [id])
-  generationJob   GenerationJob? @relation(fields: [generationJobId], references: [id])
-  // Phase 2 scaffold: which source materials informed this Planet.
-  // Empty for all Phase 1 hardcoded planets.
-  sourceMaterials PlanetSource[]
-
-  @@index([missionId])
-  @@map("planets")
-}
-
-// Phase 2 scaffold: one row per Google Classroom course material.
-// Phase 1: table exists but is empty.
-// Phase 2: a sync job reads the teacher's GC course via the Classroom API
-// and writes one row per material (assignment, Drive file, YouTube video, link, etc.).
-// The AI generation pipeline reads this table to understand what content exists
-// in the teacher's course before generating Missions and Planets.
-model CurriculumMaterial {
-  id               String       @id @default(uuid())
-  journeyId        String       @map("journey_id")
-  // The material's ID in Google Classroom (courseworkId, materialId, etc.).
-  googleMaterialId String       @map("google_material_id")
-  type             MaterialType @default(OTHER)
-  title            String
-  description      String?      @db.Text
-  // Direct URL to the material in Google Classroom or Drive.
-  url              String?
-  // Phase 2: text extracted from the material (PDF text, Drive doc content, etc.)
-  // for the AI to read. Null until extraction runs.
-  extractedContent String?      @map("extracted_content") @db.Text
-  syncedAt         DateTime     @map("synced_at")
-  createdAt        DateTime     @default(now()) @map("created_at")
-  updatedAt        DateTime     @updatedAt @map("updated_at")
-
-  journey      Journey       @relation(fields: [journeyId], references: [id], onDelete: Cascade)
-  planetSources PlanetSource[]
-
-  // A material can only appear once per Journey.
-  @@unique([journeyId, googleMaterialId])
-  @@index([journeyId])
-  @@map("curriculum_materials")
-}
-
-// Phase 2 scaffold: join table linking AI-generated Planets back to
-// the specific CurriculumMaterials that the AI drew from to create them.
-// Provides traceability: teacher can see exactly which GC material each Planet came from.
-// Phase 1: table exists but is empty (hardcoded planets have no source materials).
-model PlanetSource {
-  planetId   String @map("planet_id")
-  materialId String @map("material_id")
-
-  planet   Planet             @relation(fields: [planetId], references: [id], onDelete: Cascade)
-  material CurriculumMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
-
-  @@id([planetId, materialId])
-  @@map("planet_sources")
-}
-
-// Phase 2 scaffold: one row per AI generation run.
-// Tracks who triggered it, which AI model was used, current status, and outcome.
-// The teacher dashboard will use this to show generation progress and history.
-// Phase 1: table exists but is empty.
-model GenerationJob {
-  id          String    @id @default(uuid())
-  journeyId   String    @map("journey_id")
-  triggeredBy String    @map("triggered_by")
-  status      JobStatus @default(PENDING)
-  // Which AI model was used (e.g. "claude-opus-4-6"). Null until job starts.
-  model       String?
-  // Populated if status = FAILED.
-  errorMessage String?  @map("error_message") @db.Text
-  completedAt  DateTime? @map("completed_at")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-
-  journey         Journey   @relation(fields: [journeyId], references: [id], onDelete: Cascade)
-  triggeredByUser User      @relation(fields: [triggeredBy], references: [id])
-  missions        Mission[]
-  planets         Planet[]
-
-  @@index([journeyId])
-  @@map("generation_jobs")
-}
-
-// One row per student vote per journey.
-// journeyId is the mobile app's string key (e.g. 'journey_history_pilot_01') — not a FK to journeys.id.
-// studentId is the student's Supabase Auth UUID from the mobile app — not a FK to users.id (teacher-only table).
-// The UNIQUE constraint enforces one vote per student per journey; upsert updates their choice.
-model Vote {
-  id        String   @id @default(uuid())
-  studentId String   @map("student_id")
-  journeyId String   @map("journey_id")
-  bigIdeaId String   @map("big_idea_id")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@unique([studentId, journeyId])
-  @@index([journeyId])
-  @@map("votes")
 }

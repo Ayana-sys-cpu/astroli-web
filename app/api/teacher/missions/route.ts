@@ -25,7 +25,7 @@ function toMission(m: any) {
     projectDescription:  m.project_description,
     openingMessage:      m.opening_message,
     state:               m.state,
-    order:               m.mission_order,
+    order:               m.order,
     planets:             (m.planets ?? []).map((p: any) => ({
       id:             p.id,
       title:          p.title,
@@ -119,7 +119,7 @@ export async function GET(req: NextRequest) {
     .from('missions')
     .select('*, planets(*)')
     .eq('journey_id', journeyId)
-    .order('mission_order');
+    .order('order');
 
   if (error) {
     console.error('[GET /api/teacher/missions]', error);

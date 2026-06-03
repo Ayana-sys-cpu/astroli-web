@@ -234,7 +234,7 @@ async function seedJourney(journeyId: string, teacherId: string): Promise<void> 
       .from('missions')
       .insert({
         journey_id:           journeyId,
-        mission_order:        order,
+        order:                order,
         question:             q,
         question_description: missionSeed.question_description,
         project_title:        missionSeed.project_title,
