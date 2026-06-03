@@ -156,18 +156,18 @@ export async function PATCH(req: NextRequest) {
 
   console.log('[PATCH /api/student] studentId:', studentId, 'fields:', Object.keys(patch));
 
-  const { error, count } = await supabaseAdmin
+  const { data: updated, error } = await supabaseAdmin
     .from('users')
     .update(patch)
     .eq('id', studentId)
-    .select('id', { count: 'exact', head: true });
+    .select('id');
 
   if (error) {
     console.error('[PATCH /api/student] Supabase error', error);
     return NextResponse.json({ error: 'Failed to update student' }, { status: 503 });
   }
 
-  console.log('[PATCH /api/student] rows updated:', count);
+  console.log('[PATCH /api/student] rows updated:', (updated ?? []).length);
   return NextResponse.json({ ok: true });
 }
 
