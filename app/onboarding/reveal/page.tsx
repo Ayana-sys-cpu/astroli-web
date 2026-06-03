@@ -50,14 +50,17 @@ export default function RevealPage() {
     // moment the client navigates away and the function is no longer running.
     // student_id is read from the verified session on the server — not sent here.
     try {
-      await fetch('/api/student', {
+      const res = await fetch('/api/student', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ alien_name: alienName, base_avatar_url: baseUrl }),
       });
-    } catch {
-      // Non-blocking — student can still proceed even if the persist fails.
-      // isNewStudent will remain true on next sign-in and re-generate identity.
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error('[reveal] PATCH /api/student failed', res.status, err);
+      }
+    } catch (err) {
+      console.error('[reveal] PATCH /api/student threw', err);
     }
 
     router.push('/syncing');

@@ -270,7 +270,7 @@ export async function POST(req: NextRequest) {
   const { data: student, error: studentError } = await supabaseAdmin
     .from('users')
     .upsert(
-      { email, role: 'student', full_name: name ?? '', first_name: nameParts[0] ?? '' },
+      { email, role: 'student', full_name: name ?? '', first_name: nameParts[0] ?? '', google_id: googleId },
       { onConflict: 'email' },
     )
     .select('id, first_name, base_avatar_url, alien_name')
