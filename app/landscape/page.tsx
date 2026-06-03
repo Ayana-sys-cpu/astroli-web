@@ -94,7 +94,7 @@ export default function LandscapePage() {
       id: p.id,
       name: label,
       label,
-      shortTitle:     p.shortTitle    ?? label,
+      shortTitle:     label,
       planetQuestion: p.planetQuestion ?? meta.question,
       number: String(i + 1).padStart(2, '0'),
       ...pos,

@@ -125,9 +125,9 @@ Think about this: The Geonim created a system of authority that worked without a
   // ── Mission 2 ──────────────────────────────────────────────────────────────
   {
     mission_order: 2,
-    question: 'What happens when power expands beyond the reach of law?',
+    question: 'Is personal security worth the loss of freedom?',
     question_description:
-      'After the fall of the Roman Empire, Europe descended into a world with no stable government, no reliable army, and no guaranteed safety. In response, people made a deal: give up your freedom in exchange for protection. This is the Feudal Bargain — and for hundreds of years, it shaped every aspect of daily life. This Mission asks: when the world feels dangerous and chaotic, how much freedom are people willing to trade away for security? And what happens when that bargain starts to look less like protection and more like control?',
+      'After the fall of the Roman Empire, Europe descended into a world with no stable government, no reliable army, and no guaranteed safety. In response, people made a deal: give up your freedom in exchange for protection. This is the Feudal Bargain — and for hundreds of years, it shaped every aspect of daily life, from who owned the land to who could marry whom. This Mission asks: when the world feels dangerous and chaotic, how much freedom are people willing to trade away for security? And what happens when that bargain starts to look less like protection and more like control?',
     project_title: 'The Feudal Terms of Service',
     project_description: `Every app you use has a Terms of Service — a legal agreement you accept in exchange for access to something you want. Usually, nobody reads it. But what if the terms were your entire life?
 
@@ -239,19 +239,19 @@ Think about this: Cities offered a different kind of bargain from the feudal one
   // ── Mission 3 ──────────────────────────────────────────────────────────────
   {
     mission_order: 3,
-    question: "Who gets to define what's true — and what it costs to disagree?",
+    question: 'Must an encounter between different cultures always end in the victory of one side?',
     question_description:
-      'Between the 7th and 13th centuries, Christianity, Islam, and Judaism were not isolated from each other — they collided, competed, traded, translated, and sometimes even collaborated. The Crusades are the most famous collision, but they are only one part of a much larger story. This Mission asks: when civilisations meet, does someone always have to win? Or is it possible for cultures to transform each other without one side conquering the other?',
+      'Between the 7th and 13th centuries, Christianity, Islam, and Judaism were not isolated from each other — they collided, competed, traded, translated, and sometimes even collaborated. The Crusades are the most famous collision, but they are only one part of a much larger story. This Mission asks: when civilisations meet, does someone always have to win? Or is it possible for cultures to transform each other — to exchange ideas, lose things, gain things, and emerge as something new — without one side conquering the other?',
     project_title: 'Voices of the Crusades: A Live News Broadcast',
-    project_description: `It is July 1099 CE. The Crusaders have just breached the walls of Jerusalem after a five-week siege. The city — under Muslim rule for over 400 years and home to Jewish residents for centuries — is in chaos.
+    project_description: `It is July 1099 CE. The Crusaders have just breached the walls of Jerusalem after a five-week siege. The city — which has been under Muslim rule for over 400 years and has been home to Jewish residents for centuries — is now in chaos.
 
-Your task: produce a 3–5 minute live news broadcast covering the fall of Jerusalem from multiple perspectives simultaneously.
+Your task is to produce a 3–5 minute live news broadcast covering the fall of Jerusalem from multiple perspectives simultaneously.
 
 Your broadcast must include all three of the following on-the-ground interviews:
 
-1. A CRUSADER KNIGHT — Interview a knight who has just entered the city.
-2. A LOCAL MUSLIM SCHOLAR — Interview a scholar or resident who has lived in Jerusalem under Muslim rule.
-3. A JEWISH RESIDENT OF JERUSALEM — Interview a Jewish person in the city at the moment of the conquest.
+1. A Crusader Knight — Interview a knight who has just entered the city.
+2. A Local Muslim Scholar — Interview a scholar or resident who has lived in Jerusalem under Muslim rule.
+3. A Jewish Resident of Jerusalem — Interview a Jewish person in the city at the moment of the conquest.
 
 The news anchor introduces the broadcast, sets the historical scene, and closes with a 1–2 sentence reflection on what this moment reveals about what happens when cultures that see the world completely differently are forced to share the same space.
 

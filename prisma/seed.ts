@@ -52,7 +52,7 @@ async function main() {
     create: {
       id: 'seed-mission-1',
       journeyId: journey.id,
-      order: 1,
+      mission_order: 1,
       state: MissionState.locked,
       source: ContentSource.HARDCODED,
       // generationJobId: null — hardcoded content has no generation job
@@ -104,13 +104,22 @@ How to submit — choose one:
   // Mission 1 — Planet 1
   await prisma.planet.upsert({
     where: { id: 'seed-planet-1-1' },
-    update: {},
+    update: {
+      characterFigure: 'Pope Gregory VII',
+      characterYear: '1076',
+      characterLocation: 'Lateran Palace, Rome',
+      studentRevealMessage: "You don't just hold power — you're known as Gregory the Great, one of the most powerful popes in history! People still study your fight with the Emperor today. I'm here to understand how you did it.",
+    },
     create: {
       id: 'seed-planet-1-1',
       missionId: mission1.id,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,
       title: 'The Central Role of the Catholic Church in Medieval Society',
+      characterFigure: 'Pope Gregory VII',
+      characterYear: '1076',
+      characterLocation: 'Lateran Palace, Rome',
+      studentRevealMessage: "You don't just hold power — you're known as Gregory the Great, one of the most powerful popes in history! People still study your fight with the Emperor today. I'm here to understand how you did it.",
       openingMessage:
 `Traveler. Before you go in — I need you to understand the scale of what you're scanning.
 
@@ -139,13 +148,22 @@ Think about this: If the Church controlled education, law, spiritual salvation, 
   // Mission 1 — Planet 2
   await prisma.planet.upsert({
     where: { id: 'seed-planet-1-2' },
-    update: {},
+    update: {
+      characterFigure: 'Emperor Henry IV',
+      characterYear: '1077',
+      characterLocation: 'Castle of Canossa',
+      studentRevealMessage: "You don't just survive this — you're remembered as the Emperor who stood barefoot in the snow for three days. That moment is still studied a thousand years later. I'm here to understand what drove you to it.",
+    },
     create: {
       id: 'seed-planet-1-2',
       missionId: mission1.id,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,
       title: 'The Pope vs. The Emperor: The Investiture Controversy',
+      characterFigure: 'Emperor Henry IV',
+      characterYear: '1077',
+      characterLocation: 'Castle of Canossa',
+      studentRevealMessage: "You don't just survive this — you're remembered as the Emperor who stood barefoot in the snow for three days. That moment is still studied a thousand years later. I'm here to understand what drove you to it.",
       openingMessage:
 `A sitting Pope excommunicated a Holy Roman Emperor.
 
@@ -176,13 +194,22 @@ Think about this: Both the Pope and the Emperor believed they were defending God
   // Mission 1 — Planet 3
   await prisma.planet.upsert({
     where: { id: 'seed-planet-1-3' },
-    update: {},
+    update: {
+      characterFigure: 'Rashi of Troyes',
+      characterYear: '1090',
+      characterLocation: 'Troyes, France',
+      studentRevealMessage: "They don't just survive — you're known as 'Rashi,' and you are one of the most famous teachers in history! Millions of people still read your guides today. I'm here to see how it all started.",
+    },
     create: {
       id: 'seed-planet-1-3',
       missionId: mission1.id,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,
       title: 'The Jewish Community in Ashkenaz: Rabbenu Gershom and Rashi',
+      characterFigure: 'Rashi of Troyes',
+      characterYear: '1090',
+      characterLocation: 'Troyes, France',
+      studentRevealMessage: "They don't just survive — you're known as 'Rashi,' and you are one of the most famous teachers in history! Millions of people still read your guides today. I'm here to see how it all started.",
       openingMessage:
 `Here's something that doesn't add up at first, Traveler.
 
@@ -211,13 +238,22 @@ Think about this: How did Jewish communities maintain their own system of law, t
   // Mission 1 — Planet 4
   await prisma.planet.upsert({
     where: { id: 'seed-planet-1-4' },
-    update: {},
+    update: {
+      characterFigure: 'Saadia Gaon',
+      characterYear: '930',
+      characterLocation: 'Sura Academy, Babylonia',
+      studentRevealMessage: "Your writings don't just survive — you're known as Saadia Gaon, one of the greatest Jewish thinkers of the medieval world. Scholars still study your work today. I'm here to understand how you built authority without any power.",
+    },
     create: {
       id: 'seed-planet-1-4',
       missionId: mission1.id,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,
       title: 'The Geonim of Babylonia: Jewish Leadership in Exile',
+      characterFigure: 'Saadia Gaon',
+      characterYear: '930',
+      characterLocation: 'Sura Academy, Babylonia',
+      studentRevealMessage: "Your writings don't just survive — you're known as Saadia Gaon, one of the greatest Jewish thinkers of the medieval world. Scholars still study your work today. I'm here to understand how you built authority without any power.",
       openingMessage:
 `The Jewish people had no homeland, no Temple, and no king.
 
@@ -256,7 +292,7 @@ Think about this: The Geonim created a system of authority that worked without a
     create: {
       id: 'seed-mission-2',
       journeyId: journey.id,
-      order: 2,
+      mission_order:2,
       state: MissionState.locked,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,
@@ -504,7 +540,7 @@ Think about this: Cities offered a different kind of bargain from the feudal one
     create: {
       id: 'seed-mission-3',
       journeyId: journey.id,
-      order: 3,
+      mission_order:3,
       state: MissionState.locked,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,

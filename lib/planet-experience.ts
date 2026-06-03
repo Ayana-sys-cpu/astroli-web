@@ -56,7 +56,7 @@ export const PLANET_EXPERIENCE: Record<string, PlanetExperience> = {
     figure: 'Rashi of Troyes',
     year: '1090',
     location: 'Troyes, France',
-    greeting: "You come from the future, I am told. Tell me — do my commentaries still survive in your time? A thousand years is a long time for parchment.",
+    greeting: "You come from the future, I am told. I am Shlomo, a winemaker's son, though I have spent my life writing guides to help my people understand our sacred texts. Tell me — do my words still survive in your time? A thousand years is a long time for parchment to last.",
     messages: [
       { id: 1, sender: 'figure', text: "We have no castle. No army. No king. And yet our legal decisions are followed from the Rhine to the Danube.", time: '10:30' },
       { id: 2, sender: 'you',    text: "How is that possible with no enforcement behind it?", time: '10:31' },
