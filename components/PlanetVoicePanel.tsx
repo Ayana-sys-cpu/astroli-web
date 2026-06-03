@@ -37,6 +37,7 @@ interface Props {
   savedIds?: string[];
   onSave?: (id: string) => void;
   openingGreeting?: string;
+  studentRevealMessage?: string;
 }
 
 function FigureOrb({ size = 24 }: { size?: number }) {
@@ -66,7 +67,7 @@ function TypingBubble() {
     <div className="flex items-start gap-2 px-4">
       <FigureOrb size={24} />
       <div style={{
-        background: T.s2, border: `1px solid ${T.b1}`,
+        background: 'rgba(119,85,187,0.10)', border: '1px solid rgba(160,144,212,0.18)',
         borderRadius: '4px 14px 14px 14px', padding: '10px 14px',
       }}>
         <div className="flex gap-1.5 items-center">
@@ -86,19 +87,35 @@ function TypingBubble() {
 
 export default function PlanetVoicePanel({
   character, messages, input, setInput, send, sendText, askOrin, loading, thinking,
-  studentFirstName, missionTitle, savedIds = [], onSave, openingGreeting,
+  studentFirstName, missionTitle, savedIds = [], onSave, openingGreeting, studentRevealMessage,
 }: Props) {
   const bottomRef  = useRef<HTMLDivElement>(null);
   const inputRef   = useRef<HTMLInputElement>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [inputFocused, setInputFocused] = useState(false);
   const [orinFlash, setOrinFlash] = useState(false);
+  // Greeting starts ready if history already exists (returning user), otherwise animate in
+  const [greetingReady, setGreetingReady] = useState(() => messages.length > 0);
+
+  useEffect(() => {
+    if (greetingReady || !openingGreeting) return;
+    const t = setTimeout(() => setGreetingReady(true), 1500);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (messages.length > 0) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages.length]);
+
+  // Also scroll when the typing bubble appears so it's always visible
+  useEffect(() => {
+    if (loading || thinking) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [loading, thinking]);
 
   // Flash the input dock border when an Orin message arrives
   const lastOrinId = messages.filter(m => m.speaker === 'orin').at(-1)?.id;
@@ -117,8 +134,11 @@ export default function PlanetVoicePanel({
       {/* ── Scrollable messages ── */}
       <div className="flex-1 overflow-y-auto min-h-0 py-4 flex flex-col gap-3">
 
-        {/* Opening greeting as first figure message */}
-        {openingGreeting && messages.length === 0 && (
+        {/* Typing indicator for opening greeting — shown while greetingReady is false */}
+        {openingGreeting && !greetingReady && <TypingBubble />}
+
+        {/* Opening greeting — fades in after the typing animation completes */}
+        {openingGreeting && greetingReady && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -127,7 +147,7 @@ export default function PlanetVoicePanel({
           >
             <FigureOrb size={24} />
             <div style={{
-              background: T.s2, border: `1px solid ${T.b1}`,
+              background: 'rgba(119,85,187,0.10)', border: '1px solid rgba(160,144,212,0.18)',
               borderRadius: '4px 14px 14px 14px',
               padding: '12px 14px', maxWidth: '90%',
             }}>
@@ -144,50 +164,6 @@ export default function PlanetVoicePanel({
           </motion.div>
         )}
 
-        {/* Prefill CTA — only before any messages */}
-        {messages.length === 0 && (() => {
-          const name    = studentFirstName ?? 'Explorer';
-          const mission = missionTitle ?? 'this mission';
-          const prefill = `Hello, I'm ${name}. I'm on a mission to uncover "${mission}" and I'd love your help. Tell me a little about yourself and how you connect to it.`;
-          return (
-            <div className="px-4 flex flex-col gap-2">
-              {/* Preview */}
-              <div style={{
-                background: T.s2, border: `1px solid ${T.b1}`,
-                borderRadius: 12, padding: '11px 14px',
-              }}>
-                <p style={{ fontSize: 12, color: T.tm, margin: 0, lineHeight: 1.6, fontStyle: 'italic' }}>
-                  &ldquo;{prefill}&rdquo;
-                </p>
-              </div>
-              {/* CTA */}
-              <button
-                onClick={() => sendText(prefill)}
-                style={{
-                  width: '100%', padding: '13px 18px', borderRadius: 12,
-                  background: 'linear-gradient(135deg, rgba(0,212,212,0.10), rgba(155,92,255,0.10))',
-                  border: '1.5px solid transparent',
-                  backgroundClip: 'padding-box',
-                  outline: '1.5px solid rgba(0,212,212,0.3)',
-                  outlineOffset: '-1.5px',
-                  color: T.ac, fontSize: 14, fontWeight: 800, cursor: 'pointer',
-                  letterSpacing: '0.04em', position: 'relative', overflow: 'hidden',
-                  animation: 'ctaGlow 3s ease-in-out infinite',
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.outline = '1.5px solid rgba(0,212,212,0.6)'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.outline = '1.5px solid rgba(0,212,212,0.3)'; }}
-              >
-                <span style={{ position: 'relative', zIndex: 1 }}>Send &amp; Uncover →</span>
-                <span style={{
-                  position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                  background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.07) 50%, transparent 100%)',
-                  animation: 'ctaShimmer 4s ease-in-out infinite',
-                  pointerEvents: 'none',
-                }} />
-              </button>
-            </div>
-          );
-        })()}
 
         {/* Messages */}
         <AnimatePresence initial={false}>
@@ -204,11 +180,11 @@ export default function PlanetVoicePanel({
                   className="flex justify-end px-4"
                 >
                   <div style={{
-                    background: T.acDim, border: `1.5px solid ${T.acBdr}`,
+                    background: T.figDim, border: `1.5px solid ${T.figBdr}`,
                     borderRadius: '14px 4px 14px 14px',
                     padding: '10px 14px', maxWidth: '85%',
                   }}>
-                    <p style={{ fontSize: 13, color: T.ac, margin: 0, lineHeight: 1.6 }}>
+                    <p style={{ fontSize: 13, color: T.fig, margin: 0, lineHeight: 1.6 }}>
                       {msg.content}
                     </p>
                   </div>
@@ -267,8 +243,8 @@ export default function PlanetVoicePanel({
                 <FigureOrb size={24} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
-                    background: isSaved ? 'rgba(6,214,160,0.04)' : T.s2,
-                    border: `1px solid ${isSaved ? 'rgba(6,214,160,0.2)' : T.b1}`,
+                    background: isSaved ? 'rgba(6,214,160,0.04)' : 'rgba(119,85,187,0.10)',
+                    border: `1px solid ${isSaved ? 'rgba(6,214,160,0.2)' : 'rgba(160,144,212,0.18)'}`,
                     borderRadius: '4px 14px 14px 14px',
                     padding: '12px 14px',
                   }}>
@@ -312,9 +288,9 @@ export default function PlanetVoicePanel({
           })}
         </AnimatePresence>
 
-        {/* Thinking indicator */}
+        {/* Thinking indicator — shown while loading OR while character is processing */}
         <AnimatePresence>
-          {loading && (
+          {(loading || thinking) && (
             <motion.div
               key="typing"
               initial={{ opacity: 0, y: 6 }}
@@ -329,6 +305,58 @@ export default function PlanetVoicePanel({
 
         <div ref={bottomRef} style={{ height: 1 }} />
       </div>
+
+      {/* ── Start Uncovering CTA — pinned to bottom, shown only before conversation starts ── */}
+      {messages.length === 0 && (() => {
+        const name    = studentFirstName ?? 'Explorer';
+        const mission = missionTitle ?? 'this mission';
+        const firstName = figureName.charAt(0) + figureName.slice(1).toLowerCase();
+        const prefill = studentRevealMessage
+          ?? `Hello, I'm ${name}. I'm on a mission to uncover "${mission}" and I'd love your help. Tell me a little about yourself and how you connect to it.`;
+        return (
+          <div style={{ padding: '0 12px 8px', flexShrink: 0 }}>
+            <button
+              onClick={() => sendText(prefill)}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: 14,
+                padding: '14px 18px', borderRadius: 14, textAlign: 'left', cursor: 'pointer',
+                background: 'rgba(119,85,187,0.08)',
+                border: '1px solid rgba(160,144,212,0.18)',
+                outline: '1.5px solid rgba(160,144,212,0.35)',
+                outlineOffset: '-1.5px',
+                position: 'relative', overflow: 'hidden',
+                animation: 'ctaGlow 3s ease-in-out infinite',
+                transition: 'outline-color 0.15s',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.outlineColor = 'rgba(160,144,212,0.65)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.outlineColor = 'rgba(160,144,212,0.35)'; }}
+            >
+              <div style={{
+                width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+                background: 'rgba(119,85,187,0.18)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 16, color: '#a78bfa',
+              }}>
+                ✦
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#a78bfa', marginBottom: 3 }}>
+                  Start Uncovering →
+                </div>
+                <div style={{ fontSize: 12, color: T.ts }}>
+                  Introduce yourself to {firstName} and begin the discovery
+                </div>
+              </div>
+              <span style={{
+                position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                background: 'linear-gradient(90deg, transparent 0%, rgba(160,144,212,0.04) 50%, transparent 100%)',
+                animation: 'ctaShimmer 4s ease-in-out infinite',
+                pointerEvents: 'none',
+              }} />
+            </button>
+          </div>
+        );
+      })()}
 
       {/* ── Ask Orin button — only after at least one exchange ── */}
       {messages.length >= 2 && (
@@ -352,8 +380,8 @@ export default function PlanetVoicePanel({
         </div>
       )}
 
-      {/* ── Input dock — pinned, never scrolls ── */}
-      <div style={{ borderTop: `1px solid ${T.b1}`, padding: '12px', flexShrink: 0 }}>
+      {/* ── Input dock — hidden while CTA is shown, visible once conversation starts ── */}
+      {messages.length > 0 && <div style={{ borderTop: `1px solid ${T.b1}`, padding: '12px', flexShrink: 0 }}>
         <div style={{
           display: 'flex', gap: 8, alignItems: 'center',
           background: T.s2,
@@ -372,7 +400,7 @@ export default function PlanetVoicePanel({
             onBlur={() => setInputFocused(false)}
             placeholder={loading
               ? `${character.name.split(' ')[0]} is thinking…`
-              : `Ask ${character.name.split(' ')[0]}…`}
+              : `Ask me anything about this era.`}
             style={{
               flex: 1, background: 'none', border: 'none', outline: 'none',
               fontSize: 13, color: T.tp,
@@ -395,7 +423,7 @@ export default function PlanetVoicePanel({
             →
           </button>
         </div>
-      </div>
+      </div>}
     </div>
   );
 }
