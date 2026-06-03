@@ -24,6 +24,13 @@ export async function enrollStudentInJourneys(
     if (res.ok) {
       const data = await res.json();
       courseIds = (data.courses ?? []).map((c: any) => String(c.id));
+      // If the student has no GC courses, treat the same as an API error —
+      // return early so Step 4 does not delete manually-inserted enrollments
+      // (e.g. test accounts or students not yet in any active classroom).
+      if (courseIds.length === 0) {
+        console.log('[enroll] student has no active GC courses — skipping enrollment sync');
+        return;
+      }
     } else {
       // Do not fall through — Step 4 would treat all existing enrollments as stale
       // and delete them if courseIds remains empty. Return early instead.
