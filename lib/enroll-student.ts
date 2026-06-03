@@ -1,5 +1,15 @@
 import { supabaseAdmin } from '@/lib/supabase-server';
 
+/** Normalise a Google Classroom course ID to its canonical numeric form. */
+function normaliseCourseId(id: string): string {
+  if (/^[0-9]+$/.test(id)) return id;
+  try {
+    const decoded = Buffer.from(id, 'base64').toString('utf8');
+    if (/^[0-9]+$/.test(decoded)) return decoded;
+  } catch {}
+  return id;
+}
+
 /**
  * Enrolls a student in all Astroli journeys that match their Google Classroom courses.
  *
@@ -23,7 +33,7 @@ export async function enrollStudentInJourneys(
     );
     if (res.ok) {
       const data = await res.json();
-      courseIds = (data.courses ?? []).map((c: any) => String(c.id));
+      courseIds = (data.courses ?? []).map((c: any) => normaliseCourseId(String(c.id)));
       // If the student has no GC courses, treat the same as an API error —
       // return early so Step 4 does not delete manually-inserted enrollments
       // (e.g. test accounts or students not yet in any active classroom).
