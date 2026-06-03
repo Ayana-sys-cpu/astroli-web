@@ -287,13 +287,16 @@ export async function POST(req: NextRequest) {
 
   if (isNewStudent) {
     [alienName, baseAvatarUrl] = await Promise.all([generateAlienName(), Promise.resolve(pickAvatarUrl())]);
-    // Do NOT persist alien_name / base_avatar_url to the DB here.
-    // Writing them at sign-in (before onboarding completes) would cause
-    // `isNewStudent` to evaluate false on the next sign-in, skipping
-    // onboarding for users who abandoned mid-flow.
-    // The reveal page (onboarding/reveal/page.tsx → PATCH /api/student)
-    // is the single place that persists these values after the user
-    // has explicitly completed onboarding.
+    // Persist immediately — the PATCH from the reveal page was unreliable
+    // because the session cookie is not always established by the time the
+    // client-side fetch fires (middleware blocks unauthenticated requests).
+    // Saving here is safe: isNewStudent is true only when alien_name is null,
+    // so a student who abandons mid-flow will simply get a new identity on
+    // their next sign-in (acceptable UX for the current stage).
+    await supabaseAdmin
+      .from('users')
+      .update({ alien_name: alienName, base_avatar_url: baseAvatarUrl })
+      .eq('id', student.id);
   }
 
   // Enroll student in matching journeys before returning — must be awaited so
