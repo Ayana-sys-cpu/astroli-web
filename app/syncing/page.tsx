@@ -36,7 +36,7 @@ export default function SyncingPage() {
       .then((r) => {
         // 401 = no session — send back to login rather than silently
         // treating it as "no active journey" (which traps the student).
-        if (r.status === 401) return { __redirect: '/' };
+        if (r.status === 401 || r.status === 403) return { __redirect: '/' };
         return r.json();
       })
       .catch(() => ({ hasActiveJourney: false, hasActiveVote: false }));

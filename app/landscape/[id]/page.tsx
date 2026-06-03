@@ -16,7 +16,11 @@ interface Planet {
   title: string;
   label: string | null;
   content: string;
-  openingMessage: string | null;
+  openingMessage:       string | null;
+  characterFigure:      string | null;
+  characterYear:        string | null;
+  characterLocation:    string | null;
+  studentRevealMessage: string | null;
 }
 
 type Tab = 'chat' | 'notebook';
@@ -140,12 +144,15 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
   const experience = PLANET_EXPERIENCE[label] ?? null;
   const character = planetVoice.character;
 
-  const figureDisplayName = character?.name ?? experience?.figure ?? null;
-  const figureLocation    = character?.location ?? experience?.location ?? null;
+  const figureDisplayName = character?.name ?? planet.characterFigure ?? experience?.figure ?? null;
+  const figureLocation    = character?.location ?? planet.characterLocation ?? experience?.location ?? null;
   const figureEra         = character?.era
-    ?? (experience?.year && figureLocation
-          ? `${figureLocation} · ${experience.year} CE`
-          : experience?.year ? `${experience.year} CE` : null);
+    ?? (planet.characterYear && figureLocation
+          ? `${figureLocation} · ${planet.characterYear} CE`
+          : planet.characterYear ? `${planet.characterYear} CE`
+          : experience?.year && figureLocation
+            ? `${figureLocation} · ${experience.year} CE`
+            : experience?.year ? `${experience.year} CE` : null);
 
   const handleSave = (id: number) => {
     if (!savedIds.includes(id)) {
@@ -410,7 +417,8 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
                     missionTitle={planet.title}
                     savedIds={savedVoiceMsgs.map(m => m.id)}
                     onSave={handleSaveVoiceMsg}
-                    openingGreeting={experience?.greeting ?? planet.openingMessage ?? undefined}
+                    openingGreeting={planet.openingMessage ?? experience?.greeting ?? undefined}
+                    studentRevealMessage={planet.studentRevealMessage ?? undefined}
                   />
                 ) : planetVoice.charLoading ? (
                   <div className="flex-1 flex items-center justify-center">
@@ -534,9 +542,6 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
             )}
           </AnimatePresence>
 
-          <div className="flex justify-center py-2.5 border-t border-white/5 flex-shrink-0">
-            <OrinOrb size={28} pulse={false} />
-          </div>
         </aside>
       </div>
 

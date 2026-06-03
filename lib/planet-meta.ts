@@ -13,8 +13,12 @@ export const PLANET_META: Record<string, PlanetMeta> = {
     label: 'Church',
     question: 'What would it actually cost an ordinary person to disagree with an institution that controlled everything?',
   },
-  'The Pope vs. The Emperor: The Investiture Controversy': {
-    label: 'Canossa',
+  'The Pope\'s Authority: How the Church Claimed Power Over Kings': {
+    label: 'The Pope\'s Power',
+    question: 'How does a priest claim authority over the most powerful kings in the world — and make it stick?',
+  },
+  'The Emperor\'s Challenge: Henry IV and the Fight for Control': {
+    label: 'The Emperor\'s Fight',
     question: 'How does someone with that much power end up barefoot in the snow, begging forgiveness from a priest?',
   },
   'The Jewish Community in Ashkenaz: Rabbenu Gershom and Rashi': {

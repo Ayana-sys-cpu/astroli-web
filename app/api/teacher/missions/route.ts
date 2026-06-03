@@ -70,7 +70,6 @@ export async function GET(req: NextRequest) {
   if (sessionError) return sessionError;
 
   const teacherId  = auth.user.user_metadata.teacher_id as string;
-  console.log('[GET /api/teacher/missions] teacherId from session:', teacherId);
   const missionId  = req.nextUrl.searchParams.get('id');
 
   // ── Single mission lookup ────────────────────────────────────────────────
@@ -143,7 +142,6 @@ export async function PATCH(req: NextRequest) {
   if (sessionError) return sessionError;
 
   const teacherId = auth.user.user_metadata.teacher_id as string;
-  console.log('[PATCH /api/teacher/missions] teacherId from session:', teacherId);
 
   let body: { missionId?: string; state?: string };
   try {
