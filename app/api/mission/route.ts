@@ -28,12 +28,12 @@ export async function GET(req: NextRequest) {
   const { data: rows, error: missionError } = await supabaseAdmin
     .from('missions')
     .select(`
-      id, mission_order, question, question_description,
+      id, "order", question, question_description,
       project_title, project_description, opening_message,
       world_brief_summary, world_brief_items, opening_message_2,
       mission_brief, chapter, qa_answers, mission_qa_answers
     `)
-    .eq('mission_order', order)
+    .eq('"order"', order)
     .limit(10);
 
   if (missionError) {
@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
 
   // ── Build response ─────────────────────────────────────────────────────────
   const pipMission: PipMission = {
-    order:             mission.mission_order as number,
+    order:             (mission as any).order as number,
     question:          q,
     worldBrief:        mission.question_description as string,
     worldBriefSummary: (mission.world_brief_summary as string | null) ?? '',

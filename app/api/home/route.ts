@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     // Fetch the journeys with all their missions (all states — UI handles display).
     const { data: rows, error: jErr } = await supabaseAdmin
       .from('journeys')
-      .select('id, title, vote_ends_at, missions(id, question, state, mission_order)')
+      .select('id, title, vote_ends_at, missions(id, question, state, "order")')
       .in('id', journeyIds);
 
     if (jErr) throw jErr;
@@ -44,12 +44,12 @@ export async function GET(req: NextRequest) {
       title: j.title,
       voteEndsAt: j.vote_ends_at,
       missions: ((j.missions as any[]) ?? [])
-        .sort((a, b) => a.mission_order - b.mission_order)
+        .sort((a, b) => a.order - b.order)
         .map((m) => ({
           id: m.id,
           question: m.question,
           state: m.state,
-          order: m.mission_order,
+          order: m.order,
         })),
     }));
 

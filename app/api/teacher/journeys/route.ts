@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
         question,
         project_title,
         state,
-        mission_order
+        "order"
       ),
       vote_sessions (
         id,
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
     `)
     .eq('teacher_id', teacherId)
     .order('created_at')
-    .order('mission_order', { referencedTable: 'missions' });
+    .order('"order"', { referencedTable: 'missions' });
 
   if (error) {
     console.error('[GET /api/teacher/journeys]', error);
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
         question:     m.question,
         projectTitle: m.project_title,
         state:        m.state,
-        order:        m.mission_order,
+        order:        m.order,
       })),
     };
   });

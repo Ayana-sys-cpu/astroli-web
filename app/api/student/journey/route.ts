@@ -74,17 +74,17 @@ export async function GET(req: NextRequest) {
     if (session) {
       const { data: missionData } = await supabaseAdmin
         .from('missions')
-        .select('id, question, project_title, project_description, mission_order, state')
+        .select('id, question, project_title, project_description, "order", state')
         .eq('journey_id', session.journey_id)
         .in('state', ['voting', 'locked'])
-        .order('mission_order');
+        .order('"order"');
 
       const voteMissions = (missionData ?? []).map((m: any) => ({
         id:                 m.id,
         question:           m.question,
         projectTitle:       m.project_title,
         projectDescription: m.project_description,
-        order:              m.mission_order,
+        order:              (m as any).order,
         state:              m.state,
       }));
 
@@ -111,10 +111,10 @@ export async function GET(req: NextRequest) {
     if (pendingMission) {
       const { data: allMissionData } = await supabaseAdmin
         .from('missions')
-        .select('id, question, project_title, project_description, mission_order, state')
+        .select('id, question, project_title, project_description, "order", state')
         .eq('journey_id', pendingMission.journey_id)
         .in('state', ['pending_start', 'skipped'])
-        .order('mission_order');
+        .order('"order"');
 
       // Also retrieve the concluded session so vote counts can still be displayed.
       const { data: concludedSession } = await supabaseAdmin
@@ -131,7 +131,7 @@ export async function GET(req: NextRequest) {
         question:           m.question,
         projectTitle:       m.project_title,
         projectDescription: m.project_description,
-        order:              m.mission_order,
+        order:              (m as any).order,
         state:              m.state,
       }));
 
