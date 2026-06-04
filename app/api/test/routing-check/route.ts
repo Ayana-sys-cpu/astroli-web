@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
   // ── SM-R1: does a users row exist? ─────────────────────────────────────────
   const { data: user, error: userErr } = await supabaseAdmin
     .from('users')
-    .select('user_id, base_avatar_url')
+    .select('user_id')
     .eq('email', email.toLowerCase())
     .eq('role', 'student')
     .maybeSingle();
