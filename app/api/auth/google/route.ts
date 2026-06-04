@@ -96,16 +96,11 @@ async function upsertAuthUserAndToken(
     return null;
   }
 
-  // generateLink sets app_metadata via options.data; explicitly write
-  // user_metadata so role/id fields are available in the JWT claims.
-  const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(authUserId, {
-    user_metadata: metadata,
-    email_confirm: true,
-  });
-  if (updateErr) {
-    console.error('[google] updateUserById', updateErr);
-    return null;
-  }
+  // Do NOT call updateUserById after generateLink. Calling it with
+  // email_confirm: true clears the confirmation_token in auth.users,
+  // which invalidates the hashed_token and causes verifyOtp to 403.
+  // options.data above already sets user_metadata; the email is confirmed
+  // automatically when the client successfully calls verifyOtp.
 
   return { authUserId, authToken: hashed_token };
 }

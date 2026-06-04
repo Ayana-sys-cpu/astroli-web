@@ -41,14 +41,7 @@ async function upsertAuthUserAndToken(
     return null;
   }
 
-  const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(authUserId, {
-    user_metadata: metadata,
-    email_confirm: true,
-  });
-  if (updateErr) {
-    console.error('[identify] updateUserById', updateErr);
-    return null;
-  }
+  // Do NOT call updateUserById after generateLink — see google/route.ts for explanation.
 
   return { authUserId, authToken: hashed_token };
 }

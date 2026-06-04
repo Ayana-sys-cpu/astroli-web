@@ -98,10 +98,14 @@ export default function LoginPage() {
 
       // Establish the Supabase session in cookies before any page navigation.
       if (data.authToken) {
-        await getSupabaseBrowserClient().auth.verifyOtp({
+        const { error: otpError } = await getSupabaseBrowserClient().auth.verifyOtp({
           token_hash: data.authToken,
           type: 'email',
         });
+        if (otpError) {
+          console.error('[login] verifyOtp failed:', otpError.message);
+          throw new Error(`Session setup failed: ${otpError.message}`);
+        }
       }
 
       if (data.role === 'teacher') {
