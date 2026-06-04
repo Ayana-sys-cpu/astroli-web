@@ -73,36 +73,11 @@ function pickAvatarUrl(): string {
 async function upsertAuthUserAndToken(
   email: string,
   metadata: { role: string; student_id?: string | null; teacher_id?: string | null },
-  knownAuthUserId?: string | null,
 ): Promise<{ authUserId: string; authToken: string } | null> {
-  let authUserId: string;
-
-  if (knownAuthUserId) {
-    // Returning user — use the stored auth_user_id directly.
-    // Avoids the unreliable admin list-users-by-email query which does
-    // partial matching and can return the wrong user.
-    authUserId = knownAuthUserId;
-    const { error } = await supabaseAdmin.auth.admin.updateUserById(authUserId, {
-      user_metadata: metadata,
-      email_confirm: true,
-    });
-    if (error) {
-      console.error('[google] updateUserById', error);
-      return null;
-    }
-  } else {
-    const { data, error } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      email_confirm: true,
-      user_metadata: metadata,
-    });
-    if (error || !data.user) {
-      console.error('[google] createUser', error);
-      return null;
-    }
-    authUserId = data.user.id;
-  }
-
+  // generateLink is idempotent: it finds the existing Supabase auth user by
+  // exact email, or creates one if none exists. It returns both the
+  // hashed_token (for verifyOtp) and the user's UUID — no separate
+  // createUser/findByEmail call needed.
   const { data: link, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
     type:    'magiclink',
     email,
@@ -114,10 +89,24 @@ async function upsertAuthUserAndToken(
   }
 
   const hashed_token = (link.properties as { hashed_token?: string }).hashed_token;
-  if (!hashed_token) {
-    console.error('[google] generateLink missing hashed_token');
+  const authUserId   = (link as any).user?.id as string | undefined;
+
+  if (!hashed_token || !authUserId) {
+    console.error('[google] generateLink missing token or user id');
     return null;
   }
+
+  // generateLink sets app_metadata via options.data; explicitly write
+  // user_metadata so role/id fields are available in the JWT claims.
+  const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(authUserId, {
+    user_metadata: metadata,
+    email_confirm: true,
+  });
+  if (updateErr) {
+    console.error('[google] updateUserById', updateErr);
+    return null;
+  }
+
   return { authUserId, authToken: hashed_token };
 }
 
@@ -216,7 +205,7 @@ export async function POST(req: NextRequest) {
         { email, role: 'teacher', full_name: name ?? '', first_name: nameParts[0] ?? '', google_id: googleId, gc_courses: courses },
         { onConflict: 'email' },
       )
-      .select('id, auth_user_id')
+      .select('id')
       .single();
 
     if (upsertError || !teacher) {
@@ -226,7 +215,7 @@ export async function POST(req: NextRequest) {
 
     const authResult = await upsertAuthUserAndToken(email, {
       role: 'teacher', teacher_id: teacher.id, student_id: null,
-    }, (teacher as any).auth_user_id ?? null);
+    });
     if (!authResult) {
       return NextResponse.json({ error: 'Failed to create auth session' }, { status: 503 });
     }
@@ -256,7 +245,7 @@ export async function POST(req: NextRequest) {
       { email, role: 'student', full_name: name ?? '', first_name: nameParts[0] ?? '', google_id: googleId },
       { onConflict: 'email' },
     )
-    .select('id, first_name, base_avatar_url, alien_name, auth_user_id')
+    .select('id, first_name, base_avatar_url, alien_name')
     .single();
 
   if (studentError || !student) {
@@ -290,7 +279,7 @@ export async function POST(req: NextRequest) {
 
   const authResult = await upsertAuthUserAndToken(email, {
     role: 'student', student_id: student.id, teacher_id: null,
-  }, (student as any).auth_user_id ?? null);
+  });
   if (!authResult) {
     return NextResponse.json({ error: 'Failed to create auth session' }, { status: 503 });
   }

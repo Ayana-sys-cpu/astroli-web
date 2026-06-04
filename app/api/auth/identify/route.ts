@@ -22,33 +22,7 @@ import { parseBody, AccessTokenSchema } from '@/lib/validate';
 async function upsertAuthUserAndToken(
   email: string,
   metadata: { role: string; student_id?: string | null; teacher_id?: string | null },
-  knownAuthUserId?: string | null,
 ): Promise<{ authUserId: string; authToken: string } | null> {
-  let authUserId: string;
-
-  if (knownAuthUserId) {
-    authUserId = knownAuthUserId;
-    const { error } = await supabaseAdmin.auth.admin.updateUserById(authUserId, {
-      user_metadata: metadata,
-      email_confirm: true,
-    });
-    if (error) {
-      console.error('[identify] updateUserById', error);
-      return null;
-    }
-  } else {
-    const { data, error } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      email_confirm: true,
-      user_metadata: metadata,
-    });
-    if (error || !data.user) {
-      console.error('[identify] createUser', error);
-      return null;
-    }
-    authUserId = data.user.id;
-  }
-
   const { data: link, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
     type:    'magiclink',
     email,
@@ -60,10 +34,22 @@ async function upsertAuthUserAndToken(
   }
 
   const hashed_token = (link.properties as { hashed_token?: string }).hashed_token;
-  if (!hashed_token) {
-    console.error('[identify] generateLink missing hashed_token');
+  const authUserId   = (link as any).user?.id as string | undefined;
+
+  if (!hashed_token || !authUserId) {
+    console.error('[identify] generateLink missing token or user id');
     return null;
   }
+
+  const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(authUserId, {
+    user_metadata: metadata,
+    email_confirm: true,
+  });
+  if (updateErr) {
+    console.error('[identify] updateUserById', updateErr);
+    return null;
+  }
+
   return { authUserId, authToken: hashed_token };
 }
 
@@ -144,7 +130,7 @@ async function handlePOST(req: NextRequest) {
         },
         { onConflict: 'email' },
       )
-      .select('id, auth_user_id')
+      .select('id')
       .single();
 
     if (upsertError || !teacher) {
@@ -156,7 +142,7 @@ async function handlePOST(req: NextRequest) {
       role:       'teacher',
       teacher_id: teacher.id,
       student_id: null,
-    }, (teacher as any).auth_user_id ?? null);
+    });
 
     if (!authResult) {
       console.error('[identify] upsertAuthUserAndToken failed for teacher:', email);
@@ -192,7 +178,7 @@ async function handlePOST(req: NextRequest) {
       },
       { onConflict: 'email' },
     )
-    .select('id, auth_user_id')
+    .select('id')
     .single();
 
   if (studentError || !student) {
@@ -204,7 +190,7 @@ async function handlePOST(req: NextRequest) {
     role:       'student',
     student_id: student.id,
     teacher_id: null,
-  }, (student as any).auth_user_id ?? null);
+  });
 
   if (!authResult) {
     console.error('[identify] upsertAuthUserAndToken failed for student:', email);
