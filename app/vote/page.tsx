@@ -120,17 +120,25 @@ export default function VotePage() {
   useSupabaseRealtime({
     journeyId: state?.voteJourneyId ?? null,
     onMissionStateChange: (mission) => {
-      // Only redirect when the teacher actually *launches* the mission (active).
-      // 'pending_start' = vote concluded, winner chosen — student stays here to see results.
-      // 'skipped' = non-winner — no redirect needed.
       if (mission.state === 'active') {
         router.replace('/landscape');
+      } else if (mission.state === 'pending_start') {
+        // Vote concluded — re-fetch to show awaiting-activation state without page refresh.
+        load();
       }
     },
     onVoteCast: () => {
       if (state?.voteSessionId) loadCounts(state.voteSessionId);
     },
   });
+
+  // Poll every 60s to pick up deadline edits from the teacher.
+  // The realtime hook covers mission state transitions; this covers vote_sessions changes
+  // (deadline edit) which have no corresponding mission UPDATE event.
+  useEffect(() => {
+    const id = setInterval(load, 60_000);
+    return () => clearInterval(id);
+  }, [load]);
 
   async function submitVote() {
     if (!selectedId || !state?.voteSessionId || submitting) return;

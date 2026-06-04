@@ -118,6 +118,7 @@ CREATE TRIGGER journeys_updated_at
 CREATE TABLE IF NOT EXISTS vote_sessions (
   id          UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
   journey_id  UUID        NOT NULL REFERENCES journeys(id) ON DELETE CASCADE,
+  starts_at   TIMESTAMPTZ,
   ends_at     TIMESTAMPTZ,
   winner_id   TEXT,
   status      TEXT        NOT NULL DEFAULT 'open',

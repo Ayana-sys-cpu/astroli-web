@@ -85,6 +85,17 @@ export async function enrollStudentInJourneys(
   }
 
   // 4. Remove stale enrollments — journeys the student is no longer part of.
+  //
+  // GUARD: only run cleanup when we have a confirmed list of matching journeys.
+  // If currentJourneyIds is empty it means GC returned courses but none matched
+  // any journey in the DB (e.g. GC course not yet linked, or student is in a
+  // different school's GC). Treating all existing enrollments as "stale" in this
+  // case would delete manually-inserted or previously valid enrollments — wrong.
+  if (currentJourneyIds.length === 0) {
+    console.log(`[enroll] no journey matches for student ${studentId} — preserving existing enrollments`);
+    return;
+  }
+
   const { data: existing } = await supabaseAdmin
     .from('student_journeys')
     .select('journey_id')

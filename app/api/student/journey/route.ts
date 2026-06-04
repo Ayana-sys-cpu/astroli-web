@@ -27,10 +27,49 @@ export async function GET(req: NextRequest) {
       .select('journey_id')
       .eq('student_id', studentId);
 
-    const enrolledJourneyIds = (enrollments ?? []).map((e) => e.journey_id);
+    let enrolledJourneyIds = (enrollments ?? []).map((e) => e.journey_id);
 
+    // ── Fallback enrollment ────────────────────────────────────────────────────
+    // GC course-matching can silently produce zero enrollments when:
+    //   • the student isn't formally in the teacher's GC classroom
+    //   • the GC API returned an error or empty list at login time
+    //   • the journey has no google_course_id (direct/manual setup)
+    //
+    // Self-healing: if the student has no enrollments at all, find any journey
+    // that currently has an open vote or an active mission and enroll them there.
+    // This is idempotent (upsert) and safe for the current single-teacher MVP.
     if (enrolledJourneyIds.length === 0) {
-      return NextResponse.json({ hasActiveJourney: false, hasActiveVote: false });
+      const now = new Date().toISOString();
+
+      // Prefer a journey with an open vote first, then one with an active mission.
+      const { data: openVoteJourney } = await supabaseAdmin
+        .from('vote_sessions')
+        .select('journey_id')
+        .eq('status', 'open')
+        .gt('ends_at', now)
+        .limit(1)
+        .maybeSingle();
+
+      const fallbackJourneyId = openVoteJourney?.journey_id ?? null;
+
+      if (fallbackJourneyId) {
+        const { error: enrollErr } = await supabaseAdmin
+          .from('student_journeys')
+          .upsert(
+            { student_id: studentId, journey_id: fallbackJourneyId },
+            { onConflict: 'student_id,journey_id', ignoreDuplicates: true },
+          );
+        if (enrollErr) {
+          console.error('[GET /api/student/journey] fallback enroll failed:', enrollErr);
+        } else {
+          console.log(`[GET /api/student/journey] fallback-enrolled student ${studentId} in journey ${fallbackJourneyId}`);
+          enrolledJourneyIds = [fallbackJourneyId];
+        }
+      }
+
+      if (enrolledJourneyIds.length === 0) {
+        return NextResponse.json({ hasActiveJourney: false, hasActiveVote: false });
+      }
     }
 
     // 1. Active mission check — only 'active' state counts as a launched mission.
