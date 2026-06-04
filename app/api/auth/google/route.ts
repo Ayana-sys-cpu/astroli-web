@@ -70,35 +70,18 @@ function pickAvatarUrl(): string {
 
 // ── Shared helpers (mirrors /api/auth/identify) ───────────────────────────────
 
-async function findAuthUserByEmail(email: string): Promise<{ id: string } | null> {
-  try {
-    const url = new URL('/auth/v1/admin/users', process.env.NEXT_PUBLIC_SUPABASE_URL!);
-    url.searchParams.set('email', email);
-    url.searchParams.set('page',  '1');
-    url.searchParams.set('per_page', '1');
-    const res = await fetch(url.toString(), {
-      headers: {
-        apikey:        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
-      },
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return (data.users as { id: string }[])?.[0] ?? null;
-  } catch {
-    return null;
-  }
-}
-
 async function upsertAuthUserAndToken(
   email: string,
   metadata: { role: string; student_id?: string | null; teacher_id?: string | null },
+  knownAuthUserId?: string | null,
 ): Promise<{ authUserId: string; authToken: string } | null> {
   let authUserId: string;
 
-  const existing = await findAuthUserByEmail(email);
-  if (existing) {
-    authUserId = existing.id;
+  if (knownAuthUserId) {
+    // Returning user — use the stored auth_user_id directly.
+    // Avoids the unreliable admin list-users-by-email query which does
+    // partial matching and can return the wrong user.
+    authUserId = knownAuthUserId;
     const { error } = await supabaseAdmin.auth.admin.updateUserById(authUserId, {
       user_metadata: metadata,
       email_confirm: true,
@@ -233,7 +216,7 @@ export async function POST(req: NextRequest) {
         { email, role: 'teacher', full_name: name ?? '', first_name: nameParts[0] ?? '', google_id: googleId, gc_courses: courses },
         { onConflict: 'email' },
       )
-      .select('id')
+      .select('id, auth_user_id')
       .single();
 
     if (upsertError || !teacher) {
@@ -243,7 +226,7 @@ export async function POST(req: NextRequest) {
 
     const authResult = await upsertAuthUserAndToken(email, {
       role: 'teacher', teacher_id: teacher.id, student_id: null,
-    });
+    }, (teacher as any).auth_user_id ?? null);
     if (!authResult) {
       return NextResponse.json({ error: 'Failed to create auth session' }, { status: 503 });
     }
@@ -273,7 +256,7 @@ export async function POST(req: NextRequest) {
       { email, role: 'student', full_name: name ?? '', first_name: nameParts[0] ?? '', google_id: googleId },
       { onConflict: 'email' },
     )
-    .select('id, first_name, base_avatar_url, alien_name')
+    .select('id, first_name, base_avatar_url, alien_name, auth_user_id')
     .single();
 
   if (studentError || !student) {
@@ -307,7 +290,7 @@ export async function POST(req: NextRequest) {
 
   const authResult = await upsertAuthUserAndToken(email, {
     role: 'student', student_id: student.id, teacher_id: null,
-  });
+  }, (student as any).auth_user_id ?? null);
   if (!authResult) {
     return NextResponse.json({ error: 'Failed to create auth session' }, { status: 503 });
   }
