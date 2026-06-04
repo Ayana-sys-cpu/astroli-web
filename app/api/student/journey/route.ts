@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
       .eq('student_id', studentId);
 
     let enrolledJourneyIds = (enrollments ?? []).map((e) => e.journey_id);
+    console.log('[journey] studentId:', studentId, 'enrolledJourneys:', enrolledJourneyIds);
 
     // ── Fallback enrollment ────────────────────────────────────────────────────
     // GC course-matching can silently produce zero enrollments when:
@@ -110,6 +111,7 @@ export async function GET(req: NextRequest) {
       .limit(1)
       .maybeSingle();
 
+    console.log('[journey] vote session check — found:', session ? `id=${session.id} ends_at=${session.ends_at}` : 'none', 'now:', now);
     if (session) {
       const { data: missionData } = await supabaseAdmin
         .from('missions')
