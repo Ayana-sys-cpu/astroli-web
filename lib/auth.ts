@@ -44,15 +44,21 @@ export async function requireAuth(): Promise<AuthResult> {
  */
 export async function resolveStudentId(user: User): Promise<string | null> {
   const fromMeta = user.user_metadata?.student_id as string | undefined;
-  if (fromMeta) return fromMeta;
+  if (fromMeta) {
+    console.log('[resolveStudentId] fast-path student_id:', fromMeta);
+    return fromMeta;
+  }
+
+  console.log('[resolveStudentId] metadata missing student_id — falling back to DB lookup. user_metadata:', JSON.stringify(user.user_metadata));
 
   // Fallback: look up by email
-  const { data } = await supabaseAdmin
+  const { data, error: lookupErr } = await supabaseAdmin
     .from('users')
     .select('id')
     .eq('email', user.email!.toLowerCase())
     .eq('role', 'student')
     .maybeSingle();
+  if (lookupErr) console.error('[resolveStudentId] DB lookup error:', lookupErr);
 
   if (!data?.id) return null;
 

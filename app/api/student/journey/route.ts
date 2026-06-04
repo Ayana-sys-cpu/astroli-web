@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
 
     // 2. Active vote check — open session whose end time is still in the future.
     const now = new Date().toISOString();
-    const { data: session } = await supabaseAdmin
+    const { data: session, error: sessionErr } = await supabaseAdmin
       .from('vote_sessions')
       .select('id, ends_at, journey_id')
       .eq('status', 'open')
@@ -111,7 +111,8 @@ export async function GET(req: NextRequest) {
       .limit(1)
       .maybeSingle();
 
-    console.log('[journey] vote session check — found:', session ? `id=${session.id} ends_at=${session.ends_at}` : 'none', 'now:', now);
+    if (sessionErr) console.error('[journey] vote session query error:', sessionErr);
+    console.log('[journey] vote session check — found:', session ? `id=${session.id} ends_at=${session.ends_at}` : 'none', 'journeyIds:', enrolledJourneyIds, 'now:', now);
     if (session) {
       const { data: missionData } = await supabaseAdmin
         .from('missions')
