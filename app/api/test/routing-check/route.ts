@@ -49,10 +49,14 @@ export async function GET(req: NextRequest) {
   const studentId = user.user_id;
 
   // ── Enrollment check ───────────────────────────────────────────────────────
-  const { data: enrollments } = await supabaseAdmin
+  const { data: enrollments, error: enrollErr } = await supabaseAdmin
     .from('student_journeys')
     .select('journey_id')
     .eq('student_id', studentId);
+
+  if (enrollErr) {
+    return NextResponse.json({ error: 'DB error', detail: enrollErr.message }, { status: 503 });
+  }
 
   const journeyIds = (enrollments ?? []).map((e: { journey_id: string }) => e.journey_id);
 
@@ -64,13 +68,17 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Active mission? ────────────────────────────────────────────────────────
-  const { data: activeMission } = await supabaseAdmin
+  const { data: activeMission, error: missionErr } = await supabaseAdmin
     .from('missions')
     .select('id')
     .eq('state', 'active')
     .in('journey_id', journeyIds)
     .limit(1)
     .maybeSingle();
+
+  if (missionErr) {
+    return NextResponse.json({ error: 'DB error', detail: missionErr.message }, { status: 503 });
+  }
 
   if (activeMission) {
     return NextResponse.json({
@@ -81,7 +89,7 @@ export async function GET(req: NextRequest) {
 
   // ── Open vote? ─────────────────────────────────────────────────────────────
   const now = new Date().toISOString();
-  const { data: openVote } = await supabaseAdmin
+  const { data: openVote, error: voteErr } = await supabaseAdmin
     .from('vote_sessions')
     .select('id')
     .eq('status', 'open')
@@ -89,6 +97,10 @@ export async function GET(req: NextRequest) {
     .in('journey_id', journeyIds)
     .limit(1)
     .maybeSingle();
+
+  if (voteErr) {
+    return NextResponse.json({ error: 'DB error', detail: voteErr.message }, { status: 503 });
+  }
 
   if (openVote) {
     return NextResponse.json({
@@ -98,13 +110,17 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Vote concluded, mission pending_start? ─────────────────────────────────
-  const { data: pendingMission } = await supabaseAdmin
+  const { data: pendingMission, error: pendingErr } = await supabaseAdmin
     .from('missions')
     .select('id')
     .eq('state', 'pending_start')
     .in('journey_id', journeyIds)
     .limit(1)
     .maybeSingle();
+
+  if (pendingErr) {
+    return NextResponse.json({ error: 'DB error', detail: pendingErr.message }, { status: 503 });
+  }
 
   if (pendingMission) {
     return NextResponse.json({
