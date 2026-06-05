@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getSessionStudentId } from '@/lib/session';
 
-const BOT_URL = 'https://astorli-bot.vercel.app';
+const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? 'https://astorli-bot.vercel.app';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
