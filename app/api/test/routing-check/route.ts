@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
   // ── SM-R1: does a users row exist? ─────────────────────────────────────────
   const { data: user, error: userErr } = await supabaseAdmin
     .from('users')
-    .select('user_id')
+    .select('id')
     .eq('email', email.toLowerCase())
     .eq('role', 'student')
     .maybeSingle();
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const studentId = user.user_id;
+  const studentId = user.id;
 
   // ── Enrollment check ───────────────────────────────────────────────────────
   const { data: enrollments, error: enrollErr } = await supabaseAdmin
