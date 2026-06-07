@@ -60,8 +60,8 @@ model Mission {
   journeyId                  String                       @map("journey_id")
   question                   String
   questionDescription        String                       @map("question_description")
-  projectTitle               String                       @map("project_title")
-  projectDescription         String                       @map("project_description")
+  projectTitle               String?                      @map("project_title")
+  projectDescription         String?                      @map("project_description")
   state                      MissionState                 @default(locked)
   source                     ContentSource                @default(HARDCODED)
   openingMessage             String?                      @map("opening_message")

@@ -570,7 +570,7 @@ function PipGuideChatInner() {
       push({
         id: uid(), role: 'pip', type: 'mission',
         chapter: mission!.chapter,
-        title:   mission!.projectTitle,
+        title:   mission!.projectTitle ?? mission!.question,
         objective: mission!.projectObjective,
       });
     }, 1400);

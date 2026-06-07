@@ -9,12 +9,41 @@ const PUBLIC_API_ROUTES = new Set([
   '/api/auth/student-status',
   '/api/vote-counts',
   '/api/winner',
+  '/api/test/routing-check', // shadow session runner — auth via Bearer service role key
 ]);
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Only intercept API routes.
+  // ── Teacher page guard ────────────────────────────────────────────────────
+  // /teacher and all sub-routes require a valid Supabase session with a
+  // teacher_id in user_metadata. No session or wrong role → redirect to /.
+  // This runs server-side so curl / direct URL access is blocked before the
+  // page is rendered (returns 307 redirect, not 200).
+  if (pathname === '/teacher' || pathname.startsWith('/teacher/')) {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return req.cookies.getAll(); },
+          setAll() {},  // read-only in middleware redirect path
+        },
+      },
+    );
+    const { data: { user } } = await supabase.auth.getUser();
+    const isTeacher = Boolean(
+      user?.user_metadata?.teacher_id || user?.user_metadata?.role === 'teacher'
+    );
+    if (!user || !isTeacher) {
+      const redirectUrl = req.nextUrl.clone();
+      redirectUrl.pathname = '/';
+      return NextResponse.redirect(redirectUrl);
+    }
+    return NextResponse.next();
+  }
+
+  // Only intercept API routes beyond this point.
   if (!pathname.startsWith('/api/')) {
     return NextResponse.next();
   }
@@ -60,6 +89,7 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Run middleware on all API routes; Next.js built-ins are excluded automatically.
-  matcher: ['/api/:path*'],
+  // Run middleware on all API routes and teacher pages.
+  // Next.js built-ins (_next/static, _next/image, favicon.ico) are excluded automatically.
+  matcher: ['/api/:path*', '/teacher', '/teacher/:path*'],
 };

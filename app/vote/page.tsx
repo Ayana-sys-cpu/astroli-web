@@ -11,8 +11,8 @@ import { getFirstName } from '@/lib/student-store';
 interface VoteMission {
   id: string;
   question: string;
-  projectTitle: string;
-  projectDescription: string;
+  projectTitle: string | null;
+  projectDescription: string | null;
   order: number;
   state?: string; // 'voting' | 'pending_start' | 'skipped'
 }
@@ -355,20 +355,6 @@ export default function VotePage() {
                       style={{ color: isSelected ? '#fff' : 'rgba(255,255,255,0.65)' }}
                     >
                       {mission.question}
-                    </p>
-                    <p
-                      className="font-inter text-xs leading-relaxed"
-                      style={{ color: isSelected ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.3)' }}
-                    >
-                      {mission.projectDescription.length > 120
-                        ? `${mission.projectDescription.slice(0, 120)}…`
-                        : mission.projectDescription}
-                    </p>
-                    <p
-                      className="mt-2 text-[9px] tracking-[0.18em] font-space uppercase"
-                      style={{ color: isSelected ? col.dot : 'rgba(255,255,255,0.2)' }}
-                    >
-                      PROJECT: {mission.projectTitle}
                     </p>
                     {totalVotes > 0 && (
                       <div className="mt-3 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>

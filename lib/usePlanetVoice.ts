@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getSessionStudentId } from '@/lib/session';
 
-const BOT_URL = 'https://astorli-bot.vercel.app';
+const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? 'https://astorli-bot.vercel.app';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -29,6 +29,12 @@ export interface PlanetVoiceMessage {
   content: string;
 }
 
+export interface SummaryInsight {
+  goalSlug: string;
+  insightText: string;
+  evidence: string;
+}
+
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function usePlanetVoice(planetId: string) {
@@ -37,7 +43,12 @@ export function usePlanetVoice(planetId: string) {
   const [input,       setInput]       = useState('');
   const [loading,     setLoading]     = useState(false);
   const [thinking,    setThinking]    = useState(false);
-  const [charLoading, setCharLoading] = useState(true);
+  const [charLoading,     setCharLoading]     = useState(true);
+  const [completionReady, setCompletionReady] = useState(false);
+  const [completionType,  setCompletionType]  = useState<'standard' | 'grace' | null>(null);
+  const [summaryInsights, setSummaryInsights] = useState<SummaryInsight[]>([]);
+  const [perkinsMap,      setPerkinsMap]      = useState<Record<string, number | null>>({});
+  const [showSummary,     setShowSummary]     = useState(false);
   const msgIdRef     = useRef(0);
   const isMounted    = useRef(true);
   const studentIdRef = useRef<string | null>(null);
@@ -114,7 +125,15 @@ export function usePlanetVoice(planetId: string) {
       if (data.orinMessage) {
         newMessages.push({ id: nextId('orin'), speaker: 'orin', content: data.orinMessage });
       }
-      if (isMounted.current) setMessages(prev => [...prev, ...newMessages]);
+      if (isMounted.current) {
+        setMessages(prev => [...prev, ...newMessages]);
+        if (data.completionReady && !completionReady) {
+          setCompletionReady(true);
+          setCompletionType(data.completionType ?? null);
+          setSummaryInsights(data.summaryInsights ?? []);
+        }
+        if (data.perkinsMap) setPerkinsMap(data.perkinsMap);
+      }
     } catch {
       if (!isMounted.current) return;
       setMessages(prev => [...prev, {
@@ -125,7 +144,7 @@ export function usePlanetVoice(planetId: string) {
     } finally {
       if (isMounted.current) { setThinking(false); setLoading(false); }
     }
-  }, [loading, character, planetId]);
+  }, [loading, character, planetId, completionReady]);
 
   const send = useCallback(async () => {
     const text = input.trim();
@@ -164,7 +183,15 @@ export function usePlanetVoice(planetId: string) {
         newMessages.push({ id: nextId('orin'), speaker: 'orin', content: data.orinMessage });
       }
 
-      if (isMounted.current) setMessages(prev => [...prev, ...newMessages]);
+      if (isMounted.current) {
+        setMessages(prev => [...prev, ...newMessages]);
+        if (data.completionReady && !completionReady) {
+          setCompletionReady(true);
+          setCompletionType(data.completionType ?? null);
+          setSummaryInsights(data.summaryInsights ?? []);
+        }
+        if (data.perkinsMap) setPerkinsMap(data.perkinsMap);
+      }
     } catch {
       if (!isMounted.current) return;
       setMessages(prev => [...prev, {
@@ -178,7 +205,7 @@ export function usePlanetVoice(planetId: string) {
         setLoading(false);
       }
     }
-  }, [input, loading, character, planetId]);
+  }, [input, loading, character, planetId, completionReady]);
 
   const askOrin = useCallback(async () => {
     if (loading) return;
@@ -217,5 +244,13 @@ export function usePlanetVoice(planetId: string) {
     askOrin,
     loading,
     thinking,
+    // completion flow
+    completionReady,
+    completionType,
+    summaryInsights,
+    perkinsMap,
+    showSummary,
+    setShowSummary,
+    studentId: studentIdRef.current,
   };
 }

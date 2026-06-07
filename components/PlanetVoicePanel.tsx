@@ -34,10 +34,11 @@ interface Props {
   thinking: boolean;
   studentFirstName?: string;
   missionTitle?: string;
-  savedIds?: string[];
-  onSave?: (id: string) => void;
   openingGreeting?: string;
   studentRevealMessage?: string;
+  // Completion flow
+  completionReady?: boolean;
+  onCompleteLearning?: () => void;
 }
 
 function FigureOrb({ size = 24 }: { size?: number }) {
@@ -87,11 +88,11 @@ function TypingBubble() {
 
 export default function PlanetVoicePanel({
   character, messages, input, setInput, send, sendText, askOrin, loading, thinking,
-  studentFirstName, missionTitle, savedIds = [], onSave, openingGreeting, studentRevealMessage,
+  studentFirstName, missionTitle, openingGreeting, studentRevealMessage,
+  completionReady = false, onCompleteLearning,
 }: Props) {
   const bottomRef  = useRef<HTMLDivElement>(null);
   const inputRef   = useRef<HTMLInputElement>(null);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [inputFocused, setInputFocused] = useState(false);
   const [orinFlash, setOrinFlash] = useState(false);
   // Greeting starts ready if history already exists (returning user), otherwise animate in
@@ -226,9 +227,7 @@ export default function PlanetVoicePanel({
               );
             }
 
-            // Figure — with save affordance
-            const isSaved  = savedIds.includes(msg.id);
-            const isHovered = hoveredId === msg.id;
+            // Figure message (auto-summary replaces manual saving)
             return (
               <motion.div
                 key={msg.id}
@@ -237,51 +236,23 @@ export default function PlanetVoicePanel({
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.22 }}
                 className="flex items-start gap-2 px-4"
-                onMouseEnter={() => setHoveredId(msg.id)}
-                onMouseLeave={() => setHoveredId(null)}
               >
                 <FigureOrb size={24} />
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  background: 'rgba(119,85,187,0.10)',
+                  border: '1px solid rgba(160,144,212,0.18)',
+                  borderRadius: '4px 14px 14px 14px',
+                  padding: '12px 14px', flex: 1,
+                }}>
                   <div style={{
-                    background: isSaved ? 'rgba(6,214,160,0.04)' : 'rgba(119,85,187,0.10)',
-                    border: `1px solid ${isSaved ? 'rgba(6,214,160,0.2)' : 'rgba(160,144,212,0.18)'}`,
-                    borderRadius: '4px 14px 14px 14px',
-                    padding: '12px 14px',
+                    fontSize: 9, fontWeight: 800, color: T.fig,
+                    textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 5,
                   }}>
-                    <div style={{
-                      fontSize: 9, fontWeight: 800, color: T.fig,
-                      textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 5,
-                    }}>
-                      {figureName}
-                    </div>
-                    <p style={{ fontSize: 13, lineHeight: 1.68, color: T.ts, margin: 0 }}>
-                      {msg.content}
-                    </p>
+                    {figureName}
                   </div>
-                  <div style={{ height: 18, display: 'flex', alignItems: 'center', marginTop: 2 }}>
-                    {isSaved ? (
-                      <span style={{
-                        fontSize: 8, letterSpacing: '0.15em', textTransform: 'uppercase',
-                        color: T.orin, border: `1px solid rgba(6,214,160,0.3)`,
-                        borderRadius: 4, padding: '1px 6px',
-                      }}>
-                        SAVED
-                      </span>
-                    ) : isHovered && onSave ? (
-                      <button
-                        onClick={() => onSave(msg.id)}
-                        style={{
-                          fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase',
-                          color: 'rgba(6,214,160,0.6)', background: 'none', border: 'none',
-                          cursor: 'pointer', padding: 0, transition: 'color 0.15s',
-                        }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = T.orin; }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(6,214,160,0.6)'; }}
-                      >
-                        SAVE FOR PROJECT
-                      </button>
-                    ) : null}
-                  </div>
+                  <p style={{ fontSize: 13, lineHeight: 1.68, color: T.ts, margin: 0 }}>
+                    {msg.content}
+                  </p>
                 </div>
               </motion.div>
             );
@@ -379,6 +350,59 @@ export default function PlanetVoicePanel({
           </button>
         </div>
       )}
+
+      {/* ── Complete Learning CTA — appears when all goals are met ── */}
+      <AnimatePresence>
+        {completionReady && onCompleteLearning && (
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 40 }}
+            transition={{ type: 'spring', stiffness: 180, damping: 22 }}
+            style={{ padding: '0 12px 8px', flexShrink: 0 }}
+          >
+            <button
+              onClick={onCompleteLearning}
+              style={{
+                width: '100%', padding: '13px 18px', borderRadius: 14,
+                background: 'rgba(0,212,212,0.12)',
+                border: '1.5px solid rgba(0,212,212,0.5)',
+                cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                transition: 'background 0.15s, border-color 0.15s',
+              }}
+              onMouseEnter={e => {
+                const el = e.currentTarget as HTMLElement;
+                el.style.background = 'rgba(0,212,212,0.20)';
+                el.style.borderColor = 'rgba(0,212,212,0.8)';
+              }}
+              onMouseLeave={e => {
+                const el = e.currentTarget as HTMLElement;
+                el.style.background = 'rgba(0,212,212,0.12)';
+                el.style.borderColor = 'rgba(0,212,212,0.5)';
+              }}
+            >
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: T.ac }}>
+                  Complete Learning →
+                </div>
+                <div style={{ fontSize: 11, color: T.ts, marginTop: 2 }}>
+                  Review what you discovered and lock it in
+                </div>
+              </div>
+              <div style={{
+                width: 28, height: 28, borderRadius: '50%',
+                background: T.ac,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 14, color: '#000', fontWeight: 800,
+                flexShrink: 0,
+              }}>
+                ✓
+              </div>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Input dock — hidden while CTA is shown, visible once conversation starts ── */}
       {messages.length > 0 && <div style={{ borderTop: `1px solid ${T.b1}`, padding: '12px', flexShrink: 0 }}>
