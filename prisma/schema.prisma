@@ -36,20 +36,24 @@ model User {
 }
 
 model Journey {
-  id                  String               @id @default(dbgenerated("(gen_random_uuid())::text"))
-  googleCourseId      String               @unique @map("google_course_id")
-  title               String
-  teacherId           String               @map("teacher_id")
-  voteEndsAt          DateTime?            @map("vote_ends_at")
-  lastMaterialSyncAt  DateTime?            @map("last_material_sync_at")
-  createdAt           DateTime             @default(now()) @map("created_at")
-  updatedAt           DateTime             @default(now()) @updatedAt @map("updated_at")
-  curriculumMaterials CurriculumMaterial[]
-  generationJobs      GenerationJob[]
-  teacher             User                 @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  missions            Mission[]
-  student_journeys    student_journeys[]
-  vote_sessions       vote_sessions[]
+  id                    String               @id @default(dbgenerated("(gen_random_uuid())::text"))
+  googleCourseId        String?              @unique @map("google_course_id")
+  title                 String
+  teacherId             String?              @map("teacher_id")
+  curriculumJourneyId   String?              @map("curriculum_journey_id")
+  voteEndsAt            DateTime?            @map("vote_ends_at")
+  lastMaterialSyncAt    DateTime?            @map("last_material_sync_at")
+  createdAt             DateTime             @default(now()) @map("created_at")
+  updatedAt             DateTime             @default(now()) @updatedAt @map("updated_at")
+  curriculumMaterials   CurriculumMaterial[]
+  generationJobs        GenerationJob[]
+  teacher               User?                @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  curriculumJourney     Journey?             @relation("CurriculumTemplate", fields: [curriculumJourneyId], references: [id], onDelete: SetNull)
+  classJourneys         Journey[]            @relation("CurriculumTemplate")
+  missions              Mission[]
+  student_journeys      student_journeys[]
+  vote_sessions         vote_sessions[]
+  classSessions         ClassSession[]
 
   @@index([teacherId])
   @@map("journeys")
@@ -296,6 +300,34 @@ model vote_sessions {
 
   @@index([journey_id])
   @@index([status])
+}
+
+model ClassSession {
+  id         String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  journeyId  String   @map("journey_id")
+  teacherId  String   @map("teacher_id")
+  startedAt  DateTime @default(now()) @map("started_at") @db.Timestamptz(6)
+  journey    Journey  @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+
+  @@index([journeyId])
+  @@index([teacherId])
+  @@map("class_sessions")
+}
+
+model TeacherSignalAcknowledgement {
+  id          String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  teacherId   String   @map("teacher_id")
+  studentId   String   @map("student_id")
+  journeyId   String   @map("journey_id")
+  signalType  String   @map("signal_type")
+  status      String
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt   DateTime @map("expires_at") @db.Timestamptz(6)
+
+  @@unique([teacherId, studentId, journeyId, signalType], name: "unique_signal_ack")
+  @@index([teacherId, journeyId])
+  @@index([teacherId, studentId, signalType])
+  @@map("teacher_signal_acknowledgements")
 }
 
 enum Role {
