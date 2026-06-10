@@ -43,18 +43,55 @@ async function generateSignals(
   journeyId: string,
   lastSessionAt: Date | null
 ): Promise<{ studentId: string; signalType: SignalType; signalCreatedAt: Date }[]> {
-  const started = await supabaseAdmin
-    .from('mission_started_by_student')
-    .select('student_id, created_at')
+  // Resolve mission IDs for this journey (mission_started_by_student has no journey_id column)
+  const { data: missionRows } = await supabaseAdmin
+    .from('missions')
+    .select('id')
     .eq('journey_id', journeyId);
 
-  if (!started.data || started.data.length === 0) return [];
+  const missionIds = (missionRows ?? []).map((m: { id: string }) => m.id);
+  if (missionIds.length === 0) return [];
+
+  const { data: startedRows } = await supabaseAdmin
+    .from('mission_started_by_student')
+    .select('student_id, created_at')
+    .in('mission_id', missionIds);
+
+  if (!startedRows || startedRows.length === 0) return [];
+
+  // Deduplicate: one signal per student (earliest started_at wins)
+  const byStudent = new Map<string, Date>();
+  for (const row of startedRows) {
+    const sid = row.student_id as string;
+    const ts = new Date(row.created_at);
+    if (!byStudent.has(sid) || ts < byStudent.get(sid)!) byStudent.set(sid, ts);
+  }
 
   const signals: { studentId: string; signalType: SignalType; signalCreatedAt: Date }[] = [];
+  const since = lastSessionAt ?? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-  for (const row of started.data) {
-    const studentId = row.student_id as string;
-    const since = lastSessionAt ?? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  for (const [studentId, startedAt] of Array.from(byStudent.entries())) {
+    // TEST SIGNAL OVERRIDE: if the student has a message with content starting
+    // "[SIGNAL:xxx]", use that as the signal type. Used for seeded test data only.
+    // Remove this block once planet_summaries pipeline is live.
+    const { data: overrideMsg } = await supabaseAdmin
+      .from('messages')
+      .select('content')
+      .eq('student_id', studentId)
+      .like('content', '[SIGNAL:%]')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (overrideMsg && overrideMsg.length > 0) {
+      const match = (overrideMsg[0].content as string).match(/^\[SIGNAL:(\w+)\]/);
+      const overrideType = match?.[1] as SignalType | undefined;
+      if (overrideType && ['breakthrough', 'grace_completion', 'stuck', 'non_engagement'].includes(overrideType)) {
+        signals.push({ studentId, signalType: overrideType, signalCreatedAt: startedAt });
+        continue;
+      }
+    }
+
+    // Default: non_engagement if no messages since last session
     const { count } = await supabaseAdmin
       .from('messages')
       .select('id', { count: 'exact', head: true })
@@ -62,7 +99,7 @@ async function generateSignals(
       .gte('created_at', since.toISOString());
 
     if ((count ?? 0) === 0) {
-      signals.push({ studentId, signalType: 'non_engagement', signalCreatedAt: new Date(row.created_at) });
+      signals.push({ studentId, signalType: 'non_engagement', signalCreatedAt: startedAt });
     }
   }
 
