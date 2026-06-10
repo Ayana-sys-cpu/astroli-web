@@ -61,8 +61,8 @@ export default function SignalBadge({ signalType }: SignalBadgeProps) {
 
   const cfg = SIGNAL_CONFIG[signalType];
 
+  // Parent card must have position: relative for absolute positioning to work
   return (
-    {/* Parent card must have position: relative for absolute positioning to work */}
     <div
       role="img"
       aria-label={cfg.tooltip}
