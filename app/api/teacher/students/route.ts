@@ -37,7 +37,7 @@ function toInitials(name: string): string {
     .toUpperCase();
 }
 
-const lastName = (n: string) => n.split(' ').pop() ?? n;
+const lastName = (n: string) => n.trim().split(/\s+/).pop() ?? n;
 
 export async function GET(req: NextRequest) {
   const auth = await requireAuth();
@@ -87,6 +87,25 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ students: [], journeys: allJourneys });
   }
 
+  // When a journey filter is active, enrollmentRows only covers that journey.
+  // Fetch all enrollments for the included students so journey pills show every journey.
+  const fullStudentJourneyMap: Map<string, Set<string>> = journeyIdFilter
+    ? await (async () => {
+        const { data: allEnrollRows } = await supabaseAdmin
+          .from('student_journeys')
+          .select('student_id, journey_id')
+          .in('student_id', allStudentIds);
+        const m = new Map<string, Set<string>>();
+        for (const row of allEnrollRows ?? []) {
+          const sid = row.student_id as string;
+          const jid = row.journey_id as string;
+          if (!m.has(sid)) m.set(sid, new Set());
+          m.get(sid)!.add(jid);
+        }
+        return m;
+      })()
+    : studentJourneyMap;
+
   // 3. Fetch student profiles
   const { data: studentRows } = await supabaseAdmin
     .from('students')
@@ -98,15 +117,14 @@ export async function GET(req: NextRequest) {
   );
 
   // 4. Fetch last-seen timestamps (most recent message per student).
-  //    Limit to allStudentIds.length * 5 rows — we only need one row per student
-  //    and this prevents unbounded scans on high-volume classrooms.
+  //    Limit is set high enough that even a very active student cannot starve the rest.
   //    TODO: replace with DISTINCT ON (student_id) RPC once Supabase supports it.
   const { data: lastMsgRows } = await supabaseAdmin
     .from('messages')
     .select('student_id, created_at')
     .in('student_id', allStudentIds)
     .order('created_at', { ascending: false })
-    .limit(allStudentIds.length * 5);
+    .limit(Math.max(allStudentIds.length * 50, 500));
 
   const lastSeenMap = new Map<string, Date>();
   for (const row of lastMsgRows ?? []) {
@@ -154,7 +172,7 @@ export async function GET(req: NextRequest) {
       const profile = studentProfileMap.get(studentId);
       const name = profile?.alien_name ?? 'Student';
       const lastSeen = lastSeenMap.get(studentId) ?? null;
-      const enrolledJourneyIds = Array.from(studentJourneyMap.get(studentId) ?? []);
+      const enrolledJourneyIds = Array.from(fullStudentJourneyMap.get(studentId) ?? []);
 
       return {
         studentId,

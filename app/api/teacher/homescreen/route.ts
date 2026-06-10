@@ -110,7 +110,7 @@ export async function GET(req: NextRequest) {
     .map(s => {
       const student = studentMap.get(s.studentId);
       const name = student?.alien_name ?? 'Student';
-      const words = name.split(' ');
+      const words = (name.trim() || 'S').split(/\s+/);
       const initials = words.map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
       return {
         studentId: s.studentId,

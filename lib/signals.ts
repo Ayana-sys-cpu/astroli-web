@@ -2,7 +2,7 @@
 //
 // Used by:
 // - GET /api/teacher/homescreen
-// - (future) GET /api/teacher/students
+// - GET /api/teacher/students
 //
 // Signal types represent different student support needs, ordered by intervention priority.
 
@@ -33,18 +33,28 @@ export async function generateSignals(
   journeyId: string,
   lastSessionAt: Date | null,
 ): Promise<StudentSignal[]> {
-  const { data: missionRows } = await supabaseAdmin
+  const { data: missionRows, error: missionsError } = await supabaseAdmin
     .from('missions')
     .select('id')
     .eq('journey_id', journeyId);
 
+  if (missionsError) {
+    console.error('[signals] missions query failed', missionsError);
+    return [];
+  }
+
   const missionIds = (missionRows ?? []).map((m: { id: string }) => m.id);
   if (missionIds.length === 0) return [];
 
-  const { data: startedRows } = await supabaseAdmin
+  const { data: startedRows, error: startedError } = await supabaseAdmin
     .from('mission_started_by_student')
     .select('student_id, created_at')
     .in('mission_id', missionIds);
+
+  if (startedError) {
+    console.error('[signals] mission_started_by_student query failed', startedError);
+    return [];
+  }
 
   if (!startedRows || startedRows.length === 0) return [];
 
@@ -60,11 +70,13 @@ export async function generateSignals(
   const since = lastSessionAt ?? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
   for (const [studentId, startedAt] of Array.from(byStudent.entries())) {
-    // Test signal override — remove once planet_summaries pipeline is live
+    // Test signal override — scoped to this journey's missions to avoid cross-journey contamination.
+    // Remove once planet_summaries pipeline is live.
     const { data: overrideMsg } = await supabaseAdmin
       .from('messages')
       .select('content')
       .eq('student_id', studentId)
+      .in('mission_id', missionIds)
       .like('content', '[SIGNAL:%]')
       .order('created_at', { ascending: false })
       .limit(1);
@@ -78,12 +90,18 @@ export async function generateSignals(
       }
     }
 
-    // Default: non_engagement if no messages since last session
-    const { count } = await supabaseAdmin
+    // Default: non_engagement if no messages in this journey's missions since last session
+    const { count, error: countError } = await supabaseAdmin
       .from('messages')
       .select('id', { count: 'exact', head: true })
       .eq('student_id', studentId)
+      .in('mission_id', missionIds)
       .gte('created_at', since.toISOString());
+
+    if (countError) {
+      console.error('[signals] message count query failed', countError);
+      continue;
+    }
 
     if ((count ?? 0) === 0) {
       signals.push({ studentId, signalType: 'non_engagement', signalCreatedAt: startedAt });
