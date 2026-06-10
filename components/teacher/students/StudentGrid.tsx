@@ -12,6 +12,12 @@ interface StudentGridProps {
   onStudentClick: (studentId: string) => void;
 }
 
+const SearchIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+    <circle cx="6.5" cy="6.5" r="5" /><line x1="10.5" y1="10.5" x2="14" y2="14" strokeLinecap="round" />
+  </svg>
+);
+
 const FilterIcon = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
     <line x1="4" y1="6" x2="20" y2="6" /><line x1="8" y1="12" x2="16" y2="12" /><line x1="11" y1="18" x2="13" y2="18" />
@@ -45,9 +51,12 @@ export default function StudentGrid({ students, journeys, onStudentClick }: Stud
         <div style={{ display: 'flex', gap: 10 }}>
           {/* Search */}
           <div style={{ position: 'relative', flex: 1, maxWidth: 340 }}>
-            <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: '#9ca3af' }}>🔍</span>
+            <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', display: 'flex' }}>
+              <SearchIcon />
+            </span>
             <input
               type="text"
+              aria-label="Search students"
               placeholder="Search student…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -57,6 +66,7 @@ export default function StudentGrid({ students, journeys, onStudentClick }: Stud
           {/* Journey filter */}
           <div style={{ position: 'relative' }}>
             <select
+              aria-label="Filter by journey"
               value={selectedJourneyId}
               onChange={(e) => setSelectedJourneyId(e.target.value)}
               style={{ appearance: 'none', padding: '7px 32px 7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, background: '#ffffff', fontSize: 13, color: '#374151', cursor: 'pointer', outline: 'none' }}
@@ -75,7 +85,9 @@ export default function StudentGrid({ students, journeys, onStudentClick }: Stud
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '20px 24px 0', scrollbarWidth: 'none' }}>
         {filtered.length === 0 ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200 }}>
-            <p style={{ fontSize: 13, color: '#9ca3af' }}>No students match your search.</p>
+            <p style={{ fontSize: 13, color: '#9ca3af' }}>
+              {students.length === 0 ? 'No students enrolled yet.' : 'No students match your search.'}
+            </p>
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, paddingBottom: 24 }}>
