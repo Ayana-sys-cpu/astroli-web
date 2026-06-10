@@ -398,7 +398,7 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
         <ConnectState courses={courses} onConnected={fetchJourneys} />
       ) : (
         <div className="flex flex-col gap-10">
-          {journeys.filter(j => j.id === params.id).length === 0 && (
+          {!loading && journeys.length > 0 && journeys.filter(j => j.id === params.id).length === 0 && (
             <div className="p-8 text-white/40 font-space text-sm">Journey not found.</div>
           )}
           {journeys.filter(j => j.id === params.id).map((journey, ji) => {
