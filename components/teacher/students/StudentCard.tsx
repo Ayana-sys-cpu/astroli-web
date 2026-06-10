@@ -1,5 +1,5 @@
 'use client';
-import { motion } from 'framer-motion';
+import { useReducedMotion, motion } from 'framer-motion';
 import SignalBadge from './SignalBadge';
 import type { StudentSummary } from '@/app/api/teacher/students/route';
 
@@ -32,6 +32,7 @@ function formatLastSeen(lastSeenAt: string | null, isActiveNow: boolean): string
   if (isActiveNow) return 'Active now';
   if (!lastSeenAt) return 'Not started';
   const d = new Date(lastSeenAt);
+  if (isNaN(d.getTime())) return 'Not started';
   const pad = (n: number) => String(n).padStart(2, '0');
   return `Last seen ${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
@@ -46,12 +47,16 @@ interface StudentCardProps {
 export default function StudentCard({ student, onClick }: StudentCardProps) {
   const color = avatarColor(student.studentId);
   const statusText = formatLastSeen(student.lastSeenAt, student.isActiveNow);
+  const prefersReducedMotion = useReducedMotion();
 
   return (
     <motion.div
-      whileHover={{ y: -2 }}
+      whileHover={prefersReducedMotion ? {} : { y: -2 }}
       transition={{ duration: 0.15 }}
+      role="button"
+      tabIndex={0}
       onClick={() => onClick(student.studentId)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(student.studentId); }}
       style={{
         background: '#ffffff',
         borderRadius: 12,
@@ -62,6 +67,7 @@ export default function StudentCard({ student, onClick }: StudentCardProps) {
         flexDirection: 'column',
         height: 240,
         userSelect: 'none',
+        outline: 'none',
       }}
     >
       {/* ── Avatar zone ── */}
