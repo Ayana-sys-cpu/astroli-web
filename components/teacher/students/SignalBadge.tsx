@@ -62,11 +62,15 @@ export default function SignalBadge({ signalType }: SignalBadgeProps) {
   const cfg = SIGNAL_CONFIG[signalType];
 
   return (
+    {/* Parent card must have position: relative for absolute positioning to work */}
     <div
       role="img"
       aria-label={cfg.tooltip}
+      tabIndex={0}
       onMouseEnter={() => setVisible(true)}
       onMouseLeave={() => setVisible(false)}
+      onFocus={() => setVisible(true)}
+      onBlur={() => setVisible(false)}
       style={{
         position: 'absolute',
         top: 10,
@@ -81,6 +85,7 @@ export default function SignalBadge({ signalType }: SignalBadgeProps) {
         justifyContent: 'center',
         cursor: 'default',
         zIndex: 2,
+        outline: 'none',
       }}
     >
       {cfg.icon}
