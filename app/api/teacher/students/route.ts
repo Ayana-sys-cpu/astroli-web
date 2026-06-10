@@ -29,13 +29,15 @@ export interface StudentSummary {
 const ACTIVE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
 function toInitials(name: string): string {
-  return name
+  return (name.trim() || 'S')
     .split(' ')
     .map((w) => w[0])
     .join('')
     .slice(0, 2)
     .toUpperCase();
 }
+
+const lastName = (n: string) => n.split(' ').pop() ?? n;
 
 export async function GET(req: NextRequest) {
   const auth = await requireAuth();
@@ -95,12 +97,16 @@ export async function GET(req: NextRequest) {
     (studentRows ?? []).map((s: { id: string; alien_name: string }) => [s.id, s]),
   );
 
-  // 4. Fetch last-seen timestamps (most recent message per student)
+  // 4. Fetch last-seen timestamps (most recent message per student).
+  //    Limit to allStudentIds.length * 5 rows — we only need one row per student
+  //    and this prevents unbounded scans on high-volume classrooms.
+  //    TODO: replace with DISTINCT ON (student_id) RPC once Supabase supports it.
   const { data: lastMsgRows } = await supabaseAdmin
     .from('messages')
     .select('student_id, created_at')
     .in('student_id', allStudentIds)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(allStudentIds.length * 5);
 
   const lastSeenMap = new Map<string, Date>();
   for (const row of lastMsgRows ?? []) {
@@ -119,6 +125,9 @@ export async function GET(req: NextRequest) {
 
   const signalMap = new Map<string, SignalType>();
 
+  // NOTE: generateSignals issues per-student DB queries internally (N+1 per journey).
+  // This is acceptable for Phase 1 classroom sizes (< 40 students). Replace with a
+  // batched query against planet_summaries once that pipeline is live (Phase 2 TODO).
   for (const journey of targetJourneys) {
     const lastSession = await prisma.classSession.findFirst({
       where: { journeyId: journey.id, teacherId },
@@ -159,10 +168,7 @@ export async function GET(req: NextRequest) {
           .map((jid) => ({ journeyId: jid, title: journeyTitleMap.get(jid)! })),
       };
     })
-    .sort((a, b) => {
-      const lastName = (n: string) => n.split(' ').pop() ?? n;
-      return lastName(a.name).localeCompare(lastName(b.name));
-    });
+    .sort((a, b) => lastName(a.name).localeCompare(lastName(b.name)));
 
   return NextResponse.json({ students, journeys: allJourneys });
 }
