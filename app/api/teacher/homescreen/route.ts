@@ -15,8 +15,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, assertTeacherSession } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { prisma } from '@/lib/prisma';
-
-export type SignalType = 'breakthrough' | 'grace_completion' | 'stuck' | 'non_engagement';
+import { generateSignals, type SignalType } from '@/lib/signals';
 
 export interface SpotlightStudent {
   studentId: string;
@@ -33,77 +32,6 @@ export interface ClassInsight {
   signalType: SignalType | 'coverage' | 'progress';
   text: string;
   count: number;
-}
-
-// ---------------------------------------------------------------------------
-// SIGNAL GENERATION
-// TODO: Replace this function body with planet_summaries queries once built.
-// ---------------------------------------------------------------------------
-async function generateSignals(
-  journeyId: string,
-  lastSessionAt: Date | null
-): Promise<{ studentId: string; signalType: SignalType; signalCreatedAt: Date }[]> {
-  // Resolve mission IDs for this journey (mission_started_by_student has no journey_id column)
-  const { data: missionRows } = await supabaseAdmin
-    .from('missions')
-    .select('id')
-    .eq('journey_id', journeyId);
-
-  const missionIds = (missionRows ?? []).map((m: { id: string }) => m.id);
-  if (missionIds.length === 0) return [];
-
-  const { data: startedRows } = await supabaseAdmin
-    .from('mission_started_by_student')
-    .select('student_id, created_at')
-    .in('mission_id', missionIds);
-
-  if (!startedRows || startedRows.length === 0) return [];
-
-  // Deduplicate: one signal per student (earliest started_at wins)
-  const byStudent = new Map<string, Date>();
-  for (const row of startedRows) {
-    const sid = row.student_id as string;
-    const ts = new Date(row.created_at);
-    if (!byStudent.has(sid) || ts < byStudent.get(sid)!) byStudent.set(sid, ts);
-  }
-
-  const signals: { studentId: string; signalType: SignalType; signalCreatedAt: Date }[] = [];
-  const since = lastSessionAt ?? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-
-  for (const [studentId, startedAt] of Array.from(byStudent.entries())) {
-    // TEST SIGNAL OVERRIDE: if the student has a message with content starting
-    // "[SIGNAL:xxx]", use that as the signal type. Used for seeded test data only.
-    // Remove this block once planet_summaries pipeline is live.
-    const { data: overrideMsg } = await supabaseAdmin
-      .from('messages')
-      .select('content')
-      .eq('student_id', studentId)
-      .like('content', '[SIGNAL:%]')
-      .order('created_at', { ascending: false })
-      .limit(1);
-
-    if (overrideMsg && overrideMsg.length > 0) {
-      const match = (overrideMsg[0].content as string).match(/^\[SIGNAL:(\w+)\]/);
-      const overrideType = match?.[1] as SignalType | undefined;
-      if (overrideType && ['breakthrough', 'grace_completion', 'stuck', 'non_engagement'].includes(overrideType)) {
-        signals.push({ studentId, signalType: overrideType, signalCreatedAt: startedAt });
-        continue;
-      }
-    }
-
-    // Default: non_engagement if no messages since last session
-    const { count } = await supabaseAdmin
-      .from('messages')
-      .select('id', { count: 'exact', head: true })
-      .eq('student_id', studentId)
-      .gte('created_at', since.toISOString());
-
-    if ((count ?? 0) === 0) {
-      signals.push({ studentId, signalType: 'non_engagement', signalCreatedAt: startedAt });
-    }
-  }
-
-  return signals;
 }
 
 function insightLine(signalType: SignalType): string {
