@@ -106,9 +106,9 @@ export async function GET(req: NextRequest) {
       })()
     : studentJourneyMap;
 
-  // 3. Fetch student profiles
+  // 3. Fetch student profiles from the users table (student_journeys.student_id = users.id)
   const { data: studentRows } = await supabaseAdmin
-    .from('students')
+    .from('users')
     .select('id, alien_name')
     .in('id', allStudentIds);
 

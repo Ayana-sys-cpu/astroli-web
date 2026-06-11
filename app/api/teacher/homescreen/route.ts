@@ -95,8 +95,8 @@ export async function GET(req: NextRequest) {
 
   const studentIds = Array.from(new Set(activeSignals.map(s => s.studentId)));
   const { data: studentRows } = await supabaseAdmin
-    .from('students')
-    .select('id, alien_name, bot_base_avatar')
+    .from('users')
+    .select('id, alien_name, base_avatar_url')
     .in('id', studentIds.length > 0 ? studentIds : ['__none__']);
 
   const studentMap = new Map((studentRows ?? []).map(s => [s.id, s]));
@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
       return {
         studentId: s.studentId,
         name,
-        avatarUrl: student?.bot_base_avatar ?? null,
+        avatarUrl: student?.base_avatar_url ?? null,
         initials,
         signalType: s.signalType,
         insightLine: insightLine(s.signalType),
