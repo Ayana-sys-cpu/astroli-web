@@ -106,30 +106,43 @@ export async function GET(req: NextRequest) {
       })()
     : studentJourneyMap;
 
-  // 3. Fetch student profiles from the users table (student_journeys.student_id = users.id)
+  // 3. Fetch student profiles from the users table (student_journeys.student_id = users.id).
+  //    Also fetch auth_user_id — messages are keyed by the Supabase auth UUID, not users.id.
   const { data: studentRows } = await supabaseAdmin
     .from('users')
-    .select('id, full_name, first_name')
+    .select('id, full_name, first_name, auth_user_id')
     .in('id', allStudentIds);
 
+  type UserRow = { id: string; full_name: string | null; first_name: string | null; auth_user_id: string | null };
   const studentProfileMap = new Map(
-    (studentRows ?? []).map((s: { id: string; full_name: string | null; first_name: string | null }) => [s.id, s]),
+    (studentRows ?? []).map((s: UserRow) => [s.id, s]),
   );
 
+  // Map auth_user_id → users.id for translating message rows back to student IDs.
+  const authIdToUserId = new Map<string, string>();
+  for (const s of studentRows ?? []) {
+    if ((s as UserRow).auth_user_id) authIdToUserId.set((s as UserRow).auth_user_id!, s.id);
+  }
+  const allAuthIds = Array.from(authIdToUserId.keys());
+
   // 4. Fetch last-seen timestamps (most recent message per student).
+  //    messages.student_id stores the Supabase auth UUID, not users.id.
   //    Limit is set high enough that even a very active student cannot starve the rest.
   //    TODO: replace with DISTINCT ON (student_id) RPC once Supabase supports it.
-  const { data: lastMsgRows } = await supabaseAdmin
-    .from('messages')
-    .select('student_id, created_at')
-    .in('student_id', allStudentIds)
-    .order('created_at', { ascending: false })
-    .limit(Math.max(allStudentIds.length * 50, 500));
+  const { data: lastMsgRows } = allAuthIds.length > 0
+    ? await supabaseAdmin
+        .from('messages')
+        .select('student_id, created_at')
+        .in('student_id', allAuthIds)
+        .order('created_at', { ascending: false })
+        .limit(Math.max(allAuthIds.length * 50, 500))
+    : { data: [] };
 
   const lastSeenMap = new Map<string, Date>();
   for (const row of lastMsgRows ?? []) {
-    const sid = row.student_id as string;
-    if (!lastSeenMap.has(sid)) lastSeenMap.set(sid, new Date(row.created_at));
+    const authId = row.student_id as string;
+    const userId = authIdToUserId.get(authId);
+    if (userId && !lastSeenMap.has(userId)) lastSeenMap.set(userId, new Date(row.created_at));
   }
 
   // 5. Generate signals across all target journeys
