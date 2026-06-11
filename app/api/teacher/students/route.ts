@@ -109,11 +109,11 @@ export async function GET(req: NextRequest) {
   // 3. Fetch student profiles from the users table (student_journeys.student_id = users.id)
   const { data: studentRows } = await supabaseAdmin
     .from('users')
-    .select('id, alien_name')
+    .select('id, full_name, first_name')
     .in('id', allStudentIds);
 
   const studentProfileMap = new Map(
-    (studentRows ?? []).map((s: { id: string; alien_name: string }) => [s.id, s]),
+    (studentRows ?? []).map((s: { id: string; full_name: string | null; first_name: string | null }) => [s.id, s]),
   );
 
   // 4. Fetch last-seen timestamps (most recent message per student).
@@ -170,7 +170,7 @@ export async function GET(req: NextRequest) {
   const students: StudentSummary[] = allStudentIds
     .map((studentId) => {
       const profile = studentProfileMap.get(studentId);
-      const name = profile?.alien_name ?? 'Student';
+      const name = profile?.full_name ?? profile?.first_name ?? 'Student';
       const lastSeen = lastSeenMap.get(studentId) ?? null;
       const enrolledJourneyIds = Array.from(fullStudentJourneyMap.get(studentId) ?? []);
 
