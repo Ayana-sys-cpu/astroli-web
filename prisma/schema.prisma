@@ -118,6 +118,7 @@ model Planet {
   characterLocation    String?        @map("character_location")
   studentRevealMessage String?        @map("student_reveal_message")
   sourceMaterials      PlanetSource[]
+  planetSummaries      PlanetSummary[]
   creator              User           @relation(fields: [createdBy], references: [id])
   generationJob        GenerationJob? @relation(fields: [generationJobId], references: [id])
   mission              Mission        @relation(fields: [missionId], references: [id], onDelete: Cascade)
@@ -314,6 +315,38 @@ model ClassSession {
   @@map("class_sessions")
 }
 
+model PlanetSummary {
+  id              String              @id @default(dbgenerated("(gen_random_uuid())::text"))
+  studentId       String              @map("student_id")
+  planetId        String              @map("planet_id")
+  status          PlanetSummaryStatus @default(not_started)
+  performanceType String?             @map("performance_type")
+  assessedAt      DateTime?           @map("assessed_at")            @db.Timestamptz(6)
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime            @default(now()) @updatedAt    @map("updated_at") @db.Timestamptz(6)
+  goals           PlanetSummaryGoal[]
+  planet          Planet              @relation(fields: [planetId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, planetId])
+  @@index([studentId])
+  @@index([planetId])
+  @@map("planet_summaries")
+}
+
+model PlanetSummaryGoal {
+  id              String        @id @default(dbgenerated("(gen_random_uuid())::text"))
+  summaryId       String        @map("summary_id")
+  goalTitle       String        @map("goal_title")
+  performanceType String?       @map("performance_type")
+  botQuestion     String        @map("bot_question")
+  studentAnswer   String        @map("student_answer")
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  summary         PlanetSummary @relation(fields: [summaryId], references: [id], onDelete: Cascade)
+
+  @@index([summaryId])
+  @@map("planet_summary_goals")
+}
+
 model TeacherSignalAcknowledgement {
   id          String   @id @default(dbgenerated("(gen_random_uuid())::text"))
   teacherId   String   @map("teacher_id")
@@ -365,4 +398,10 @@ enum MaterialType {
   YOUTUBE
   LINK
   OTHER
+}
+
+enum PlanetSummaryStatus {
+  not_started
+  in_progress
+  completed
 }
