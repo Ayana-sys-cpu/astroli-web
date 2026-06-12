@@ -28,6 +28,17 @@ export const PERKINS_LABELS: Record<PerkinsType, string> = {
   actionable_extrapolation: 'Actionable Extrapolation',
 };
 
+const VALID_PERFORMANCE_TYPES = new Set<string>([
+  'explaining', 'mustering_evidence', 'finding_examples', 'generalizing',
+  'applying_concepts', 'analogizing', 'representing_in_new_ways',
+  'considering_alternatives', 'actionable_extrapolation', 'grace_completion',
+]);
+
+export function toPerformanceType(value: string | null | undefined): PerformanceType | null {
+  if (!value) return null;
+  return VALID_PERFORMANCE_TYPES.has(value) ? (value as PerformanceType) : null;
+}
+
 export function performanceLabel(type: PerformanceType | null): string {
   if (!type) return 'Not started';
   if (type === 'grace_completion') return 'Grace Completion';

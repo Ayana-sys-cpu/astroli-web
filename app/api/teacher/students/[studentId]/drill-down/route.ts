@@ -8,9 +8,9 @@ import type {
   DrillDownResponse,
   SubjectSummary,
   GoalSummary,
-  PerformanceType,
   PlanetStatus,
 } from '@/lib/drill-down-types';
+import { toPerformanceType } from '@/lib/drill-down-types';
 
 type UserRow = { full_name: string | null; first_name: string | null } | null;
 
@@ -105,7 +105,7 @@ export async function GET(
         const goals: GoalSummary[] = (summary?.goals ?? []).map((g) => ({
           id: g.id,
           goalTitle: g.goalTitle,
-          performanceType: (g.performanceType as PerformanceType | null) ?? null,
+          performanceType: toPerformanceType(g.performanceType),
           botQuestion: g.botQuestion,
           studentAnswer: g.studentAnswer,
         }));
@@ -118,7 +118,7 @@ export async function GET(
           journeyId: journey.id,
           journeyTitle: journey.title,
           status: (summary?.status as PlanetStatus | undefined) ?? 'not_started',
-          performanceType: (summary?.performanceType as PerformanceType | null) ?? null,
+          performanceType: toPerformanceType(summary?.performanceType),
           assessedAt: summary?.assessedAt?.toISOString() ?? null,
           goals,
         });
