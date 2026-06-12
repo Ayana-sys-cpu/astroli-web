@@ -48,10 +48,12 @@ export default function StudentDrillDownPage() {
   const [selectedPlanetId, setSelectedPlanetId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/teacher/students/${studentId}/drill-down`)
+    const ctrl = new AbortController();
+    fetch(`/api/teacher/students/${studentId}/drill-down`, { signal: ctrl.signal })
       .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then((d: DrillDownResponse) => { setData(d); setLoading(false); })
-      .catch((e: Error) => { setError(e.message); setLoading(false); });
+      .catch((e: Error) => { if (e.name !== 'AbortError') { setError(e.message); setLoading(false); } });
+    return () => ctrl.abort();
   }, [studentId]);
 
   const filteredSubjects = useMemo(
@@ -107,7 +109,6 @@ export default function StudentDrillDownPage() {
           style={{
             flex: selectedSubject ? '0 0 55%' : '1 1 100%',
             overflowY: 'auto',
-            borderRight: selectedSubject ? '1px solid rgba(232,232,240,0.08)' : 'none',
             transition: 'flex-basis 0.2s ease',
           }}
         >
