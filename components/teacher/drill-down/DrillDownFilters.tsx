@@ -133,7 +133,7 @@ export default function DrillDownFilters({
           mode="radio"
           options={TIMEFRAME_OPTIONS}
           selectedValue={filters.timeframe}
-          defaultValue="7d"
+          defaultValue="all"
           onChangeRadio={(v) =>
             onChange({
               ...filters,

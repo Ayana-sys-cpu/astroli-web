@@ -82,5 +82,5 @@ export const DEFAULT_FILTERS: DrillDownFilters = {
   journeyIds: [],
   statuses: [],
   performances: [],
-  timeframe: '7d',
+  timeframe: 'all',
 };

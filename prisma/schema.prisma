@@ -31,29 +31,30 @@ model User {
   missionsCreated             Mission[]
   planetsCreated              Planet[]
   student_journeys            student_journeys[]
+  planetSummaries             PlanetSummary[]
 
   @@map("users")
 }
 
 model Journey {
-  id                    String               @id @default(dbgenerated("(gen_random_uuid())::text"))
-  googleCourseId        String?              @unique @map("google_course_id")
-  title                 String
-  teacherId             String?              @map("teacher_id")
-  curriculumJourneyId   String?              @map("curriculum_journey_id")
-  voteEndsAt            DateTime?            @map("vote_ends_at")
-  lastMaterialSyncAt    DateTime?            @map("last_material_sync_at")
-  createdAt             DateTime             @default(now()) @map("created_at")
-  updatedAt             DateTime             @default(now()) @updatedAt @map("updated_at")
-  curriculumMaterials   CurriculumMaterial[]
-  generationJobs        GenerationJob[]
-  teacher               User?                @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  curriculumJourney     Journey?             @relation("CurriculumTemplate", fields: [curriculumJourneyId], references: [id], onDelete: SetNull)
-  classJourneys         Journey[]            @relation("CurriculumTemplate")
-  missions              Mission[]
-  student_journeys      student_journeys[]
-  vote_sessions         vote_sessions[]
-  classSessions         ClassSession[]
+  id                  String               @id @default(dbgenerated("(gen_random_uuid())::text"))
+  googleCourseId      String?              @unique @map("google_course_id")
+  title               String
+  teacherId           String?              @map("teacher_id")
+  curriculumJourneyId String?              @map("curriculum_journey_id")
+  voteEndsAt          DateTime?            @map("vote_ends_at")
+  lastMaterialSyncAt  DateTime?            @map("last_material_sync_at")
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @default(now()) @updatedAt @map("updated_at")
+  curriculumMaterials CurriculumMaterial[]
+  generationJobs      GenerationJob[]
+  teacher             User?                @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  curriculumJourney   Journey?             @relation("CurriculumTemplate", fields: [curriculumJourneyId], references: [id], onDelete: SetNull)
+  classJourneys       Journey[]            @relation("CurriculumTemplate")
+  missions            Mission[]
+  student_journeys    student_journeys[]
+  vote_sessions       vote_sessions[]
+  classSessions       ClassSession[]
 
   @@index([teacherId])
   @@map("journeys")
@@ -95,33 +96,33 @@ model Mission {
 }
 
 model Planet {
-  id                   String         @id @default(dbgenerated("(gen_random_uuid())::text"))
-  missionId            String         @map("mission_id")
+  id                   String          @id @default(dbgenerated("(gen_random_uuid())::text"))
+  missionId            String          @map("mission_id")
   title                String
   label                String?
-  shortTitle           String?        @map("short_title")
-  planetQuestion       String?        @map("planet_question")
+  shortTitle           String?         @map("short_title")
+  planetQuestion       String?         @map("planet_question")
   content              String
-  source               ContentSource  @default(HARDCODED)
-  openingMessage       String?        @map("opening_message")
-  openingQuickReplies  Json?          @map("opening_quick_replies")
-  mediaUrl             String?        @map("media_url")
-  mediaType            MaterialType?  @map("media_type")
-  generationJobId      String?        @map("generation_job_id")
-  createdBy            String         @map("created_by")
-  createdAt            DateTime       @default(now()) @map("created_at")
-  updatedAt            DateTime       @default(now()) @updatedAt @map("updated_at")
+  source               ContentSource   @default(HARDCODED)
+  openingMessage       String?         @map("opening_message")
+  openingQuickReplies  Json?           @map("opening_quick_replies")
+  mediaUrl             String?         @map("media_url")
+  mediaType            MaterialType?   @map("media_type")
+  generationJobId      String?         @map("generation_job_id")
+  createdBy            String          @map("created_by")
+  createdAt            DateTime        @default(now()) @map("created_at")
+  updatedAt            DateTime        @default(now()) @updatedAt @map("updated_at")
   icon                 String?
   hint                 String?
-  characterFigure      String?        @map("character_figure")
-  characterYear        String?        @map("character_year")
-  characterLocation    String?        @map("character_location")
-  studentRevealMessage String?        @map("student_reveal_message")
+  characterFigure      String?         @map("character_figure")
+  characterYear        String?         @map("character_year")
+  characterLocation    String?         @map("character_location")
+  studentRevealMessage String?         @map("student_reveal_message")
   sourceMaterials      PlanetSource[]
   planetSummaries      PlanetSummary[]
-  creator              User           @relation(fields: [createdBy], references: [id])
-  generationJob        GenerationJob? @relation(fields: [generationJobId], references: [id])
-  mission              Mission        @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  creator              User            @relation(fields: [createdBy], references: [id])
+  generationJob        GenerationJob?  @relation(fields: [generationJobId], references: [id])
+  mission              Mission         @relation(fields: [missionId], references: [id], onDelete: Cascade)
 
   @@index([missionId])
   @@map("planets")
@@ -304,11 +305,11 @@ model vote_sessions {
 }
 
 model ClassSession {
-  id         String   @id @default(dbgenerated("(gen_random_uuid())::text"))
-  journeyId  String   @map("journey_id")
-  teacherId  String   @map("teacher_id")
-  startedAt  DateTime @default(now()) @map("started_at") @db.Timestamptz(6)
-  journey    Journey  @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  id        String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  journeyId String   @map("journey_id")
+  teacherId String   @map("teacher_id")
+  startedAt DateTime @default(now()) @map("started_at") @db.Timestamptz(6)
+  journey   Journey  @relation(fields: [journeyId], references: [id], onDelete: Cascade)
 
   @@index([journeyId])
   @@index([teacherId])
@@ -321,11 +322,12 @@ model PlanetSummary {
   planetId        String              @map("planet_id")
   status          PlanetSummaryStatus @default(not_started)
   performanceType String?             @map("performance_type")
-  assessedAt      DateTime?           @map("assessed_at")            @db.Timestamptz(6)
+  assessedAt      DateTime?           @map("assessed_at") @db.Timestamptz(6)
   createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime            @default(now()) @updatedAt    @map("updated_at") @db.Timestamptz(6)
+  updatedAt       DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   goals           PlanetSummaryGoal[]
   planet          Planet              @relation(fields: [planetId], references: [id], onDelete: Cascade)
+  student         User                @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, planetId])
   @@index([studentId])
@@ -348,14 +350,14 @@ model PlanetSummaryGoal {
 }
 
 model TeacherSignalAcknowledgement {
-  id          String   @id @default(dbgenerated("(gen_random_uuid())::text"))
-  teacherId   String   @map("teacher_id")
-  studentId   String   @map("student_id")
-  journeyId   String   @map("journey_id")
-  signalType  String   @map("signal_type")
-  status      String
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  expiresAt   DateTime @map("expires_at") @db.Timestamptz(6)
+  id         String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  teacherId  String   @map("teacher_id")
+  studentId  String   @map("student_id")
+  journeyId  String   @map("journey_id")
+  signalType String   @map("signal_type")
+  status     String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(6)
 
   @@unique([teacherId, studentId, journeyId, signalType], name: "unique_signal_ack")
   @@index([teacherId, journeyId])
