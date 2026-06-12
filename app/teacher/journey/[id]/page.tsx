@@ -9,6 +9,7 @@ import { toDatetimeLocal } from '@/lib/vote-utils';
 import Countdown from '@/components/Countdown';
 import StudentMobilePreview from '@/components/StudentMobilePreview';
 import VoteManageModals from '@/components/VoteManageModals';
+import JourneyMonitorView from '@/components/teacher/journey/JourneyMonitorView';
 
 type MissionState = 'locked' | 'voting' | 'pending_start' | 'active' | 'completed' | 'skipped';
 
@@ -912,6 +913,13 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                     </motion.button>
                   </motion.div>
                 ) : null}
+                <JourneyMonitorView
+                  journeyId={journey.id}
+                  nextMission={(() => {
+                    const m = missions.find(m => m.state === 'locked' || m.state === 'active');
+                    return m ? { id: m.id, order: m.order, title: m.question } : null;
+                  })()}
+                />
                 </motion.section>
               </Fragment>
             );
