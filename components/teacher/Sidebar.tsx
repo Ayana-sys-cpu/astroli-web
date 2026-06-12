@@ -1,7 +1,6 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { getTeacherName, clearTeacherSession } from '@/lib/teacher-store';
 import { supabaseSignOut } from '@/lib/session';
@@ -37,18 +36,11 @@ const JourneysIcon = () => (
   </svg>
 );
 
-const ChevronIcon = ({ open }: { open: boolean }) => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-    style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
-    <polyline points="6 9 12 15 18 9"/>
-  </svg>
-);
 
 export default function Sidebar({ journeys }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [teacherName, setTeacherName] = useState('');
-  const [journeysOpen, setJourneysOpen] = useState(true);
 
   useEffect(() => { setTeacherName(getTeacherName()); }, []);
 
@@ -119,51 +111,37 @@ export default function Sidebar({ journeys }: SidebarProps) {
           <StudentsIcon /> STUDENTS
         </Link>
 
-        {/* Journeys expandable */}
-        <button
-          onClick={() => setJourneysOpen(o => !o)}
-          style={{ ...navItemStyle(false), justifyContent: 'space-between', background: 'transparent', border: '1px solid transparent' }}
+        {/* Journeys — header links to list, sub-items link to individual journeys */}
+        <Link
+          href="/teacher/journeys"
+          style={{ ...navItemStyle(isActive('/teacher/journeys')), justifyContent: 'space-between' }}
         >
           <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <JourneysIcon /> JOURNEYS
           </span>
-          <ChevronIcon open={journeysOpen} />
-        </button>
+        </Link>
 
-        <AnimatePresence>
-          {journeysOpen && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              style={{ overflow: 'hidden', paddingLeft: 12, display: 'flex', flexDirection: 'column', gap: 2 }}
-            >
-              {journeys.map(j => {
-                const active = isActive(`/teacher/journey/${j.id}`);
-                return (
-                  <Link key={j.id} href={`/teacher/journey/${j.id}`} style={{
-                    ...navItemStyle(active),
-                    fontSize: 11,
-                    padding: '6px 10px',
-                    fontWeight: active ? 600 : 400,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}>
-                    <span style={{ width: 4, height: 4, borderRadius: '50%', background: active ? '#00F5D4' : 'rgba(232,232,240,0.3)', flexShrink: 0 }} />
-                    {j.title}
-                  </Link>
-                );
-              })}
-              {journeys.length === 0 && (
-                <span style={{ fontSize: 10, color: 'rgba(232,232,240,0.25)', padding: '4px 10px', fontFamily: 'var(--font-space)' }}>
-                  No journeys yet
-                </span>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {journeys.length > 0 && (
+          <div style={{ paddingLeft: 12, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {journeys.map(j => {
+              const active = isActive(`/teacher/journey/${j.id}`);
+              return (
+                <Link key={j.id} href={`/teacher/journey/${j.id}`} style={{
+                  ...navItemStyle(active),
+                  fontSize: 11,
+                  padding: '6px 10px',
+                  fontWeight: active ? 600 : 400,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}>
+                  <span style={{ width: 4, height: 4, borderRadius: '50%', background: active ? '#00F5D4' : 'rgba(232,232,240,0.3)', flexShrink: 0 }} />
+                  {j.title}
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </nav>
 
       {/* Teacher profile at bottom */}
