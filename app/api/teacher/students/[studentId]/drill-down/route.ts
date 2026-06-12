@@ -12,6 +12,8 @@ import type {
   PlanetStatus,
 } from '@/lib/drill-down-types';
 
+type UserRow = { full_name: string | null; first_name: string | null } | null;
+
 function toInitials(name: string): string {
   return (name.trim() || 'S')
     .split(' ')
@@ -66,16 +68,18 @@ export async function GET(
   }
 
   // 2. Fetch student profile
-  const { data: studentRow } = await supabaseAdmin
+  const { data: studentRow, error: studentError } = await supabaseAdmin
     .from('users')
     .select('id, full_name, first_name')
     .eq('id', studentId)
     .single();
 
-  const name = (studentRow as { full_name: string | null; first_name: string | null } | null)
-    ?.full_name ??
-    (studentRow as { full_name: string | null; first_name: string | null } | null)?.first_name ??
-    'Student';
+  if (studentError && studentError.code !== 'PGRST116') {
+    return NextResponse.json({ error: 'Failed to fetch student profile.' }, { status: 500 });
+  }
+
+  const profile = studentRow as UserRow;
+  const name = profile?.full_name || profile?.first_name || 'Student';
 
   // 3. Collect all planet IDs across all shared journeys
   const planetIds: string[] = sharedJourneys.flatMap((j) =>
