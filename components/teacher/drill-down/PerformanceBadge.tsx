@@ -6,38 +6,45 @@ import type { PerformanceType } from '@/lib/drill-down-types';
 interface Props {
   performanceType: PerformanceType | null;
   size?: 'sm' | 'md';
+  variant?: 'filled' | 'outlined';
 }
 
-export default function PerformanceBadge({ performanceType, size = 'md' }: Props) {
+export default function PerformanceBadge({
+  performanceType,
+  size = 'md',
+  variant = 'filled',
+}: Props) {
   const label = performanceLabel(performanceType);
 
-  let bg: string;
   let color: string;
-
   if (!performanceType) {
-    bg = 'rgba(232,232,240,0.12)';
-    color = 'rgba(232,232,240,0.45)';
+    color = 'rgba(26,26,46,0.35)';
   } else if (performanceType === 'grace_completion') {
-    bg = 'rgba(234,179,8,0.2)';
-    color = '#eab308';
+    color = '#d97706';
   } else {
-    bg = 'rgba(34,197,94,0.2)';
-    color = '#22c55e';
+    color = '#15803d';
   }
 
   const fontSize = size === 'sm' ? 10 : 11;
-  const padding = size === 'sm' ? '2px 6px' : '3px 8px';
+  const padding = size === 'sm' ? '2px 8px' : '3px 10px';
+
+  const filledBg = !performanceType
+    ? 'rgba(26,26,46,0.06)'
+    : performanceType === 'grace_completion'
+    ? 'rgba(217,119,6,0.12)'
+    : 'rgba(21,128,61,0.1)';
 
   return (
     <span
       style={{
         display: 'inline-block',
-        background: bg,
+        background: variant === 'filled' ? filledBg : 'transparent',
         color,
+        border: variant === 'outlined' ? `1px solid ${color}` : 'none',
         fontSize,
         fontWeight: 500,
         padding,
-        borderRadius: 4,
+        borderRadius: 20,
         whiteSpace: 'nowrap',
         lineHeight: 1.4,
       }}
