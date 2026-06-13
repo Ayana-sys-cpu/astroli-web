@@ -374,26 +374,8 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
     }
   }
 
-  const currentJourney = journeys.find(j => j.id === params.id);
-  const currentMissions = currentJourney ? (fullMissions[currentJourney.id] ?? currentJourney.missions) : [];
-  const isMonitoring = !loading && currentMissions.some(m => m.state === 'active');
-
   return (
     <div className="px-8 py-8 max-w-6xl mx-auto">
-      {/* Page header — hidden when a mission is active */}
-      {!isMonitoring && <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="mb-10"
-      >
-        <h1 className="font-space font-black tracking-[0.12em] mb-1" style={{ fontSize: 28, color: '#1a1a2e' }}>
-          CLASS SETUP
-        </h1>
-        <p className="font-inter text-sm" style={{ color: 'rgba(26,26,46,0.4)' }}>
-          Transform your Google Classroom courses into structured learning journeys
-        </p>
-      </motion.div>}
 
       {loading ? (
         <div className="flex items-center gap-3 mt-24 justify-center">
@@ -482,6 +464,65 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: ji * 0.07 }}
                   >
+                {/* Page header */}
+                <div className="mb-8">
+                  <h1 className="font-space font-black tracking-[0.12em] mb-1" style={{ fontSize: 28, color: '#1a1a2e' }}>
+                    CLASS SETUP
+                  </h1>
+                  <p className="font-inter text-sm" style={{ color: 'rgba(26,26,46,0.4)' }}>
+                    Transform your Google Classroom courses into structured learning journeys
+                  </p>
+                </div>
+
+                {/* Pre-class CTA — shown when there's a mission ready to start */}
+                {(() => {
+                  const nextMission = missions.find(m => m.state === 'pending_start' || m.state === 'locked');
+                  if (!nextMission) return null;
+                  return (
+                    <div
+                      className="mb-8 rounded-2xl px-8 py-6 flex items-center justify-between"
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(139,0,255,0.06) 0%, rgba(14,165,233,0.06) 100%)',
+                        border: '1px solid rgba(139,0,255,0.18)',
+                      }}
+                    >
+                      <div>
+                        <p className="font-space font-black tracking-[0.08em] mb-1" style={{ fontSize: 17, color: '#1a1a2e' }}>
+                          Ready for today&apos;s class?
+                        </p>
+                        <p className="font-inter text-sm" style={{ color: 'rgba(26,26,46,0.45)' }}>
+                          Mission {nextMission.order}: {nextMission.question}
+                        </p>
+                      </div>
+                      <motion.button
+                        onClick={() => toggleMission(nextMission)}
+                        disabled={activating === nextMission.id}
+                        whileHover={activating !== nextMission.id ? { scale: 1.03 } : undefined}
+                        whileTap={activating !== nextMission.id ? { scale: 0.97 } : undefined}
+                        className="font-space font-bold tracking-[0.1em] flex items-center gap-2 px-6 py-3 rounded-full"
+                        style={{
+                          background: activating === nextMission.id
+                            ? 'rgba(139,0,255,0.2)'
+                            : 'linear-gradient(120deg, #8B00FF, #0EA5E9)',
+                          color: '#fff',
+                          border: 'none',
+                          fontSize: 12,
+                          cursor: activating === nextMission.id ? 'default' : 'pointer',
+                          opacity: activating === nextMission.id ? 0.6 : 1,
+                          boxShadow: activating === nextMission.id ? 'none' : '0 4px 20px rgba(139,0,255,0.35)',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {activating === nextMission.id ? (
+                          <><span className="w-3 h-3 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Starting…</>
+                        ) : (
+                          <>▶ START CLASS</>
+                        )}
+                      </motion.button>
+                    </div>
+                  );
+                })()}
+
                 {/* Journey header */}
                 <div className="flex items-center gap-3 mb-5">
                   <span
