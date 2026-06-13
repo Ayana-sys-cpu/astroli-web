@@ -3,53 +3,91 @@ import PerformanceBadge from './PerformanceBadge';
 import KineticText from '@/components/KineticText';
 import type { GoalSummary } from '@/lib/drill-down-types';
 
+const BotAvatar = () => (
+  <div style={{
+    width: 32, height: 32, borderRadius: '50%',
+    background: 'rgba(139,0,255,0.08)',
+    border: '1px solid rgba(139,0,255,0.15)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
+  }}>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="4" y="8" width="16" height="12" rx="3" stroke="#8B00FF" strokeWidth="1.5"/>
+      <circle cx="9" cy="14" r="1.5" fill="#8B00FF"/>
+      <circle cx="15" cy="14" r="1.5" fill="#8B00FF"/>
+      <path d="M12 4v4M9 4h6" stroke="#8B00FF" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  </div>
+);
+
 interface Props {
   goal: GoalSummary;
+  goalIndex: number;
+  studentInitials: string;
 }
 
-export default function GoalCard({ goal }: Props) {
+export default function GoalCard({ goal, goalIndex, studentInitials }: Props) {
   return (
     <div
-      className="glass-card"
       style={{
-        padding: '12px 14px',
+        background: '#fff',
+        border: '1px solid rgba(26,26,46,0.07)',
+        borderRadius: 12,
+        padding: '16px 18px',
         display: 'flex',
         flexDirection: 'column',
-        gap: 10,
+        gap: 14,
+        boxShadow: '0 1px 4px rgba(26,26,46,0.06)',
       }}
     >
-      {/* Goal title + badge row */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: '#1a1a2e', lineHeight: 1.4 }}>
-          {goal.goalTitle}
-        </span>
-        <PerformanceBadge performanceType={goal.performanceType} size="sm" />
+      {/* Header: Goal N · title · badge */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flex: 1, minWidth: 0 }}>
+          <span style={{ fontSize: 11, fontWeight: 500, color: 'rgba(26,26,46,0.35)', flexShrink: 0 }}>
+            Goal {goalIndex + 1}
+          </span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#1a1a2e', lineHeight: 1.4 }}>
+            {goal.goalTitle}
+          </span>
+        </div>
+        <PerformanceBadge performanceType={goal.performanceType} size="sm" variant="outlined" />
       </div>
 
-      {/* Key exchange */}
-      <div
-        style={{
-          background: 'rgba(255,255,255,0.5)',
-          borderRadius: 6,
-          padding: '10px 12px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 8,
-        }}
-      >
-        <div>
-          <div style={{ fontSize: 10, fontWeight: 500, color: 'rgba(26,26,46,0.35)', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Bot asked
-          </div>
-          <p style={{ fontSize: 12, color: 'rgba(26,26,46,0.5)', margin: 0, lineHeight: 1.5 }}>
-            {goal.botQuestion}
+      {/* Bot bubble */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        <BotAvatar />
+        <div style={{
+          background: 'rgba(139,0,255,0.04)',
+          border: '1px solid rgba(139,0,255,0.1)',
+          borderRadius: '0 12px 12px 12px',
+          padding: '10px 14px',
+          flex: 1,
+        }}>
+          <p style={{ margin: 0, fontSize: 13, color: 'rgba(26,26,46,0.6)', fontStyle: 'italic', lineHeight: 1.55 }}>
+            "{goal.botQuestion}"
           </p>
         </div>
-        <div>
-          <div style={{ fontSize: 10, fontWeight: 500, color: 'rgba(26,26,46,0.35)', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Student answered
-          </div>
-          <p style={{ fontSize: 12, color: '#1a1a2e', margin: 0, lineHeight: 1.5 }}>
+      </div>
+
+      {/* Student bubble */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexDirection: 'row-reverse' }}>
+        <div style={{
+          width: 32, height: 32, borderRadius: '50%',
+          background: 'rgba(26,26,46,0.08)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 11, fontWeight: 700, color: 'rgba(26,26,46,0.5)',
+          flexShrink: 0,
+        }}>
+          {studentInitials}
+        </div>
+        <div style={{
+          background: '#fff',
+          border: '1px solid rgba(26,26,46,0.1)',
+          borderRadius: '12px 0 12px 12px',
+          padding: '10px 14px',
+          flex: 1,
+        }}>
+          <p style={{ margin: 0, fontSize: 13, color: '#1a1a2e', lineHeight: 1.55 }}>
             <KineticText text={goal.studentAnswer} />
           </p>
         </div>

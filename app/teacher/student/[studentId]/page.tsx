@@ -137,6 +137,7 @@ export default function StudentDrillDownPage() {
           <ProofPanel
             subject={selectedSubject}
             onClose={() => setSelectedPlanetId(null)}
+            studentInitials={data.student.initials}
           />
         )}
       </div>

@@ -5,9 +5,10 @@ import type { SubjectSummary } from '@/lib/drill-down-types';
 interface Props {
   subject: SubjectSummary;
   onClose: () => void;
+  studentInitials: string;
 }
 
-export default function ProofPanel({ subject, onClose }: Props) {
+export default function ProofPanel({ subject, onClose, studentInitials }: Props) {
   return (
     <div
       style={{
@@ -75,7 +76,14 @@ export default function ProofPanel({ subject, onClose }: Props) {
             No learning goals recorded for this subject yet.
           </p>
         ) : (
-          subject.goals.map((goal) => <GoalCard key={goal.id} goal={goal} />)
+          subject.goals.map((goal, index) => (
+            <GoalCard
+              key={goal.id}
+              goal={goal}
+              goalIndex={index}
+              studentInitials={studentInitials}
+            />
+          ))
         )}
       </div>
     </div>
