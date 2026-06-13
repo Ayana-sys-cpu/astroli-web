@@ -2,6 +2,7 @@
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 import type { SpotlightStudent } from '@/app/api/teacher/homescreen/route';
+import KineticText from '@/components/KineticText';
 
 const SIGNAL_CONFIG = {
   breakthrough:    { icon: '🌟', label: 'Breakthrough',    color: '#FFD600', glow: 'rgba(255,214,0,0.3)',    border: 'rgba(255,214,0,0.35)' },
@@ -49,15 +50,15 @@ export default function SpotlightCard({ student, onDone, onDismiss, onWhatsApp, 
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: actioned ? 0 : 1, y: actioned ? -8 : 0 }}
-      transition={{ duration: 0.3 }}
+      initial={{ opacity: 0, x: -12 }}
+      animate={{ opacity: actioned ? 0 : 1, x: actioned ? 12 : 0 }}
+      exit={{ opacity: 0, x: 12 }}
+      transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+      className="glass-card"
       style={{
-        background: 'rgba(255,255,255,0.035)',
         border: `1px solid ${cfg.border}`,
-        borderRadius: 16,
         padding: '20px 24px',
-        boxShadow: `0 0 24px ${cfg.glow}`,
+        boxShadow: `0 2px 12px rgba(139,0,255,0.05), 0 0 20px ${cfg.glow}, inset 0 1px 0 rgba(255,255,255,0.9)`,
         display: 'flex',
         flexDirection: 'column',
         gap: 16,
@@ -87,10 +88,12 @@ export default function SpotlightCard({ student, onDone, onDismiss, onWhatsApp, 
           {/* Signal badge */}
           <div style={{
             position: 'absolute', bottom: -4, left: '50%', transform: 'translateX(-50%)',
-            background: 'rgba(7,7,15,0.9)', border: `1px solid ${cfg.border}`,
+            background: `rgba(${cfg.color === '#FFD600' ? '245,158,11' : cfg.color === '#FF0080' ? '255,0,128' : cfg.color === '#00F5D4' ? '0,245,212' : '139,0,255'}, 0.1)`,
+            border: `1px solid ${cfg.border}`,
             borderRadius: 20, padding: '2px 8px',
             fontSize: 9, fontFamily: 'var(--font-space)', fontWeight: 700,
             color: cfg.color, letterSpacing: '0.06em', whiteSpace: 'nowrap',
+            boxShadow: `0 0 6px ${cfg.glow}`,
           }}>
             {cfg.icon} {cfg.label.toUpperCase()}
           </div>
@@ -98,31 +101,31 @@ export default function SpotlightCard({ student, onDone, onDismiss, onWhatsApp, 
 
         {/* Name + insight */}
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--font-space)', color: '#fff', marginBottom: 6 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--font-space)', color: '#1a1a2e', marginBottom: 6 }}>
             {student.name}
           </div>
-          <div style={{ fontSize: 13, color: 'rgba(232,232,240,0.65)', lineHeight: 1.5, fontFamily: 'var(--font-inter)' }}>
-            {student.insightLine}
+          <div style={{ fontSize: 13, color: 'rgba(26,26,46,0.65)', lineHeight: 1.5, fontFamily: 'var(--font-inter)' }}>
+            <KineticText text={student.insightLine} delay={0.3} />
           </div>
         </div>
       </div>
 
       {/* Action buttons */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <button onClick={onFlag} style={btnStyle('rgba(255,255,255,0.06)', '#fff')}>
+        <button onClick={onFlag} style={btnStyle('rgba(26,26,46,0.05)', 'rgba(26,26,46,0.6)')}>
           🚩 Flag for follow-up
         </button>
-        <button onClick={handleWhatsApp} style={btnStyle('rgba(0,245,212,0.08)', '#00F5D4')}>
+        <button onClick={handleWhatsApp} style={btnStyle('rgba(0,245,212,0.08)', '#00897B')}>
           💬 WhatsApp {student.name.split(' ')[0]}
         </button>
       </div>
 
       {/* Done / Dismiss */}
-      <div style={{ display: 'flex', gap: 8, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
-        <button onClick={handleDone} style={btnStyle('rgba(0,245,212,0.08)', '#00F5D4')}>
+      <div style={{ display: 'flex', gap: 8, borderTop: '1px solid rgba(26,26,46,0.08)', paddingTop: 12 }}>
+        <button onClick={handleDone} style={btnStyle('rgba(5,150,105,0.08)', '#059669')}>
           ✅ Done
         </button>
-        <button onClick={handleDismiss} style={btnStyle('rgba(255,255,255,0.04)', 'rgba(232,232,240,0.4)')}>
+        <button onClick={handleDismiss} style={btnStyle('rgba(26,26,46,0.04)', 'rgba(26,26,46,0.35)')}>
           ✖ Not now
         </button>
       </div>
@@ -132,8 +135,9 @@ export default function SpotlightCard({ student, onDone, onDismiss, onWhatsApp, 
 
 function btnStyle(bg: string, color: string): React.CSSProperties {
   return {
-    background: bg,
-    border: `1px solid ${color}22`,
+    background: bg || 'rgba(255,255,255,0.6)',
+    backdropFilter: 'blur(12px)',
+    border: `1px solid ${color}33`,
     color,
     borderRadius: 8,
     padding: '7px 14px',

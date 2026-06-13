@@ -41,10 +41,10 @@ export default async function TeacherHomepage() {
       {/* Zone 2 — Student Spotlight */}
       <section>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-          <h2 style={{ margin: 0, fontSize: 13, fontFamily: 'var(--font-space)', fontWeight: 700, color: 'rgba(232,232,240,0.5)', letterSpacing: '0.12em' }}>
+          <h2 style={{ margin: 0, fontSize: 13, fontFamily: 'var(--font-space)', fontWeight: 700, color: 'rgba(26,26,46,0.35)', letterSpacing: '0.12em' }}>
             STUDENT SPOTLIGHT
           </h2>
-          <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.06)' }} />
+          <div style={{ flex: 1, height: 1, background: 'rgba(26,26,46,0.08)' }} />
         </div>
         <StudentSpotlight students={data.spotlight} journeyId={primaryJourneyId} />
       </section>
@@ -53,10 +53,10 @@ export default async function TeacherHomepage() {
       {data.classPicture.length > 0 && (
         <section>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-            <h2 style={{ margin: 0, fontSize: 13, fontFamily: 'var(--font-space)', fontWeight: 700, color: 'rgba(232,232,240,0.5)', letterSpacing: '0.12em' }}>
+            <h2 style={{ margin: 0, fontSize: 13, fontFamily: 'var(--font-space)', fontWeight: 700, color: 'rgba(26,26,46,0.35)', letterSpacing: '0.12em' }}>
               CLASS PICTURE
             </h2>
-            <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.06)' }} />
+            <div style={{ flex: 1, height: 1, background: 'rgba(26,26,46,0.08)' }} />
           </div>
           <ClassPicture insights={data.classPicture} />
         </section>

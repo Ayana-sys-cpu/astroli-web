@@ -3,7 +3,6 @@
 import { useRouter } from 'next/navigation';
 import type { DrillDownStudent } from '@/lib/drill-down-types';
 
-// Same deterministic colour as StudentCard — copy kept local to avoid a shared util
 const AVATAR_COLORS = [
   '#4b5563', '#db2777', '#c2410c', '#0f766e',
   '#7c3aed', '#4338ca', '#15803d', '#1d4ed8', '#be123c',
@@ -30,7 +29,10 @@ export default function DrillDownHeader({ student }: Props) {
         alignItems: 'center',
         gap: 14,
         padding: '20px 20px 16px',
-        borderBottom: '1px solid rgba(232,232,240,0.08)',
+        borderBottom: '1px solid rgba(255,255,255,0.7)',
+        background: 'rgba(255,255,255,0.6)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
         flexShrink: 0,
       }}
     >
@@ -41,7 +43,7 @@ export default function DrillDownHeader({ student }: Props) {
         style={{
           background: 'none',
           border: 'none',
-          color: 'rgba(232,232,240,0.5)',
+          color: 'rgba(26,26,46,0.4)',
           fontSize: 20,
           cursor: 'pointer',
           padding: '0 6px 0 0',
@@ -72,7 +74,7 @@ export default function DrillDownHeader({ student }: Props) {
       </div>
 
       {/* Name */}
-      <span style={{ fontSize: 16, fontWeight: 700, color: 'rgba(232,232,240,0.9)' }}>
+      <span style={{ fontSize: 16, fontWeight: 700, color: '#1a1a2e' }}>
         {student.name}
       </span>
 
@@ -86,9 +88,9 @@ export default function DrillDownHeader({ student }: Props) {
               fontWeight: 500,
               padding: '3px 8px',
               borderRadius: 4,
-              background: 'rgba(124,58,237,0.15)',
-              color: '#a78bfa',
-              border: '1px solid rgba(124,58,237,0.25)',
+              background: 'rgba(139,0,255,0.08)',
+              color: '#8B00FF',
+              border: '1px solid rgba(139,0,255,0.2)',
               whiteSpace: 'nowrap',
             }}
           >

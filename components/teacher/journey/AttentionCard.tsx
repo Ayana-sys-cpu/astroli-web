@@ -25,30 +25,30 @@ const SIGNAL_CONFIG: Record<
     icon: '🔴',
     label: 'Grace',
     color: '#FF0080',
-    border: 'rgba(255,0,128,0.35)',
+    border: 'rgba(255,0,128,0.3)',
     template: (name, _ctx) =>
       `Hey ${name}, I saw you worked through Planet X. Want to find 2 minutes to chat about it now? I have an idea for a different angle.`,
   },
   stuck: {
     icon: '🔄',
     label: 'Stuck',
-    color: '#00F5D4',
-    border: 'rgba(0,245,212,0.35)',
+    color: '#0369A1',
+    border: 'rgba(14,165,233,0.3)',
     template: (name, _ctx) =>
       `Hey ${name}, I can see you've been spending real time on this. You're close — want a quick hint to unlock it?`,
   },
   non_engagement: {
     icon: '⚠️',
     label: 'Not engaging',
-    color: '#7C3AED',
-    border: 'rgba(124,58,237,0.4)',
+    color: '#64748B',
+    border: 'rgba(100,116,139,0.3)',
     template: (name, _ctx) =>
       `Hey ${name}, I can see you haven't jumped in yet — everything okay? I'm here if you need a nudge to get started.`,
   },
 };
 
 function avatarColor(id: string): string {
-  const colors = ['#7C3AED', '#FF0080', '#00D4FF', '#00F5D4', '#FFD600'];
+  const colors = ['#8B00FF', '#FF0080', '#0EA5E9', '#00F5D4', '#F59E0B'];
   let hash = 0;
   for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) & 0xffffffff;
   return colors[Math.abs(hash) % colors.length];
@@ -79,13 +79,13 @@ export default function AttentionCard({ student, onAcknowledge }: AttentionCardP
     <AnimatePresence>
       {!dismissed && (
         <motion.div
-          initial={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.3 }}
+          initial={{ opacity: 0, x: -12 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: 12 }}
+          transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+          className="glass-card"
           style={{
-            background: 'rgba(255,255,255,0.035)',
             border: `1px solid ${cfg.border}`,
-            borderRadius: 14,
             padding: '18px 20px',
             marginBottom: 12,
             display: 'flex',
@@ -116,14 +116,14 @@ export default function AttentionCard({ student, onAcknowledge }: AttentionCardP
 
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <span className="font-inter" style={{ fontSize: 15, fontWeight: 600, color: '#E8E8F0' }}>
+              <span className="font-inter" style={{ fontSize: 15, fontWeight: 600, color: '#1a1a2e' }}>
                 {student.name}
               </span>
               <span className="font-space" style={{ fontSize: 10, color: cfg.color, letterSpacing: '0.06em' }}>
                 {cfg.icon} {cfg.label}
               </span>
             </div>
-            <p className="font-inter" style={{ fontSize: 13, color: 'rgba(232,232,240,0.55)', lineHeight: 1.5, marginBottom: 14 }}>
+            <p className="font-inter" style={{ fontSize: 13, color: 'rgba(26,26,46,0.5)', lineHeight: 1.5, marginBottom: 14 }}>
               {student.contextLine}
             </p>
 
@@ -137,9 +137,9 @@ export default function AttentionCard({ student, onAcknowledge }: AttentionCardP
                   borderRadius: 999,
                   fontSize: 11,
                   letterSpacing: '0.08em',
-                  background: 'rgba(37,211,102,0.15)',
-                  color: '#25D366',
-                  border: '1px solid rgba(37,211,102,0.35)',
+                  background: 'rgba(37,211,102,0.1)',
+                  color: '#059669',
+                  border: '1px solid rgba(37,211,102,0.3)',
                   cursor: 'pointer',
                 }}
               >
@@ -154,9 +154,9 @@ export default function AttentionCard({ student, onAcknowledge }: AttentionCardP
                   borderRadius: 999,
                   fontSize: 11,
                   letterSpacing: '0.08em',
-                  background: 'rgba(232,232,240,0.06)',
-                  color: 'rgba(232,232,240,0.5)',
-                  border: '1px solid rgba(232,232,240,0.12)',
+                  background: 'rgba(26,26,46,0.04)',
+                  color: 'rgba(26,26,46,0.4)',
+                  border: '1px solid rgba(26,26,46,0.1)',
                   cursor: 'pointer',
                 }}
               >

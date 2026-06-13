@@ -275,3 +275,87 @@ html, body {
   0%   { text-shadow: 0 0 20px rgba(155,92,255,.35), 0 0 40px rgba(155,92,255,.15), 0 2px 16px rgba(0,0,0,.9); }
   100% { text-shadow: 0 0 40px rgba(155,92,255,.7),  0 0 80px rgba(155,92,255,.3),  0 2px 16px rgba(0,0,0,.9); }
 }
+
+/* ─── Light Celestial Theme ──────────────────────────────────────────────── */
+[data-theme="light"] {
+  --color-panel:              rgba(255,255,255,0.55);
+  --color-panel-mid:          rgba(255,255,255,0.7);
+  --color-panel-border:       rgba(255,255,255,0.75);
+  --color-panel-border-bright:rgba(255,255,255,0.88);
+  --color-text:               #1a1a2e;
+  --color-text-dim:           rgba(26,26,46,0.55);
+  --color-text-muted:         rgba(26,26,46,0.30);
+}
+
+/* ─── Glass surface utilities ──────────────────────────────────────────── */
+.glass-panel {
+  background: rgba(255,255,255,0.55);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.75);
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(139,0,255,0.07), inset 0 1px 0 rgba(255,255,255,0.9);
+  position: relative;
+  overflow: hidden;
+}
+.glass-panel::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #FF0080, #8B00FF, #00F5D4);
+  opacity: 0.7;
+}
+
+.glass-card {
+  background: rgba(255,255,255,0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.75);
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(139,0,255,0.05), inset 0 1px 0 rgba(255,255,255,0.9);
+  position: relative;
+  overflow: hidden;
+}
+
+/* ─── Light input ──────────────────────────────────────────────────────── */
+.input-light {
+  background: rgba(255,255,255,0.7);
+  border: 1px solid rgba(255,255,255,0.85);
+  border-radius: 10px;
+  color: #1a1a2e;
+  padding: 10px 16px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+}
+.input-light::placeholder { color: rgba(26,26,46,0.35); }
+.input-light:focus {
+  border-color: rgba(0,245,212,0.5);
+  box-shadow: 0 0 0 3px rgba(0,245,212,0.08);
+}
+
+/* ─── Breathing pulse animations (active metric cards) ──────────────────── */
+@keyframes breathe {
+  0%,100% {
+    box-shadow: 0 2px 12px rgba(139,0,255,0.05), inset 0 1px 0 rgba(255,255,255,0.9);
+    border-color: rgba(255,255,255,0.75);
+  }
+  50% {
+    box-shadow: 0 2px 20px rgba(139,0,255,0.1), 0 0 0 3px rgba(0,245,212,0.16), inset 0 1px 0 rgba(255,255,255,0.9);
+    border-color: rgba(0,245,212,0.4);
+  }
+}
+@keyframes breathe-magenta {
+  0%,100% {
+    box-shadow: 0 2px 12px rgba(139,0,255,0.05), inset 0 1px 0 rgba(255,255,255,0.9);
+    border-color: rgba(255,255,255,0.75);
+  }
+  50% {
+    box-shadow: 0 2px 20px rgba(255,0,128,0.1), 0 0 0 3px rgba(255,0,128,0.14), inset 0 1px 0 rgba(255,255,255,0.9);
+    border-color: rgba(255,0,128,0.35);
+  }
+}
+.breathe { animation: breathe 3s ease-in-out infinite; }
+.breathe-magenta { animation: breathe-magenta 3s ease-in-out infinite 1.5s; }

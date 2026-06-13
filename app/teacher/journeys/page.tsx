@@ -27,10 +27,10 @@ export default function JourneysPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
         <div>
-          <h1 className="font-space font-black" style={{ fontSize: 26, letterSpacing: '0.12em', color: '#E8E8F0' }}>
+          <h1 className="font-space font-black" style={{ fontSize: 26, letterSpacing: '0.12em', color: '#1a1a2e' }}>
             MY JOURNEYS
           </h1>
-          <p className="font-inter" style={{ fontSize: 11, color: 'rgba(232,232,240,0.35)', letterSpacing: '0.04em', marginTop: 6 }}>
+          <p className="font-inter" style={{ fontSize: 11, color: 'rgba(26,26,46,0.35)', letterSpacing: '0.04em', marginTop: 6 }}>
             Your learning journeys and their current state
           </p>
         </div>
@@ -43,17 +43,17 @@ export default function JourneysPage() {
             borderRadius: 999,
             fontSize: 11,
             letterSpacing: '0.12em',
-            background: 'linear-gradient(120deg, rgba(124,58,237,0.85), rgba(0,212,255,0.6))',
-            color: '#E8E8F0',
-            border: '1px solid rgba(124,58,237,0.5)',
-            boxShadow: '0 4px 18px rgba(124,58,237,0.25)',
+            background: 'linear-gradient(120deg, #FF0080, #8B00FF)',
+            color: '#fff',
+            border: 'none',
+            boxShadow: '0 4px 18px rgba(139,0,255,0.25)',
             cursor: 'pointer',
             marginTop: 4,
           }}
         >
           <span style={{
             width: 18, height: 18, borderRadius: '50%',
-            background: 'rgba(255,255,255,0.18)',
+            background: 'rgba(255,255,255,0.2)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 14, lineHeight: '1',
           }}>+</span>
@@ -63,18 +63,19 @@ export default function JourneysPage() {
 
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <span className="font-space font-bold" style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)', letterSpacing: '0.1em' }}>
+        <span className="font-space font-bold" style={{ fontSize: 12, color: 'rgba(26,26,46,0.4)', letterSpacing: '0.1em' }}>
           {journeys.length} {journeys.length === 1 ? 'JOURNEY' : 'JOURNEYS'}
         </span>
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8,
-          background: 'rgba(232,232,240,0.05)',
-          border: '1px solid rgba(232,232,240,0.1)',
+          background: 'rgba(255,255,255,0.65)',
+          border: '1px solid rgba(255,255,255,0.8)',
           borderRadius: 999,
           padding: '8px 16px',
           width: 220,
+          backdropFilter: 'blur(12px)',
         }}>
-          <span style={{ color: 'rgba(232,232,240,0.3)', fontSize: 13, flexShrink: 0 }}>⌕</span>
+          <span style={{ color: 'rgba(26,26,46,0.3)', fontSize: 13, flexShrink: 0 }}>⌕</span>
           <input
             className="font-inter"
             type="text"
@@ -83,7 +84,7 @@ export default function JourneysPage() {
             onChange={e => setSearch(e.target.value)}
             style={{
               background: 'transparent', border: 'none', outline: 'none',
-              fontSize: 12, color: 'rgba(232,232,240,0.7)', width: '100%',
+              fontSize: 12, color: 'rgba(26,26,46,0.7)', width: '100%',
             }}
           />
         </div>
@@ -91,7 +92,7 @@ export default function JourneysPage() {
 
       {/* Grid */}
       {loading ? (
-        <div className="font-space" style={{ fontSize: 11, color: 'rgba(232,232,240,0.25)', letterSpacing: '0.1em', marginTop: 48, textAlign: 'center' }}>
+        <div className="font-space" style={{ fontSize: 11, color: 'rgba(26,26,46,0.25)', letterSpacing: '0.1em', marginTop: 48, textAlign: 'center' }}>
           LOADING…
         </div>
       ) : (

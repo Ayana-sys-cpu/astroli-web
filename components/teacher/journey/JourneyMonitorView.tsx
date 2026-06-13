@@ -92,7 +92,7 @@ export default function JourneyMonitorView({ journeyId, nextMission }: JourneyMo
           alignItems: 'center',
           justifyContent: 'center',
           padding: '60px 20px',
-          color: 'rgba(232,232,240,0.35)',
+          color: 'rgba(26,26,46,0.3)',
           fontSize: 13,
           fontFamily: 'var(--font-space-mono)',
           letterSpacing: '0.08em',
@@ -142,7 +142,7 @@ export default function JourneyMonitorView({ journeyId, nextMission }: JourneyMo
             style={{
               fontSize: 10,
               letterSpacing: '0.12em',
-              color: 'rgba(232,232,240,0.4)',
+              color: 'rgba(26,26,46,0.4)',
               marginBottom: 14,
             }}
           >
@@ -151,7 +151,7 @@ export default function JourneyMonitorView({ journeyId, nextMission }: JourneyMo
           {data.attentionStudents.length === 0 ? (
             <p
               className="font-inter"
-              style={{ fontSize: 14, color: 'rgba(232,232,240,0.55)' }}
+              style={{ fontSize: 14, color: 'rgba(26,26,46,0.45)' }}
             >
               ✅ Everyone is on track right now.
             </p>

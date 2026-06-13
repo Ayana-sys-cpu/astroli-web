@@ -36,7 +36,7 @@ export default function StudentSpotlight({ students, journeyId }: Props) {
 
   if (visible.length === 0) {
     return (
-      <div style={{ textAlign: 'center', padding: '32px 0', color: 'rgba(232,232,240,0.3)', fontFamily: 'var(--font-space)', fontSize: 12, letterSpacing: '0.08em' }}>
+      <div style={{ textAlign: 'center', padding: '32px 0', color: 'rgba(26,26,46,0.3)', fontFamily: 'var(--font-space)', fontSize: 12, letterSpacing: '0.08em' }}>
         ALL STUDENTS ADDRESSED ✦
       </div>
     );
@@ -49,7 +49,7 @@ export default function StudentSpotlight({ students, journeyId }: Props) {
     <div>
       {/* Group label */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <span style={{ fontSize: 11, fontFamily: 'var(--font-space)', color: 'rgba(232,232,240,0.4)', letterSpacing: '0.1em' }}>
+        <span style={{ fontSize: 11, fontFamily: 'var(--font-space)', color: 'rgba(26,26,46,0.4)', letterSpacing: '0.1em' }}>
           {groupLabel} · {index + 1} of {visible.length}
         </span>
       </div>
@@ -86,7 +86,7 @@ export default function StudentSpotlight({ students, journeyId }: Props) {
           <button
             onClick={() => setIndex(i => Math.max(0, i - 1))}
             disabled={index === 0}
-            style={{ background: 'none', border: 'none', color: index === 0 ? 'rgba(255,255,255,0.15)' : 'rgba(232,232,240,0.6)', cursor: index === 0 ? 'default' : 'pointer', fontSize: 18 }}
+            style={{ background: 'none', border: 'none', color: index === 0 ? 'rgba(26,26,46,0.15)' : 'rgba(26,26,46,0.5)', cursor: index === 0 ? 'default' : 'pointer', fontSize: 18 }}
           >
             ‹
           </button>
@@ -96,7 +96,7 @@ export default function StudentSpotlight({ students, journeyId }: Props) {
                 width: i === index ? 16 : 6,
                 height: 6,
                 borderRadius: 3,
-                background: i === index ? '#00F5D4' : 'rgba(255,255,255,0.15)',
+                background: i === index ? '#8B00FF' : 'rgba(139,0,255,0.2)',
                 border: 'none',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
@@ -107,7 +107,7 @@ export default function StudentSpotlight({ students, journeyId }: Props) {
           <button
             onClick={() => setIndex(i => Math.min(visible.length - 1, i + 1))}
             disabled={index === visible.length - 1}
-            style={{ background: 'none', border: 'none', color: index === visible.length - 1 ? 'rgba(255,255,255,0.15)' : 'rgba(232,232,240,0.6)', cursor: index === visible.length - 1 ? 'default' : 'pointer', fontSize: 18 }}
+            style={{ background: 'none', border: 'none', color: index === visible.length - 1 ? 'rgba(26,26,46,0.15)' : 'rgba(26,26,46,0.5)', cursor: index === visible.length - 1 ? 'default' : 'pointer', fontSize: 18 }}
           >
             ›
           </button>

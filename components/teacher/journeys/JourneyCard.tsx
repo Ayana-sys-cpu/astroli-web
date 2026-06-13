@@ -1,6 +1,6 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import type { JourneyStatus } from '@/app/api/teacher/journeys-overview/route';
+import type { JourneyStatus } from '@/lib/journey-status';
 
 export interface JourneyCardData {
   id:             string;
@@ -13,27 +13,27 @@ export interface JourneyCardData {
 }
 
 const BADGE: Record<JourneyStatus, { label: string; color: string; bg: string; border: string }> = {
-  live:    { label: '● LIVE',    color: '#00D4FF', bg: 'rgba(0,212,255,0.1)',    border: 'rgba(0,212,255,0.3)'    },
-  voting:  { label: '🗳 VOTING', color: '#a78bfa', bg: 'rgba(124,58,237,0.12)', border: 'rgba(124,58,237,0.3)'   },
-  pending: { label: '⏳ PENDING', color: '#FFD600', bg: 'rgba(255,214,0,0.08)',  border: 'rgba(255,214,0,0.25)'   },
-  done:    { label: '✓ DONE',    color: '#00F5A0', bg: 'rgba(0,245,160,0.07)',  border: 'rgba(0,245,160,0.25)'   },
-  idle:    { label: '○ IDLE',    color: 'rgba(232,232,240,0.35)', bg: 'rgba(232,232,240,0.04)', border: 'rgba(232,232,240,0.12)' },
+  live:    { label: '● LIVE',    color: '#0369A1', bg: 'rgba(14,165,233,0.1)',   border: 'rgba(14,165,233,0.3)'   },
+  voting:  { label: '🗳 VOTING', color: '#8B00FF', bg: 'rgba(139,0,255,0.1)',   border: 'rgba(139,0,255,0.25)'   },
+  pending: { label: '⏳ PENDING', color: '#B45309', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.25)'  },
+  done:    { label: '✓ DONE',    color: '#059669', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.25)'  },
+  idle:    { label: '○ IDLE',    color: 'rgba(26,26,46,0.35)', bg: 'rgba(26,26,46,0.04)', border: 'rgba(26,26,46,0.12)' },
 };
 
 const CARD_BORDER: Record<JourneyStatus, string> = {
-  live:    'rgba(0,212,255,0.18)',
-  voting:  'rgba(124,58,237,0.2)',
-  pending: 'rgba(255,214,0,0.15)',
-  done:    'rgba(232,232,240,0.06)',
-  idle:    'rgba(232,232,240,0.06)',
+  live:    'rgba(14,165,233,0.2)',
+  voting:  'rgba(139,0,255,0.2)',
+  pending: 'rgba(245,158,11,0.15)',
+  done:    'rgba(26,26,46,0.06)',
+  idle:    'rgba(26,26,46,0.06)',
 };
 
 const STATUS_NOTE_COLOR: Record<JourneyStatus, string> = {
-  live:    'rgba(0,212,255,0.6)',
-  voting:  '#a78bfa',
-  pending: '#FFD600',
-  done:    'rgba(0,245,160,0.45)',
-  idle:    'rgba(232,232,240,0.25)',
+  live:    '#0369A1',
+  voting:  '#8B00FF',
+  pending: '#B45309',
+  done:    '#059669',
+  idle:    'rgba(26,26,46,0.3)',
 };
 
 export default function JourneyCard({ journey }: { journey: JourneyCardData }) {
@@ -41,17 +41,16 @@ export default function JourneyCard({ journey }: { journey: JourneyCardData }) {
   const badge  = BADGE[journey.status];
   const { from, mid, accent } = journey.coverGradient;
   const taglineVisible = journey.status === 'live';
-  const cardOpacity    = journey.status === 'done' ? 0.55 : 1;
+  const cardOpacity    = journey.status === 'done' ? 0.65 : 1;
 
   return (
     <div
       onClick={() => router.push(`/teacher/journey/${journey.id}`)}
+      className="glass-card"
       style={{
-        borderRadius: 16,
         overflow: 'hidden',
         cursor: 'pointer',
         border: `1px solid ${CARD_BORDER[journey.status]}`,
-        background: 'rgba(232,232,240,0.02)',
         display: 'flex',
         flexDirection: 'column',
         opacity: cardOpacity,
@@ -59,7 +58,7 @@ export default function JourneyCard({ journey }: { journey: JourneyCardData }) {
       }}
       onMouseEnter={e => {
         (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-3px)';
-        (e.currentTarget as HTMLDivElement).style.boxShadow = '0 14px 36px rgba(0,0,0,0.45)';
+        (e.currentTarget as HTMLDivElement).style.boxShadow = '0 14px 36px rgba(139,0,255,0.15)';
       }}
       onMouseLeave={e => {
         (e.currentTarget as HTMLDivElement).style.transform = '';
@@ -81,9 +80,9 @@ export default function JourneyCard({ journey }: { journey: JourneyCardData }) {
           onClick={e => { e.stopPropagation(); }}
           style={{
             width: 26, height: 26, borderRadius: '50%',
-            background: 'rgba(0,0,0,0.35)',
+            background: 'rgba(0,0,0,0.25)',
             backdropFilter: 'blur(4px)',
-            border: '1px solid rgba(255,255,255,0.18)',
+            border: '1px solid rgba(255,255,255,0.3)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 11, opacity: 0.75, cursor: 'pointer',
           }}
@@ -98,7 +97,7 @@ export default function JourneyCard({ journey }: { journey: JourneyCardData }) {
         {/* Journey name */}
         <div style={{
           fontSize: 16, fontWeight: 900,
-          color: '#E8E8F0',
+          color: '#1a1a2e',
           letterSpacing: '0.04em',
           lineHeight: 1.25,
           marginBottom: 5,
@@ -115,7 +114,7 @@ export default function JourneyCard({ journey }: { journey: JourneyCardData }) {
           letterSpacing: '0.02em',
           lineHeight: 1.4,
           marginBottom: 16,
-          color: 'rgba(232,232,240,0.38)',
+          color: 'rgba(26,26,46,0.35)',
           visibility: taglineVisible ? 'visible' : 'hidden',
         }}>
           {' '}
@@ -151,18 +150,18 @@ export default function JourneyCard({ journey }: { journey: JourneyCardData }) {
           justifyContent: 'space-between',
           alignItems: 'center',
           paddingTop: 14,
-          borderTop: '1px solid rgba(255,255,255,0.05)',
+          borderTop: '1px solid rgba(26,26,46,0.06)',
           marginTop: 'auto',
         }}>
-          <span style={{ fontSize: 9, color: 'rgba(232,232,240,0.3)', letterSpacing: '0.07em' }}>
+          <span style={{ fontSize: 9, color: 'rgba(26,26,46,0.35)', letterSpacing: '0.07em' }}>
             👥 {journey.studentCount} students
           </span>
           {journey.attentionCount > 0 ? (
-            <span style={{ fontSize: 9, color: '#FFD600', letterSpacing: '0.07em' }}>
+            <span style={{ fontSize: 9, color: '#B45309', letterSpacing: '0.07em' }}>
               ⚠️ {journey.attentionCount} need attention
             </span>
           ) : (
-            <span style={{ fontSize: 9, color: 'rgba(0,245,160,0.45)', letterSpacing: '0.07em' }}>
+            <span style={{ fontSize: 9, color: '#059669', letterSpacing: '0.07em' }}>
               ✅ No alerts
             </span>
           )}

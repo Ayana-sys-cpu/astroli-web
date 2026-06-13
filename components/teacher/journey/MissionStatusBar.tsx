@@ -27,16 +27,16 @@ export default function MissionStatusBar({
           alignItems: 'center',
           gap: 10,
           padding: '10px 20px',
-          background: 'rgba(0,212,255,0.08)',
-          border: '1px solid rgba(0,212,255,0.25)',
+          background: 'rgba(14,165,233,0.08)',
+          border: '1px solid rgba(14,165,233,0.25)',
           borderRadius: 10,
           marginBottom: 20,
         }}
       >
-        <span style={{ color: '#00D4FF', fontSize: 10 }}>●</span>
+        <span className="breathe" style={{ color: '#0EA5E9', fontSize: 10 }}>●</span>
         <span
           className="font-space font-bold"
-          style={{ fontSize: 11, letterSpacing: '0.1em', color: '#00D4FF' }}
+          style={{ fontSize: 11, letterSpacing: '0.1em', color: '#0369A1' }}
         >
           MISSION {mission.order} — ACTIVE
         </span>
@@ -46,23 +46,21 @@ export default function MissionStatusBar({
 
   return (
     <div
+      className="glass-panel"
       style={{
-        background: 'rgba(255,255,255,0.035)',
-        border: '1px solid rgba(232,232,240,0.12)',
-        borderRadius: 14,
         padding: '20px 24px',
         marginBottom: 20,
       }}
     >
       <p
         className="font-space font-bold"
-        style={{ fontSize: 13, letterSpacing: '0.08em', color: 'rgba(232,232,240,0.5)', marginBottom: 6 }}
+        style={{ fontSize: 13, letterSpacing: '0.08em', color: 'rgba(26,26,46,0.4)', marginBottom: 6 }}
       >
         MISSION {mission.order}
       </p>
       <p
         className="font-inter"
-        style={{ fontSize: 15, color: '#E8E8F0', marginBottom: 18, fontWeight: 500 }}
+        style={{ fontSize: 15, color: '#1a1a2e', marginBottom: 18, fontWeight: 500 }}
       >
         {mission.title}
       </p>
@@ -76,10 +74,10 @@ export default function MissionStatusBar({
           fontSize: 11,
           letterSpacing: '0.1em',
           background: activating
-            ? 'rgba(0,212,255,0.15)'
-            : 'linear-gradient(120deg, rgba(0,212,255,0.85), rgba(0,212,255,0.5))',
-          color: '#0a1628',
-          border: '1px solid rgba(0,212,255,0.4)',
+            ? 'rgba(14,165,233,0.1)'
+            : 'linear-gradient(120deg, #0EA5E9, #0369A1)',
+          color: '#fff',
+          border: '1px solid rgba(14,165,233,0.4)',
           cursor: activating ? 'not-allowed' : 'pointer',
           opacity: activating ? 0.6 : 1,
         }}
@@ -88,7 +86,7 @@ export default function MissionStatusBar({
       </button>
       <p
         className="font-inter"
-        style={{ fontSize: 12, color: 'rgba(232,232,240,0.3)', marginTop: 12 }}
+        style={{ fontSize: 12, color: 'rgba(26,26,46,0.3)', marginTop: 12 }}
       >
         Activate to start tracking this session.
       </p>

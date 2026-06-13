@@ -1,5 +1,6 @@
 'use client';
 import PerformanceBadge from './PerformanceBadge';
+import KineticText from '@/components/KineticText';
 import type { GoalSummary } from '@/lib/drill-down-types';
 
 interface Props {
@@ -9,10 +10,8 @@ interface Props {
 export default function GoalCard({ goal }: Props) {
   return (
     <div
+      className="glass-card"
       style={{
-        background: 'rgba(232,232,240,0.04)',
-        border: '1px solid rgba(232,232,240,0.08)',
-        borderRadius: 8,
         padding: '12px 14px',
         display: 'flex',
         flexDirection: 'column',
@@ -21,7 +20,7 @@ export default function GoalCard({ goal }: Props) {
     >
       {/* Goal title + badge row */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(232,232,240,0.9)', lineHeight: 1.4 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: '#1a1a2e', lineHeight: 1.4 }}>
           {goal.goalTitle}
         </span>
         <PerformanceBadge performanceType={goal.performanceType} size="sm" />
@@ -30,7 +29,7 @@ export default function GoalCard({ goal }: Props) {
       {/* Key exchange */}
       <div
         style={{
-          background: 'rgba(232,232,240,0.04)',
+          background: 'rgba(255,255,255,0.5)',
           borderRadius: 6,
           padding: '10px 12px',
           display: 'flex',
@@ -39,19 +38,19 @@ export default function GoalCard({ goal }: Props) {
         }}
       >
         <div>
-          <div style={{ fontSize: 10, fontWeight: 500, color: 'rgba(232,232,240,0.35)', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ fontSize: 10, fontWeight: 500, color: 'rgba(26,26,46,0.35)', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Bot asked
           </div>
-          <p style={{ fontSize: 12, color: 'rgba(232,232,240,0.55)', margin: 0, lineHeight: 1.5 }}>
+          <p style={{ fontSize: 12, color: 'rgba(26,26,46,0.5)', margin: 0, lineHeight: 1.5 }}>
             {goal.botQuestion}
           </p>
         </div>
         <div>
-          <div style={{ fontSize: 10, fontWeight: 500, color: 'rgba(232,232,240,0.35)', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ fontSize: 10, fontWeight: 500, color: 'rgba(26,26,46,0.35)', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Student answered
           </div>
-          <p style={{ fontSize: 12, color: 'rgba(232,232,240,0.85)', margin: 0, lineHeight: 1.5 }}>
-            {goal.studentAnswer}
+          <p style={{ fontSize: 12, color: '#1a1a2e', margin: 0, lineHeight: 1.5 }}>
+            <KineticText text={goal.studentAnswer} />
           </p>
         </div>
       </div>

@@ -17,6 +17,9 @@ const config: Config = {
         'neon-green': '#00FF88',
         'panel':      '#07070F',
         'panel-mid':  '#0C0C18',
+        'amber':      '#F59E0B',
+        'slate':      '#64748B',
+        'panel-glass':'rgba(255,255,255,0.55)',
       },
       fontFamily: {
         space:  ['var(--font-space)',  'sans-serif'],

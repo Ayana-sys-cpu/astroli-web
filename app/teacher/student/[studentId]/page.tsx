@@ -11,7 +11,7 @@ import { DEFAULT_FILTERS } from '@/lib/drill-down-types';
 
 function timeframeCutoff(timeframe: Filters['timeframe']): Date | null {
   if (timeframe === 'all') return null;
-  const days = timeframe === '7d' ? 7 : timeframe === '30d' ? 30 : 90;
+  const days = timeframe === '7d' ? 7 : 30;
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 }
 
@@ -113,7 +113,7 @@ export default function StudentDrillDownPage() {
           }}
         >
           {filteredSubjects.length === 0 ? (
-            <p style={{ padding: '20px', fontSize: 13, color: 'rgba(232,232,240,0.35)' }}>
+            <p style={{ padding: '20px', fontSize: 13, color: 'rgba(26,26,46,0.35)' }}>
               No subjects match your filters.
             </p>
           ) : (

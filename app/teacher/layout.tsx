@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation';
 import { createSSRServerClient } from '@/lib/supabase-server';
-import StarField from '@/components/StarField';
 import Sidebar from '@/components/teacher/Sidebar';
 import { prisma } from '@/lib/prisma';
 
@@ -24,8 +23,7 @@ export default async function TeacherLayout({ children }: { children: React.Reac
   const journeys = teacherId ? await getTeacherJourneys(teacherId) : [];
 
   return (
-    <div style={{ minHeight: '100vh', background: '#07070D', color: '#E8E8F0', display: 'flex', position: 'relative' }}>
-      <StarField count={80} />
+    <div data-theme="light" style={{ minHeight: '100vh', background: 'linear-gradient(145deg, #EEF2FF 0%, #F5F0FF 55%, #F0FDF9 100%)', backgroundAttachment: 'fixed', color: '#1a1a2e', display: 'flex', position: 'relative' }}>
       <Sidebar journeys={journeys} />
       <main style={{ flex: 1, minHeight: '100vh', position: 'relative', zIndex: 10 }}>
         {children}

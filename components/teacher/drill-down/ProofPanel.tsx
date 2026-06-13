@@ -13,7 +13,10 @@ export default function ProofPanel({ subject, onClose }: Props) {
       style={{
         width: '45%',
         minWidth: 320,
-        borderLeft: '1px solid rgba(232,232,240,0.08)',
+        borderLeft: '1px solid rgba(255,255,255,0.7)',
+        background: 'rgba(255,255,255,0.55)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
@@ -24,7 +27,7 @@ export default function ProofPanel({ subject, onClose }: Props) {
       <div
         style={{
           padding: '16px 20px 12px',
-          borderBottom: '1px solid rgba(232,232,240,0.08)',
+          borderBottom: '1px solid rgba(255,255,255,0.7)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -32,10 +35,10 @@ export default function ProofPanel({ subject, onClose }: Props) {
         }}
       >
         <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(232,232,240,0.9)' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#1a1a2e' }}>
             {subject.planetTitle}
           </div>
-          <div style={{ fontSize: 11, color: 'rgba(232,232,240,0.4)', marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: 'rgba(26,26,46,0.4)', marginTop: 2 }}>
             {subject.journeyTitle}
           </div>
         </div>
@@ -43,10 +46,10 @@ export default function ProofPanel({ subject, onClose }: Props) {
           onClick={onClose}
           aria-label="Close proof panel"
           style={{
-            background: 'rgba(232,232,240,0.08)',
-            border: 'none',
+            background: 'rgba(26,26,46,0.06)',
+            border: '1px solid rgba(26,26,46,0.1)',
             borderRadius: 6,
-            color: 'rgba(232,232,240,0.6)',
+            color: 'rgba(26,26,46,0.45)',
             cursor: 'pointer',
             padding: '4px 8px',
             fontSize: 12,
@@ -68,7 +71,7 @@ export default function ProofPanel({ subject, onClose }: Props) {
         }}
       >
         {subject.goals.length === 0 ? (
-          <p style={{ fontSize: 12, color: 'rgba(232,232,240,0.35)', margin: 0 }}>
+          <p style={{ fontSize: 12, color: 'rgba(26,26,46,0.35)', margin: 0 }}>
             No learning goals recorded for this subject yet.
           </p>
         ) : (

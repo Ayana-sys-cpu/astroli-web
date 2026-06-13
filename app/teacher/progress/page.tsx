@@ -41,7 +41,7 @@ export default function StudentsPage() {
   }
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#f4f5f7' }}>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <StudentGrid
         students={data?.students ?? []}
         journeys={data?.journeys ?? []}

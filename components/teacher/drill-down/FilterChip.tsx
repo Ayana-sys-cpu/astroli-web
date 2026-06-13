@@ -18,13 +18,11 @@ interface Props {
   label: string;
   mode: ChipMode;
   options: CheckboxOption[] | RadioOption[];
-  // For checkbox mode
   selectedValues?: string[];
   onChangeCheckbox?: (values: string[]) => void;
-  // For radio mode
   selectedValue?: string;
   onChangeRadio?: (value: string) => void;
-  defaultValue?: string; // for Option A: what is the "all/default" state
+  defaultValue?: string;
 }
 
 export default function FilterChip({
@@ -50,7 +48,6 @@ export default function FilterChip({
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  // Option A: determine chip display text
   let chipText: string;
   if (mode === 'checkbox') {
     if (selectedValues.length === 0) {
@@ -85,15 +82,10 @@ export default function FilterChip({
           gap: 5,
           padding: '5px 10px',
           borderRadius: 6,
-          border: `1px solid ${
-            isActive
-              ? 'rgba(124,58,237,0.6)'
-              : 'rgba(232,232,240,0.15)'
-          }`,
-          background: isActive
-            ? 'rgba(124,58,237,0.1)'
-            : 'rgba(232,232,240,0.05)',
-          color: isActive ? '#a78bfa' : 'rgba(232,232,240,0.65)',
+          border: `1px solid ${isActive ? 'rgba(139,0,255,0.4)' : 'rgba(255,255,255,0.75)'}`,
+          background: isActive ? 'rgba(139,0,255,0.08)' : 'rgba(255,255,255,0.6)',
+          backdropFilter: 'blur(12px)',
+          color: isActive ? '#8B00FF' : 'rgba(26,26,46,0.55)',
           fontSize: 12,
           fontWeight: 500,
           cursor: 'pointer',
@@ -113,12 +105,14 @@ export default function FilterChip({
             top: 'calc(100% + 6px)',
             left: 0,
             zIndex: 100,
-            background: '#13131f',
-            border: '1px solid rgba(232,232,240,0.12)',
+            background: 'rgba(255,255,255,0.9)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255,255,255,0.85)',
             borderRadius: 8,
             padding: '8px 0',
             minWidth: 180,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+            boxShadow: '0 8px 24px rgba(139,0,255,0.12)',
           }}
         >
           {options.map((opt) => {
@@ -134,7 +128,7 @@ export default function FilterChip({
                     padding: '7px 14px',
                     cursor: 'pointer',
                     fontSize: 12,
-                    color: 'rgba(232,232,240,0.8)',
+                    color: 'rgba(26,26,46,0.75)',
                   }}
                 >
                   <input
@@ -146,7 +140,7 @@ export default function FilterChip({
                         : [...selectedValues, opt.value];
                       onChangeCheckbox?.(next);
                     }}
-                    style={{ accentColor: '#7c3aed' }}
+                    style={{ accentColor: '#8B00FF' }}
                   />
                   {opt.label}
                 </label>
@@ -163,7 +157,7 @@ export default function FilterChip({
                     padding: '7px 14px',
                     cursor: 'pointer',
                     fontSize: 12,
-                    color: 'rgba(232,232,240,0.8)',
+                    color: 'rgba(26,26,46,0.75)',
                   }}
                 >
                   <input
@@ -173,7 +167,7 @@ export default function FilterChip({
                       onChangeRadio?.(opt.value);
                       setOpen(false);
                     }}
-                    style={{ accentColor: '#7c3aed' }}
+                    style={{ accentColor: '#8B00FF' }}
                   />
                   {opt.label}
                 </label>
@@ -184,21 +178,19 @@ export default function FilterChip({
           {mode === 'checkbox' && selectedValues.length > 0 && (
             <div
               style={{
-                borderTop: '1px solid rgba(232,232,240,0.08)',
+                borderTop: '1px solid rgba(26,26,46,0.08)',
                 marginTop: 4,
                 paddingTop: 4,
               }}
             >
               <button
-                onClick={() => {
-                  onChangeCheckbox?.([]);
-                }}
+                onClick={() => onChangeCheckbox?.([])}
                 style={{
                   width: '100%',
                   padding: '6px 14px',
                   background: 'none',
                   border: 'none',
-                  color: 'rgba(232,232,240,0.4)',
+                  color: 'rgba(26,26,46,0.35)',
                   fontSize: 11,
                   cursor: 'pointer',
                   textAlign: 'left',

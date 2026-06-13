@@ -18,8 +18,8 @@ export default function SubjectRow({ subject, isSelected, onOpenProof }: Props) 
         display: 'flex',
         alignItems: 'center',
         padding: '12px 20px',
-        background: isSelected ? 'rgba(124,58,237,0.08)' : 'transparent',
-        borderBottom: '1px solid rgba(232,232,240,0.06)',
+        background: isSelected ? 'rgba(139,0,255,0.06)' : 'transparent',
+        borderBottom: '1px solid rgba(26,26,46,0.06)',
         gap: 12,
         transition: 'background 0.15s',
       }}
@@ -30,7 +30,7 @@ export default function SubjectRow({ subject, isSelected, onOpenProof }: Props) 
           style={{
             fontSize: 13,
             fontWeight: 600,
-            color: 'rgba(232,232,240,0.9)',
+            color: '#1a1a2e',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -38,7 +38,7 @@ export default function SubjectRow({ subject, isSelected, onOpenProof }: Props) 
         >
           {subject.planetTitle}
         </div>
-        <div style={{ fontSize: 11, color: 'rgba(232,232,240,0.35)', marginTop: 2 }}>
+        <div style={{ fontSize: 11, color: 'rgba(26,26,46,0.4)', marginTop: 2 }}>
           {subject.journeyTitle}
         </div>
       </div>
@@ -46,7 +46,7 @@ export default function SubjectRow({ subject, isSelected, onOpenProof }: Props) 
       {/* Performance badge */}
       <PerformanceBadge performanceType={subject.performanceType} />
 
-      {/* Proof button — circular chevron */}
+      {/* Proof button */}
       <button
         onClick={canOpenProof ? onOpenProof : undefined}
         disabled={!canOpenProof}
@@ -55,9 +55,9 @@ export default function SubjectRow({ subject, isSelected, onOpenProof }: Props) 
           width: 28,
           height: 28,
           borderRadius: '50%',
-          border: `1px solid ${canOpenProof ? 'rgba(232,232,240,0.2)' : 'rgba(232,232,240,0.07)'}`,
+          border: `1px solid ${canOpenProof ? 'rgba(139,0,255,0.25)' : 'rgba(26,26,46,0.08)'}`,
           background: 'transparent',
-          color: canOpenProof ? 'rgba(232,232,240,0.7)' : 'rgba(232,232,240,0.2)',
+          color: canOpenProof ? '#8B00FF' : 'rgba(26,26,46,0.2)',
           cursor: canOpenProof ? 'pointer' : 'default',
           display: 'flex',
           alignItems: 'center',

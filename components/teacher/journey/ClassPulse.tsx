@@ -12,22 +12,24 @@ export default function ClassPulse({ activeCount, totalCount, attentionCount }: 
         alignItems: 'center',
         gap: 16,
         padding: '14px 20px',
-        background: 'rgba(255,255,255,0.025)',
-        borderTop: '1px solid rgba(232,232,240,0.07)',
-        borderBottom: '1px solid rgba(232,232,240,0.07)',
+        background: 'rgba(255,255,255,0.5)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        borderTop: '1px solid rgba(255,255,255,0.7)',
+        borderBottom: '1px solid rgba(255,255,255,0.7)',
         marginBottom: 24,
       }}
     >
-      <span className="font-inter" style={{ fontSize: 14, color: '#E8E8F0' }}>
+      <span className="font-inter breathe" style={{ fontSize: 14, color: '#1a1a2e' }}>
         <span style={{ fontWeight: 600 }}>{activeCount} / {totalCount}</span>
         {' '}actively exploring
       </span>
-      <span style={{ color: 'rgba(232,232,240,0.25)', fontSize: 14 }}>·</span>
+      <span style={{ color: 'rgba(26,26,46,0.2)', fontSize: 14 }}>·</span>
       <span
         className="font-inter"
         style={{
           fontSize: 14,
-          color: attentionCount > 0 ? '#FF6B6B' : 'rgba(232,232,240,0.4)',
+          color: attentionCount > 0 ? '#FF0080' : 'rgba(26,26,46,0.35)',
           fontWeight: attentionCount > 0 ? 600 : 400,
         }}
       >

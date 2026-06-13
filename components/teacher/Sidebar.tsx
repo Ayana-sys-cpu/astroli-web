@@ -41,6 +41,7 @@ export default function Sidebar({ journeys }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [teacherName, setTeacherName] = useState('');
+  const [journeysOpen, setJourneysOpen] = useState(false);
 
   useEffect(() => { setTeacherName(getTeacherName()); }, []);
 
@@ -64,9 +65,9 @@ export default function Sidebar({ journeys }: SidebarProps) {
     fontFamily: 'var(--font-space)',
     fontWeight: 600,
     letterSpacing: '0.08em',
-    color: active ? '#fff' : 'rgba(232,232,240,0.45)',
-    background: active ? 'rgba(124,58,237,0.18)' : 'transparent',
-    border: active ? '1px solid rgba(124,58,237,0.35)' : '1px solid transparent',
+    color: active ? '#1a1a2e' : 'rgba(26,26,46,0.45)',
+    background: active ? 'rgba(139,0,255,0.08)' : 'transparent',
+    border: active ? '1px solid rgba(139,0,255,0.2)' : '1px solid transparent',
     cursor: 'pointer',
     transition: 'all 0.15s',
     textDecoration: 'none',
@@ -76,15 +77,16 @@ export default function Sidebar({ journeys }: SidebarProps) {
     <aside style={{
       width: 220,
       minHeight: '100vh',
-      background: 'rgba(7,7,15,0.96)',
-      borderRight: '1px solid rgba(124,58,237,0.18)',
+      background: 'rgba(255,255,255,0.6)',
+      backdropFilter: 'blur(20px)',
+      WebkitBackdropFilter: 'blur(20px)',
+      borderRight: '1px solid rgba(139,0,255,0.1)',
       display: 'flex',
       flexDirection: 'column',
       padding: '24px 12px',
       flexShrink: 0,
       position: 'sticky',
       top: 0,
-      backdropFilter: 'blur(12px)',
     }}>
       {/* Wordmark */}
       <div style={{ padding: '0 4px 24px' }}>
@@ -96,7 +98,7 @@ export default function Sidebar({ journeys }: SidebarProps) {
         }}>
           10X TEACHER
         </div>
-        <div style={{ fontSize: 10, color: 'rgba(232,232,240,0.3)', letterSpacing: '0.1em', fontFamily: 'var(--font-space)', marginTop: 2 }}>
+        <div style={{ fontSize: 10, color: 'rgba(26,26,46,0.3)', letterSpacing: '0.1em', fontFamily: 'var(--font-space)', marginTop: 2 }}>
           EDUCATOR PORTAL
         </div>
       </div>
@@ -111,17 +113,38 @@ export default function Sidebar({ journeys }: SidebarProps) {
           <StudentsIcon /> STUDENTS
         </Link>
 
-        {/* Journeys — header links to list, sub-items link to individual journeys */}
-        <Link
-          href="/teacher/journeys"
-          style={{ ...navItemStyle(isActive('/teacher/journeys')), justifyContent: 'space-between' }}
-        >
-          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {/* Journeys — label navigates, chevron toggles sub-list */}
+        <div style={{ display: 'flex', alignItems: 'center', borderRadius: 8, overflow: 'hidden', background: isActive('/teacher/journeys') ? 'rgba(139,0,255,0.08)' : 'transparent', border: isActive('/teacher/journeys') ? '1px solid rgba(139,0,255,0.2)' : '1px solid transparent' }}>
+          <Link
+            href="/teacher/journeys"
+            style={{ ...navItemStyle(isActive('/teacher/journeys')), flex: 1, background: 'transparent', border: 'none', borderRadius: 0 }}
+          >
             <JourneysIcon /> JOURNEYS
-          </span>
-        </Link>
+          </Link>
+          {journeys.length > 0 && (
+            <button
+              onClick={() => setJourneysOpen(o => !o)}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '8px 10px',
+                color: isActive('/teacher/journeys') ? '#1a1a2e' : 'rgba(26,26,46,0.45)',
+                display: 'flex',
+                alignItems: 'center',
+                transition: 'transform 0.2s',
+                transform: journeysOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+              }}
+              aria-label={journeysOpen ? 'Collapse journeys' : 'Expand journeys'}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </button>
+          )}
+        </div>
 
-        {journeys.length > 0 && (
+        {journeysOpen && journeys.length > 0 && (
           <div style={{ paddingLeft: 12, display: 'flex', flexDirection: 'column', gap: 2 }}>
             {journeys.map(j => {
               const active = isActive(`/teacher/journey/${j.id}`);
@@ -135,7 +158,7 @@ export default function Sidebar({ journeys }: SidebarProps) {
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                 }}>
-                  <span style={{ width: 4, height: 4, borderRadius: '50%', background: active ? '#00F5D4' : 'rgba(232,232,240,0.3)', flexShrink: 0 }} />
+                  <span style={{ width: 4, height: 4, borderRadius: '50%', background: active ? '#8B00FF' : 'rgba(139,0,255,0.3)', flexShrink: 0 }} />
                   {j.title}
                 </Link>
               );
@@ -145,7 +168,7 @@ export default function Sidebar({ journeys }: SidebarProps) {
       </nav>
 
       {/* Teacher profile at bottom */}
-      <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ borderTop: '1px solid rgba(26,26,46,0.08)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
             width: 32, height: 32, borderRadius: '50%',
@@ -157,7 +180,7 @@ export default function Sidebar({ journeys }: SidebarProps) {
             {initials}
           </div>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(232,232,240,0.8)', fontFamily: 'var(--font-space)' }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(26,26,46,0.8)', fontFamily: 'var(--font-space)' }}>
               {teacherName || 'Teacher'}
             </div>
             <button

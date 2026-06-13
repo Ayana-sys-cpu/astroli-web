@@ -19,7 +19,7 @@ export default function AllStudentsPanel({ students }: AllStudentsPanelProps) {
   return (
     <div
       style={{
-        borderTop: '1px solid rgba(232,232,240,0.08)',
+        borderTop: '1px solid rgba(26,26,46,0.08)',
         marginTop: 8,
         paddingTop: 16,
       }}
@@ -32,7 +32,7 @@ export default function AllStudentsPanel({ students }: AllStudentsPanelProps) {
           alignItems: 'center',
           gap: 8,
           fontSize: 13,
-          color: 'rgba(232,232,240,0.45)',
+          color: 'rgba(26,26,46,0.4)',
           background: 'none',
           border: 'none',
           cursor: 'pointer',
@@ -64,13 +64,13 @@ export default function AllStudentsPanel({ students }: AllStudentsPanelProps) {
                     display: 'flex',
                     justifyContent: 'space-between',
                     padding: '8px 4px',
-                    borderBottom: '1px solid rgba(232,232,240,0.05)',
+                    borderBottom: '1px solid rgba(26,26,46,0.06)',
                   }}
                 >
-                  <span className="font-inter" style={{ fontSize: 13, color: '#E8E8F0', fontWeight: 500 }}>
+                  <span className="font-inter" style={{ fontSize: 13, color: '#1a1a2e', fontWeight: 500 }}>
                     {s.name}
                   </span>
-                  <span className="font-inter" style={{ fontSize: 13, color: 'rgba(232,232,240,0.4)' }}>
+                  <span className="font-inter" style={{ fontSize: 13, color: 'rgba(26,26,46,0.4)' }}>
                     {s.statusLine}
                   </span>
                 </div>

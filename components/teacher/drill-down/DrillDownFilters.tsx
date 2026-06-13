@@ -17,8 +17,8 @@ interface Props {
 
 const STATUS_OPTIONS = [
   { value: 'not_started', label: 'Not started' },
-  { value: 'in_progress', label: 'In progress' },
-  { value: 'completed', label: 'Completed' },
+  { value: 'in_progress', label: 'Active' },
+  { value: 'pending_activation', label: 'Pending Activation' },
 ];
 
 const PERFORMANCE_OPTIONS = [
@@ -28,10 +28,7 @@ const PERFORMANCE_OPTIONS = [
   { value: 'generalizing', label: 'Generalizing' },
   { value: 'applying_concepts', label: 'Applying Concepts' },
   { value: 'analogizing', label: 'Analogizing' },
-  {
-    value: 'representing_in_new_ways',
-    label: 'Representing in New Ways',
-  },
+  { value: 'representing_in_new_ways', label: 'Representing in New Ways' },
   { value: 'considering_alternatives', label: 'Considering Alternatives' },
   { value: 'actionable_extrapolation', label: 'Actionable Extrapolation' },
   { value: 'grace_completion', label: 'Grace Completion' },
@@ -41,7 +38,6 @@ const PERFORMANCE_OPTIONS = [
 const TIMEFRAME_OPTIONS = [
   { value: '7d', label: 'Last week' },
   { value: '30d', label: 'Last month' },
-  { value: '90d', label: 'Last 3 months' },
   { value: 'all', label: 'All time' },
 ];
 
@@ -74,16 +70,12 @@ export default function DrillDownFilters({
         onKeyDown={(e) => {
           if (e.key === 'Enter') onSearch();
         }}
+        className="input-light"
         style={{
           width: '100%',
           padding: '8px 14px',
-          background: '#0E0E18',
-          border: '1px solid rgba(232,232,240,0.12)',
-          borderRadius: 8,
-          color: 'rgba(232,232,240,0.9)',
           fontSize: 13,
           outline: 'none',
-          colorScheme: 'dark',
           boxSizing: 'border-box',
         }}
       />
@@ -145,7 +137,7 @@ export default function DrillDownFilters({
           onClick={onSearch}
           style={{
             padding: '5px 14px',
-            background: '#7c3aed',
+            background: 'linear-gradient(120deg, #FF0080, #8B00FF)',
             border: 'none',
             borderRadius: 6,
             color: '#fff',

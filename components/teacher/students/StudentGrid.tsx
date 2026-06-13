@@ -43,15 +43,22 @@ export default function StudentGrid({ students, journeys, onStudentClick }: Stud
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Header bar */}
-      <div style={{ background: '#ffffff', borderBottom: '1px solid #e8eaed', padding: '16px 24px 14px', flexShrink: 0 }}>
+      <div style={{
+        background: 'rgba(255,255,255,0.7)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        borderBottom: '1px solid rgba(255,255,255,0.75)',
+        padding: '16px 24px 14px',
+        flexShrink: 0,
+      }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 12 }}>
           <h1 style={{ fontSize: 18, fontWeight: 700, color: '#1a1a2e', margin: 0 }}>All Students</h1>
-          <span style={{ fontSize: 13, color: '#9ca3af' }}>{students.length} students</span>
+          <span style={{ fontSize: 13, color: 'rgba(26,26,46,0.4)' }}>{students.length} students</span>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           {/* Search */}
           <div style={{ position: 'relative', flex: 1, maxWidth: 340 }}>
-            <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', display: 'flex' }}>
+            <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'rgba(26,26,46,0.3)', display: 'flex' }}>
               <SearchIcon />
             </span>
             <input
@@ -60,7 +67,7 @@ export default function StudentGrid({ students, journeys, onStudentClick }: Stud
               placeholder="Search student…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ width: '100%', padding: '7px 12px 7px 32px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, color: '#374151', background: '#f9fafb', outline: 'none' }}
+              style={{ width: '100%', padding: '7px 12px 7px 32px', border: '1px solid rgba(255,255,255,0.8)', borderRadius: 7, fontSize: 13, color: '#1a1a2e', background: 'rgba(255,255,255,0.7)', outline: 'none' }}
             />
           </div>
           {/* Journey filter */}
@@ -69,12 +76,12 @@ export default function StudentGrid({ students, journeys, onStudentClick }: Stud
               aria-label="Filter by journey"
               value={selectedJourneyId}
               onChange={(e) => setSelectedJourneyId(e.target.value)}
-              style={{ appearance: 'none', padding: '7px 32px 7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, background: '#ffffff', fontSize: 13, color: '#374151', cursor: 'pointer', outline: 'none' }}
+              style={{ appearance: 'none', padding: '7px 32px 7px 12px', border: '1px solid rgba(255,255,255,0.8)', borderRadius: 7, background: 'rgba(255,255,255,0.7)', fontSize: 13, color: '#1a1a2e', cursor: 'pointer', outline: 'none' }}
             >
               <option value="all">All Journeys</option>
               {journeys.map((j) => <option key={j.id} value={j.id}>{j.title}</option>)}
             </select>
-            <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#9ca3af' }}>
+            <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'rgba(26,26,46,0.35)' }}>
               <FilterIcon />
             </span>
           </div>
@@ -85,7 +92,7 @@ export default function StudentGrid({ students, journeys, onStudentClick }: Stud
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '20px 24px 0', scrollbarWidth: 'none' }}>
         {filtered.length === 0 ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200 }}>
-            <p style={{ fontSize: 13, color: '#9ca3af' }}>
+            <p style={{ fontSize: 13, color: 'rgba(26,26,46,0.35)' }}>
               {students.length === 0 ? 'No students enrolled yet.' : 'No students match your search.'}
             </p>
           </div>

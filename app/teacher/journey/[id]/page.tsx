@@ -39,12 +39,12 @@ interface Journey {
 }
 
 const STATUS_STYLES: Record<MissionState, { label: string; color: string; bg: string; dot: string }> = {
-  locked:        { label: 'LOCKED',   color: 'rgba(232,232,240,0.35)', bg: 'rgba(232,232,240,0.06)', dot: 'rgba(232,232,240,0.3)' },
-  voting:        { label: 'VOTING',   color: '#7C3AED',                bg: 'rgba(124,58,237,0.1)',   dot: '#7C3AED' },
-  pending_start: { label: 'PENDING',  color: '#FFD600',                bg: 'rgba(255,214,0,0.08)',   dot: '#FFD600' },
-  active:        { label: 'LIVE',     color: '#00D4FF',                bg: 'rgba(0,212,255,0.1)',    dot: '#00D4FF' },
-  completed:     { label: 'COMPLETE', color: '#00F5A0',                bg: 'rgba(0,245,160,0.08)',   dot: '#00F5A0' },
-  skipped:       { label: 'SKIPPED',  color: 'rgba(232,232,240,0.2)', bg: 'rgba(232,232,240,0.03)', dot: 'rgba(232,232,240,0.15)' },
+  locked:        { label: 'LOCKED',   color: 'rgba(26,26,46,0.3)',   bg: 'rgba(26,26,46,0.04)',    dot: 'rgba(26,26,46,0.2)' },
+  voting:        { label: 'VOTING',   color: '#8B00FF',               bg: 'rgba(139,0,255,0.08)',   dot: '#8B00FF' },
+  pending_start: { label: 'PENDING',  color: '#B45309',               bg: 'rgba(245,158,11,0.08)',  dot: '#F59E0B' },
+  active:        { label: 'LIVE',     color: '#0369A1',               bg: 'rgba(14,165,233,0.08)',  dot: '#0EA5E9' },
+  completed:     { label: 'COMPLETE', color: '#059669',               bg: 'rgba(16,185,129,0.08)',  dot: '#10B981' },
+  skipped:       { label: 'SKIPPED',  color: 'rgba(26,26,46,0.2)',   bg: 'rgba(26,26,46,0.02)',    dot: 'rgba(26,26,46,0.1)' },
 };
 
 
@@ -383,10 +383,10 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
         transition={{ duration: 0.5 }}
         className="mb-10"
       >
-        <h1 className="font-space font-black tracking-[0.12em] mb-1" style={{ fontSize: 28, color: '#E8E8F0' }}>
+        <h1 className="font-space font-black tracking-[0.12em] mb-1" style={{ fontSize: 28, color: '#1a1a2e' }}>
           CLASS SETUP
         </h1>
-        <p className="font-inter text-sm" style={{ color: 'rgba(232,232,240,0.4)' }}>
+        <p className="font-inter text-sm" style={{ color: 'rgba(26,26,46,0.4)' }}>
           Transform your Google Classroom courses into structured learning journeys
         </p>
       </motion.div>
@@ -452,7 +452,7 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                   <h2 className="font-space font-bold tracking-wide text-base" style={{ color: '#E8E8F0' }}>
                     {journey.title}
                   </h2>
-                  <span className="font-inter text-xs ml-auto" style={{ color: 'rgba(232,232,240,0.3)' }}>
+                  <span className="font-inter text-xs ml-auto" style={{ color: 'rgba(26,26,46,0.3)' }}>
                     {missions.length} missions
                   </span>
                 </div>
@@ -470,28 +470,28 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                         className="relative rounded-xl overflow-hidden"
                         style={{
                           background: mission.state === 'active'
-                            ? 'linear-gradient(135deg, rgba(0,212,255,0.06) 0%, rgba(124,58,237,0.08) 100%)'
+                            ? 'linear-gradient(135deg, rgba(14,165,233,0.06) 0%, rgba(139,0,255,0.06) 100%)'
                             : mission.state === 'voting'
-                            ? 'linear-gradient(135deg, rgba(124,58,237,0.06) 0%, rgba(255,0,128,0.04) 100%)'
+                            ? 'linear-gradient(135deg, rgba(139,0,255,0.06) 0%, rgba(255,0,128,0.04) 100%)'
                             : mission.state === 'pending_start'
-                            ? 'linear-gradient(135deg, rgba(255,214,0,0.07) 0%, rgba(255,140,0,0.04) 100%)'
+                            ? 'linear-gradient(135deg, rgba(245,158,11,0.07) 0%, rgba(180,83,9,0.04) 100%)'
                             : mission.state === 'skipped'
-                            ? 'rgba(232,232,240,0.015)'
+                            ? 'rgba(26,26,46,0.015)'
                             : isExp
-                            ? 'rgba(232,232,240,0.04)'
-                            : 'rgba(232,232,240,0.03)',
+                            ? 'rgba(255,255,255,0.5)'
+                            : 'rgba(255,255,255,0.4)',
                           border: `1px solid ${
                             mission.state === 'active'
-                              ? 'rgba(0,212,255,0.25)'
+                              ? 'rgba(14,165,233,0.25)'
                               : mission.state === 'voting'
-                              ? 'rgba(124,58,237,0.3)'
+                              ? 'rgba(139,0,255,0.25)'
                               : mission.state === 'pending_start'
-                              ? 'rgba(255,214,0,0.3)'
+                              ? 'rgba(245,158,11,0.3)'
                               : mission.state === 'skipped'
-                              ? 'rgba(232,232,240,0.05)'
+                              ? 'rgba(26,26,46,0.05)'
                               : isExp
-                              ? 'rgba(232,232,240,0.13)'
-                              : 'rgba(232,232,240,0.08)'
+                              ? 'rgba(255,255,255,0.85)'
+                              : 'rgba(255,255,255,0.7)'
                           }`,
                           opacity: mission.state === 'skipped' ? 0.6 : 1,
                           transition: 'border-color 0.2s, background 0.2s',
@@ -504,22 +504,22 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                         >
                           <span
                             className="font-space font-black text-2xl w-8 text-center flex-shrink-0"
-                            style={{ color: 'rgba(232,232,240,0.15)' }}
+                            style={{ color: 'rgba(26,26,46,0.15)' }}
                           >
                             {String(mission.order).padStart(2, '0')}
                           </span>
                           <div className="flex-1 min-w-0">
-                            <p className="font-inter text-[11px] mb-1" style={{ color: 'rgba(232,232,240,0.4)' }}>
+                            <p className="font-inter text-[11px] mb-1" style={{ color: 'rgba(26,26,46,0.4)' }}>
                               {mission.projectTitle}
                             </p>
                             <p className="font-space font-bold text-sm leading-snug truncate" style={{
-                              color: mission.state === 'skipped' ? 'rgba(232,232,240,0.3)' : '#E8E8F0',
+                              color: mission.state === 'skipped' ? 'rgba(26,26,46,0.3)' : '#1a1a2e',
                             }}>
                               {mission.question}
                             </p>
                             {(mission.state === 'pending_start' || mission.state === 'skipped') && voteCounts[journey.id] && (
                               <p className="font-space text-[9px] font-bold tracking-[0.1em] mt-1" style={{
-                                color: mission.state === 'pending_start' ? 'rgba(255,214,0,0.75)' : 'rgba(232,232,240,0.2)',
+                                color: mission.state === 'pending_start' ? '#B45309' : 'rgba(26,26,46,0.2)',
                               }}>
                                 {voteCounts[journey.id][mission.id] ?? 0}{' '}
                                 {(voteCounts[journey.id][mission.id] ?? 0) === 1 ? 'VOTE' : 'VOTES'}
@@ -532,10 +532,10 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                               <div
                                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-space font-bold tracking-[0.15em]"
                                 style={{
-                                  background: 'rgba(255,214,0,0.12)',
-                                  color: '#FFD600',
-                                  border: '1px solid rgba(255,214,0,0.35)',
-                                  boxShadow: '0 0 12px rgba(255,214,0,0.15)',
+                                  background: 'rgba(245,158,11,0.12)',
+                                  color: '#B45309',
+                                  border: '1px solid rgba(245,158,11,0.35)',
+                                  boxShadow: '0 0 12px rgba(245,158,11,0.1)',
                                 }}
                               >
                                 ✦ WINNER
@@ -558,7 +558,7 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                                 onClick={e => { e.stopPropagation(); router.push(`/teacher/mission/${mission.id}`); }}
                                 whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
                                 className="px-4 py-2 rounded-lg text-[10px] font-space font-bold tracking-[0.12em]"
-                                style={{ background: 'rgba(0,212,255,0.15)', color: '#00D4FF', border: '1px solid rgba(0,212,255,0.4)' }}
+                                style={{ background: 'rgba(14,165,233,0.12)', color: '#0369A1', border: '1px solid rgba(14,165,233,0.3)' }}
                               >
                                 REVIEW →
                               </motion.button>
@@ -572,9 +572,9 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                                 disabled={activating === mission.id}
                                 className="px-4 py-2 rounded-lg text-[10px] font-space font-bold tracking-[0.12em]"
                                 style={{
-                                  background: 'rgba(255,214,0,0.15)',
-                                  color: '#FFD600',
-                                  border: '1px solid rgba(255,214,0,0.4)',
+                                  background: 'rgba(245,158,11,0.12)',
+                                  color: '#B45309',
+                                  border: '1px solid rgba(245,158,11,0.35)',
                                   opacity: activating === mission.id ? 0.4 : 1,
                                   cursor: activating === mission.id ? 'default' : 'pointer',
                                 }}
@@ -591,9 +591,9 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                                 disabled={activating === mission.id || voteIsLive}
                                 className="px-4 py-2 rounded-lg text-[10px] font-space font-bold tracking-[0.12em]"
                                 style={{
-                                  background: 'rgba(232,232,240,0.06)',
-                                  color: voteIsLive ? 'rgba(232,232,240,0.2)' : '#E8E8F0',
-                                  border: '1px solid rgba(232,232,240,0.15)',
+                                  background: 'rgba(26,26,46,0.05)',
+                                  color: voteIsLive ? 'rgba(26,26,46,0.2)' : 'rgba(26,26,46,0.65)',
+                                  border: '1px solid rgba(26,26,46,0.12)',
                                   opacity: (activating === mission.id || voteIsLive) ? 0.4 : 1,
                                   cursor: voteIsLive ? 'not-allowed' : 'pointer',
                                 }}
@@ -605,7 +605,7 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                             {/* Expand chevron */}
                             <span
                               style={{
-                                color: 'rgba(232,232,240,0.3)', fontSize: 14,
+                                color: 'rgba(26,26,46,0.3)', fontSize: 14,
                                 display: 'inline-block',
                                 transform: isExp ? 'rotate(180deg)' : 'none',
                                 transition: 'transform 0.2s',
@@ -626,20 +626,20 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                             >
                               <div
                                 className="px-6 pb-5 flex flex-col gap-4"
-                                style={{ borderTop: '1px solid rgba(232,232,240,0.06)', paddingTop: 20 }}
+                                style={{ borderTop: '1px solid rgba(26,26,46,0.06)', paddingTop: 20 }}
                               >
                                 {/* Description */}
                                 {mission.questionDescription && (
-                                  <p className="font-inter text-sm leading-relaxed" style={{ color: 'rgba(232,232,240,0.5)' }}>
+                                  <p className="font-inter text-sm leading-relaxed" style={{ color: 'rgba(26,26,46,0.5)' }}>
                                     {mission.questionDescription}
                                   </p>
                                 )}
 
                                 {/* Student project box */}
                                 {mission.projectDescription && (
-                                  <div className="rounded-lg px-4 py-3" style={{ background: 'rgba(124,58,237,0.07)', border: '1px solid rgba(124,58,237,0.15)' }}>
-                                    <p className="font-space text-[9px] tracking-[0.2em] mb-1" style={{ color: '#7C3AED' }}>STUDENT PROJECT</p>
-                                    <p className="font-inter text-xs leading-relaxed" style={{ color: 'rgba(232,232,240,0.5)' }}>
+                                  <div className="rounded-lg px-4 py-3" style={{ background: 'rgba(139,0,255,0.05)', border: '1px solid rgba(139,0,255,0.12)' }}>
+                                    <p className="font-space text-[9px] tracking-[0.2em] mb-1" style={{ color: '#8B00FF' }}>STUDENT PROJECT</p>
+                                    <p className="font-inter text-xs leading-relaxed" style={{ color: 'rgba(26,26,46,0.5)' }}>
                                       {mission.projectDescription}
                                     </p>
                                   </div>
@@ -647,19 +647,19 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
 
                                 {/* Activities */}
                                 {mission.planets && mission.planets.length > 0 && (
-                                  <div className="rounded-xl p-4 flex flex-col gap-3" style={{ background: 'rgba(232,232,240,0.02)', border: '1px solid rgba(232,232,240,0.07)' }}>
-                                    <p className="font-space text-[9px] tracking-[0.2em]" style={{ color: 'rgba(232,232,240,0.3)' }}>
+                                  <div className="rounded-xl p-4 flex flex-col gap-3" style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.7)' }}>
+                                    <p className="font-space text-[9px] tracking-[0.2em]" style={{ color: 'rgba(26,26,46,0.3)' }}>
                                       WHAT STUDENTS WILL DO · {mission.planets.length} ACTIVITIES
                                     </p>
                                     <div className="flex flex-col gap-2">
                                       {mission.planets.map((planet, pi) => (
-                                        <div key={planet.id} className="flex items-start gap-3 rounded-lg px-3 py-2.5" style={{ background: 'rgba(232,232,240,0.03)', border: '1px solid rgba(232,232,240,0.06)' }}>
-                                          <span className="font-space font-black text-[10px] mt-0.5 flex-shrink-0" style={{ color: 'rgba(232,232,240,0.2)' }}>
+                                        <div key={planet.id} className="flex items-start gap-3 rounded-lg px-3 py-2.5" style={{ background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.8)' }}>
+                                          <span className="font-space font-black text-[10px] mt-0.5 flex-shrink-0" style={{ color: 'rgba(26,26,46,0.2)' }}>
                                             {String(pi + 1).padStart(2, '0')}
                                           </span>
                                           <div>
-                                            <p className="font-space font-bold text-xs mb-0.5" style={{ color: '#E8E8F0' }}>{planet.title}</p>
-                                            <p className="font-inter text-[11px] leading-relaxed" style={{ color: 'rgba(232,232,240,0.4)' }}>
+                                            <p className="font-space font-bold text-xs mb-0.5" style={{ color: '#1a1a2e' }}>{planet.title}</p>
+                                            <p className="font-inter text-[11px] leading-relaxed" style={{ color: 'rgba(26,26,46,0.4)' }}>
                                               {planet.content.slice(0, 140)}{planet.content.length > 140 ? '…' : ''}
                                             </p>
                                           </div>
@@ -673,7 +673,7 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                                 <button
                                   onClick={() => setStudentView(mission)}
                                   className="w-full py-2.5 rounded-lg font-space text-[10px] font-bold tracking-[0.12em] transition-all"
-                                  style={{ background: 'rgba(0,212,255,0.05)', color: '#00D4FF', border: '1px dashed rgba(0,212,255,0.3)' }}
+                                  style={{ background: 'rgba(139,0,255,0.04)', color: '#8B00FF', border: '1px dashed rgba(139,0,255,0.25)' }}
                                 >
                                   👩‍🎓 PREVIEW STUDENT VIEW →
                                 </button>
@@ -688,8 +688,8 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                             className="absolute left-0 top-0 bottom-0 w-0.5"
                             style={{
                               background: mission.state === 'pending_start'
-                                ? 'linear-gradient(180deg, #FFD600, #FF8C00)'
-                                : 'linear-gradient(180deg, #00D4FF, #7C3AED)',
+                                ? 'linear-gradient(180deg, #F59E0B, #B45309)'
+                                : 'linear-gradient(180deg, #0EA5E9, #8B00FF)',
                             }}
                           />
                         )}
@@ -704,10 +704,10 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                     key="vote-active"
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="rounded-xl p-6"
+                    className="glass-panel"
                     style={{
-                      background: isVoteExpired ? 'rgba(255,140,0,0.05)' : 'rgba(0,212,255,0.05)',
-                      border: `1px solid ${isVoteExpired ? 'rgba(255,140,0,0.3)' : 'rgba(0,212,255,0.2)'}`,
+                      padding: 24,
+                      borderColor: isVoteExpired ? 'rgba(255,140,0,0.3)' : 'rgba(14,165,233,0.25)',
                     }}
                   >
                     {/* Live / expired badge */}
@@ -715,11 +715,11 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                       <span
                         className={`w-2 h-2 rounded-full${isVoteExpired ? '' : ' animate-pulse'}`}
                         style={{
-                          background: isVoteExpired ? '#FF8C00' : '#00D4FF',
-                          boxShadow: `0 0 8px ${isVoteExpired ? '#FF8C00' : '#00D4FF'}`,
+                          background: isVoteExpired ? '#FF8C00' : '#0EA5E9',
+                          boxShadow: `0 0 8px ${isVoteExpired ? '#FF8C00' : '#0EA5E9'}`,
                         }}
                       />
-                      <p className="font-space text-[10px] tracking-[0.2em]" style={{ color: isVoteExpired ? '#FF8C00' : '#00D4FF' }}>
+                      <p className="font-space text-[10px] tracking-[0.2em]" style={{ color: isVoteExpired ? '#FF8C00' : '#0369A1' }}>
                         {isVoteExpired ? 'VOTE EXPIRED' : 'VOTE IS LIVE'}
                       </p>
                       <button
@@ -729,9 +729,9 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                         }}
                         className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-lg font-space text-[10px] font-bold tracking-[0.12em] transition-all hover:opacity-80"
                         style={{
-                          background: isVoteExpired ? 'rgba(255,140,0,0.12)' : 'rgba(0,212,255,0.12)',
-                          color: isVoteExpired ? '#FF8C00' : '#00D4FF',
-                          border: `1px solid ${isVoteExpired ? 'rgba(255,140,0,0.4)' : 'rgba(0,212,255,0.35)'}`,
+                          background: isVoteExpired ? 'rgba(255,140,0,0.1)' : 'rgba(14,165,233,0.1)',
+                          color: isVoteExpired ? '#FF8C00' : '#0369A1',
+                          border: `1px solid ${isVoteExpired ? 'rgba(255,140,0,0.35)' : 'rgba(14,165,233,0.3)'}`,
                         }}
                         title="Edit vote deadline"
                       >
@@ -741,10 +741,10 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
 
                     {/* Countdown */}
                     <div className="text-center mb-6">
-                      <p className="font-space text-[9px] tracking-[0.2em] mb-2" style={{ color: 'rgba(232,232,240,0.35)' }}>
+                      <p className="font-space text-[9px] tracking-[0.2em] mb-2" style={{ color: 'rgba(26,26,46,0.35)' }}>
                         {isVoteExpired ? 'ENDED' : 'CLOSES IN'}
                       </p>
-                      <p className="font-space font-black text-4xl tracking-wider" style={{ color: isVoteExpired ? '#FF8C00' : '#E8E8F0' }}>
+                      <p className="font-space font-black text-4xl tracking-wider" style={{ color: isVoteExpired ? '#FF8C00' : '#1a1a2e' }}>
                         {voteActiveMap[journey.id] ? <Countdown endIso={voteActiveMap[journey.id]} /> : 'VOTE ACTIVE'}
                       </p>
                     </div>
@@ -758,7 +758,7 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                         className="w-full py-3.5 rounded-xl font-space font-bold text-sm tracking-[0.12em] flex items-center justify-center gap-2"
                         style={{
                           background: 'linear-gradient(120deg, rgba(255,140,0,0.85), rgba(255,184,0,0.6))',
-                          color: '#0a0a0f',
+                          color: '#fff',
                           border: '1px solid rgba(255,140,0,0.55)',
                           boxShadow: '0 4px 20px rgba(255,140,0,0.25)',
                           cursor: 'pointer',
@@ -780,10 +780,10 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                           className="w-full py-3.5 rounded-xl font-space font-bold text-sm tracking-[0.12em] flex items-center justify-center gap-2"
                           style={{
                             background: copiedId === journey.id
-                              ? 'linear-gradient(120deg, rgba(0,245,160,0.7), rgba(0,212,255,0.5))'
-                              : 'linear-gradient(120deg, rgba(37,211,102,0.7), rgba(0,212,255,0.5))',
-                            color: '#E8E8F0',
-                            border: `1px solid ${copiedId === journey.id ? 'rgba(0,245,160,0.5)' : 'rgba(37,211,102,0.5)'}`,
+                              ? 'linear-gradient(120deg, rgba(5,150,105,0.8), rgba(14,165,233,0.6))'
+                              : 'linear-gradient(120deg, rgba(37,211,102,0.75), rgba(14,165,233,0.55))',
+                            color: '#fff',
+                            border: `1px solid ${copiedId === journey.id ? 'rgba(5,150,105,0.5)' : 'rgba(37,211,102,0.45)'}`,
                             boxShadow: '0 4px 20px rgba(37,211,102,0.2)',
                             cursor: 'pointer',
                           }}
@@ -795,10 +795,11 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                         <div
                           className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-lg font-inter text-xs whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                           style={{
-                            background: 'rgba(10,10,20,0.96)',
-                            border: '1px solid rgba(232,232,240,0.12)',
-                            color: 'rgba(232,232,240,0.85)',
-                            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                            background: 'rgba(255,255,255,0.9)',
+                            backdropFilter: 'blur(12px)',
+                            border: '1px solid rgba(255,255,255,0.85)',
+                            color: 'rgba(26,26,46,0.7)',
+                            boxShadow: '0 8px 24px rgba(139,0,255,0.1)',
                             zIndex: 10,
                           }}
                         >
@@ -813,16 +814,16 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="rounded-xl p-5"
-                    style={{ background: 'rgba(255,214,0,0.04)', border: '1px solid rgba(255,214,0,0.2)' }}
+                    style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)' }}
                   >
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="w-2 h-2 rounded-full" style={{ background: '#FFD600' }} />
-                      <p className="font-space text-[10px] tracking-[0.2em]" style={{ color: '#FFD600' }}>
+                      <span className="w-2 h-2 rounded-full" style={{ background: '#F59E0B' }} />
+                      <p className="font-space text-[10px] tracking-[0.2em]" style={{ color: '#B45309' }}>
                         VOTE CONCLUDED
                       </p>
                     </div>
-                    <p className="font-inter text-xs leading-relaxed" style={{ color: 'rgba(232,232,240,0.4)' }}>
-                      Results are in. Click <span style={{ color: '#FFD600' }}>ACTIVATE</span> next to the winning mission to start it for your class.
+                    <p className="font-inter text-xs leading-relaxed" style={{ color: 'rgba(26,26,46,0.45)' }}>
+                      Results are in. Click <span style={{ color: '#B45309' }}>ACTIVATE</span> next to the winning mission to start it for your class.
                     </p>
                   </motion.div>
                 ) : allLocked ? (
@@ -830,57 +831,47 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                     key="vote-setup"
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="rounded-xl p-6"
-                    style={{ background: 'rgba(124,58,237,0.05)', border: '1px solid rgba(124,58,237,0.2)' }}
+                    className="glass-panel"
+                    style={{ padding: 24 }}
                   >
-                    <p className="font-space text-[10px] tracking-[0.2em] mb-5" style={{ color: 'rgba(232,232,240,0.35)' }}>
+                    <p className="font-space text-[10px] tracking-[0.2em] mb-5" style={{ color: 'rgba(26,26,46,0.35)' }}>
                       VOTE DURATION
                     </p>
 
                     <div className="grid grid-cols-2 gap-4 mb-4">
                       <div>
-                        <label className="font-space text-[9px] font-bold tracking-[0.12em] block mb-2" style={{ color: 'rgba(232,232,240,0.35)' }}>
+                        <label className="font-space text-[9px] font-bold tracking-[0.12em] block mb-2" style={{ color: 'rgba(26,26,46,0.35)' }}>
                           STARTS
                         </label>
                         <input
                           type="datetime-local"
                           value={voteStart}
                           onChange={e => setVoteStart(e.target.value)}
-                          className="w-full rounded-lg px-3 py-2.5 font-inter text-xs outline-none"
-                          style={{
-                            background: 'rgba(232,232,240,0.04)',
-                            border: '1px solid rgba(232,232,240,0.12)',
-                            color: '#E8E8F0',
-                            colorScheme: 'dark',
-                          }}
+                          className="input-light w-full px-3 py-2.5 font-inter text-xs outline-none"
+                          style={{ colorScheme: 'light' }}
                         />
                       </div>
                       <div>
-                        <label className="font-space text-[9px] font-bold tracking-[0.12em] block mb-2" style={{ color: 'rgba(232,232,240,0.35)' }}>
+                        <label className="font-space text-[9px] font-bold tracking-[0.12em] block mb-2" style={{ color: 'rgba(26,26,46,0.35)' }}>
                           ENDS
                         </label>
                         <input
                           type="datetime-local"
                           value={voteEnd}
                           onChange={e => setVoteEnd(e.target.value)}
-                          className="w-full rounded-lg px-3 py-2.5 font-inter text-xs outline-none"
-                          style={{
-                            background: 'rgba(232,232,240,0.04)',
-                            border: '1px solid rgba(232,232,240,0.12)',
-                            color: '#E8E8F0',
-                            colorScheme: 'dark',
-                          }}
+                          className="input-light w-full px-3 py-2.5 font-inter text-xs outline-none"
+                          style={{ colorScheme: 'light' }}
                         />
                       </div>
                     </div>
 
-                    <p className="font-inter text-[11px] mb-4" style={{ color: 'rgba(232,232,240,0.3)' }}>
+                    <p className="font-inter text-[11px] mb-4" style={{ color: 'rgba(26,26,46,0.3)' }}>
                       Default: opens today, closes 48 h later · Ties broken randomly
                     </p>
 
                     {!canStartVote && (
-                      <div className="rounded-lg px-3 py-2.5 mb-4" style={{ background: 'rgba(255,184,0,0.07)', border: '1px solid rgba(255,184,0,0.2)' }}>
-                        <p className="font-inter text-xs leading-relaxed" style={{ color: 'rgba(255,184,0,0.85)' }}>
+                      <div className="rounded-lg px-3 py-2.5 mb-4" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                        <p className="font-inter text-xs leading-relaxed" style={{ color: '#B45309' }}>
                           {hasActiveMission
                             ? '⚠️ A mission is already active. End it before starting a vote.'
                             : `⚠️ Need at least 2 available missions to vote. Currently ${votableMissions.length}.`}
@@ -896,11 +887,11 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                       className="w-full py-3.5 rounded-xl font-space font-bold text-sm tracking-[0.12em]"
                       style={{
                         background: canStartVote
-                          ? 'linear-gradient(120deg, rgba(124,58,237,0.8), rgba(0,212,255,0.5))'
-                          : 'rgba(232,232,240,0.05)',
-                        color: canStartVote ? '#E8E8F0' : 'rgba(232,232,240,0.2)',
-                        border: canStartVote ? '1px solid rgba(124,58,237,0.5)' : '1px solid rgba(232,232,240,0.08)',
-                        boxShadow: canStartVote ? '0 4px 20px rgba(124,58,237,0.25)' : 'none',
+                          ? 'linear-gradient(120deg, rgba(139,0,255,0.8), rgba(14,165,233,0.55))'
+                          : 'rgba(26,26,46,0.05)',
+                        color: canStartVote ? '#fff' : 'rgba(26,26,46,0.2)',
+                        border: canStartVote ? '1px solid rgba(139,0,255,0.4)' : '1px solid rgba(26,26,46,0.08)',
+                        boxShadow: canStartVote ? '0 4px 20px rgba(139,0,255,0.25)' : 'none',
                         cursor: starting || !canStartVote ? 'default' : 'pointer',
                       }}
                     >
