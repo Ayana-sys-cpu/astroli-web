@@ -1,5 +1,7 @@
 // src/astroli-web/lib/drill-down-types.ts
 
+import type { SignalType } from '@/lib/signals';
+
 export type PerkinsType =
   | 'explaining'
   | 'mustering_evidence'
@@ -13,9 +15,8 @@ export type PerkinsType =
 
 export type PerformanceType = PerkinsType | 'grace_completion';
 
-export type PlanetStatus = 'not_started' | 'in_progress' | 'completed';
+export type PlanetStatus = 'not_started' | 'in_progress' | 'completed' | 'pending_activation';
 
-// Display label for each Perkins type (shown in badge and GoalCard)
 export const PERKINS_LABELS: Record<PerkinsType, string> = {
   explaining: 'Explaining',
   mustering_evidence: 'Mustering Evidence',
@@ -56,6 +57,7 @@ export interface GoalSummary {
 export interface SubjectSummary {
   planetId: string;
   planetTitle: string;
+  missionId: string;
   missionTitle: string;
   missionOrder: number;
   journeyId: string;
@@ -64,28 +66,50 @@ export interface SubjectSummary {
   performanceType: PerformanceType | null;
   assessedAt: string | null;
   goals: GoalSummary[];
+  teachingGoalCount: number;
 }
 
 export interface DrillDownStudent {
   id: string;
   name: string;
   initials: string;
+  grade: string | null;
   journeyEnrollments: { journeyId: string; title: string }[];
+}
+
+export interface MissionMeta {
+  id: string;
+  title: string;
+  order: number;
+  state: string;
+}
+
+export interface CrossJourneyStats {
+  peakPerformanceType: PerformanceType | null;
+  peakJourneyTitle: string | null;
+  activeMissionsCount: number;
+  totalMissionsCount: number;
+  weeklyExplorationChangePercent: number | null;
 }
 
 export interface DrillDownResponse {
   student: DrillDownStudent;
   subjects: SubjectSummary[];
   journeys: { id: string; title: string }[];
+  activeMissionByJourney: Record<string, string>;
+  missionsByJourney: Record<string, MissionMeta[]>;
+  signalByJourney: Record<string, SignalType | null>;
+  crossJourneyStats: CrossJourneyStats;
+  prewrittenMessage: string;
 }
 
-// Filter state used by the page and DrillDownFilters component
+// Kept for backwards compatibility with old filter components (DrillDownFilters, FilterChip)
 export interface DrillDownFilters {
   search: string;
-  journeyIds: string[];      // empty = all
-  statuses: PlanetStatus[];  // empty = all
-  performances: string[];    // empty = all; values: PerformanceType | 'not_assessed'
-  timeframe: '7d' | '30d' | '90d' | 'all';
+  journeyIds: string[];
+  statuses: PlanetStatus[];
+  performances: string[];
+  timeframe: '7d' | '30d' | 'all';
 }
 
 export const DEFAULT_FILTERS: DrillDownFilters = {

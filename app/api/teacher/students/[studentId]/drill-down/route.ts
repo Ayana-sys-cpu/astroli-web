@@ -50,6 +50,7 @@ export async function GET(
           id: true,
           question: true,
           mission_order: true,
+          state: true,
           planets: {
             orderBy: { createdAt: 'asc' },
             select: { id: true, title: true },
@@ -110,17 +111,24 @@ export async function GET(
           studentAnswer: g.studentAnswer,
         }));
 
+        // Planets in non-active missions are "Pending Activation" from the student's POV
+        const missionPending = mission.state !== 'active' && mission.state !== 'completed';
+        const storedStatus = (summary?.status as PlanetStatus | undefined) ?? 'not_started';
+        const resolvedStatus: PlanetStatus = missionPending ? 'pending_activation' : storedStatus;
+
         subjects.push({
           planetId: planet.id,
           planetTitle: planet.title,
+          missionId: mission.id,
           missionTitle: mission.question,
           missionOrder: mission.mission_order,
           journeyId: journey.id,
           journeyTitle: journey.title,
-          status: (summary?.status as PlanetStatus | undefined) ?? 'not_started',
+          status: resolvedStatus,
           performanceType: toPerformanceType(summary?.performanceType),
           assessedAt: summary?.assessedAt?.toISOString() ?? null,
           goals,
+          teachingGoalCount: 0,
         });
       }
     }
@@ -131,10 +139,22 @@ export async function GET(
       id: studentId,
       name,
       initials: toInitials(name),
+      grade: null,
       journeyEnrollments: sharedJourneys.map((j) => ({ journeyId: j.id, title: j.title })),
     },
     subjects,
     journeys: sharedJourneys.map((j) => ({ id: j.id, title: j.title })),
+    activeMissionByJourney: {},
+    missionsByJourney: {},
+    signalByJourney: {},
+    crossJourneyStats: {
+      peakPerformanceType: null,
+      peakJourneyTitle: null,
+      activeMissionsCount: 0,
+      totalMissionsCount: 0,
+      weeklyExplorationChangePercent: null,
+    },
+    prewrittenMessage: '',
   };
 
   return NextResponse.json(response);
