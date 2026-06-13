@@ -2,22 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, assertTeacherSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { generateSignals } from '@/lib/signals';
+import { deriveJourneyStatus } from '@/lib/journey-status';
+import type { JourneyStatus } from '@/lib/journey-status';
 
 type MissionState = 'locked' | 'voting' | 'pending_start' | 'active' | 'completed' | 'skipped';
-export type JourneyStatus = 'live' | 'voting' | 'pending' | 'done' | 'idle';
-
-interface MissionLike { state: MissionState; }
-
-export function deriveJourneyStatus(
-  missions: MissionLike[],
-  hasOpenVoteSession: boolean,
-): JourneyStatus {
-  if (missions.some(m => m.state === 'active')) return 'live';
-  if (hasOpenVoteSession || missions.some(m => m.state === 'voting')) return 'voting';
-  if (missions.some(m => m.state === 'pending_start')) return 'pending';
-  if (missions.length > 0 && missions.every(m => m.state === 'completed' || m.state === 'skipped')) return 'done';
-  return 'idle';
-}
 
 const COVER_GRADIENTS = [
   { from: '#0d2137', mid: '#1e4d7a', accent: '#204060' },
