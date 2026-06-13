@@ -374,10 +374,14 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
     }
   }
 
+  const currentJourney = journeys.find(j => j.id === params.id);
+  const currentMissions = currentJourney ? (fullMissions[currentJourney.id] ?? currentJourney.missions) : [];
+  const isMonitoring = !loading && currentMissions.some(m => m.state === 'active');
+
   return (
     <div className="px-8 py-8 max-w-6xl mx-auto">
-      {/* Page header */}
-      <motion.div
+      {/* Page header — hidden when a mission is active */}
+      {!isMonitoring && <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -389,7 +393,7 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
         <p className="font-inter text-sm" style={{ color: 'rgba(26,26,46,0.4)' }}>
           Transform your Google Classroom courses into structured learning journeys
         </p>
-      </motion.div>
+      </motion.div>}
 
       {loading ? (
         <div className="flex items-center gap-3 mt-24 justify-center">
@@ -439,15 +443,14 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                   }}
                 />
 
-                {/* ── MONITORING VIEW — shown when a mission is active ── */}
-                {hasActiveMission && (
+                {hasActiveMission ? (
+                  /* ── MONITORING VIEW — active mission ── */
                   <motion.section
                     key="monitor"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: ji * 0.07 }}
                   >
-                    {/* Compact header */}
                     <div className="mb-6">
                       <div className="flex items-center gap-3 mb-1">
                         <span
@@ -471,15 +474,14 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                       nextMission={activeMission ? { id: activeMission.id, order: activeMission.order, title: activeMission.question } : null}
                     />
                   </motion.section>
-                )}
-
-                {/* ── SETUP VIEW — shown when no mission is active ── */}
-                {!hasActiveMission && (
-                <motion.section
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: ji * 0.07 }}
-                >
+                ) : (
+                  /* ── SETUP VIEW — no active mission ── */
+                  <motion.section
+                    key="setup"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: ji * 0.07 }}
+                  >
                 {/* Journey header */}
                 <div className="flex items-center gap-3 mb-5">
                   <span
@@ -943,7 +945,7 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                     </motion.button>
                   </motion.div>
                 ) : null}
-                </motion.section>
+                  </motion.section>
                 )}
               </Fragment>
             );
