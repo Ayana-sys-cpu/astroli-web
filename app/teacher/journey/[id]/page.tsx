@@ -414,6 +414,8 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
             const voteEndTs = voteActiveMap[journey.id];
             const isVoteExpired = Boolean(voteEndTs) && new Date(voteEndTs).getTime() <= Date.now();
 
+            const activeMission = missions.find(m => m.state === 'active') ?? null;
+
             return (
               <Fragment key={journey.id}>
                 <JourneySync
@@ -436,6 +438,43 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                     }));
                   }}
                 />
+
+                {/* ── MONITORING VIEW — shown when a mission is active ── */}
+                {hasActiveMission && (
+                  <motion.section
+                    key="monitor"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: ji * 0.07 }}
+                  >
+                    {/* Compact header */}
+                    <div className="mb-6">
+                      <div className="flex items-center gap-3 mb-1">
+                        <span
+                          className="font-space font-bold tracking-[0.2em] text-[11px] px-3 py-1 rounded"
+                          style={{ background: 'rgba(14,165,233,0.12)', color: '#0369A1', border: '1px solid rgba(14,165,233,0.3)' }}
+                        >
+                          LIVE CLASS
+                        </span>
+                        <h1 className="font-space font-black tracking-[0.12em]" style={{ fontSize: 22, color: '#1a1a2e' }}>
+                          {journey.title}
+                        </h1>
+                      </div>
+                      {activeMission && (
+                        <p className="font-inter text-sm mt-1" style={{ color: 'rgba(26,26,46,0.45)' }}>
+                          Mission {activeMission.order}: {activeMission.question}
+                        </p>
+                      )}
+                    </div>
+                    <JourneyMonitorView
+                      journeyId={journey.id}
+                      nextMission={activeMission ? { id: activeMission.id, order: activeMission.order, title: activeMission.question } : null}
+                    />
+                  </motion.section>
+                )}
+
+                {/* ── SETUP VIEW — shown when no mission is active ── */}
+                {!hasActiveMission && (
                 <motion.section
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -904,14 +943,8 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                     </motion.button>
                   </motion.div>
                 ) : null}
-                <JourneyMonitorView
-                  journeyId={journey.id}
-                  nextMission={(() => {
-                    const m = missions.find(m => m.state === 'locked' || m.state === 'active');
-                    return m ? { id: m.id, order: m.order, title: m.question } : null;
-                  })()}
-                />
                 </motion.section>
+                )}
               </Fragment>
             );
           })}
