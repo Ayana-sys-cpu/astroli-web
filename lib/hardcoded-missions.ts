@@ -1,11 +1,11 @@
 // =============================================================================
-// HARDCODED MISSION & PLANT CONTENT — Phase 1
+// LEGACY — Medieval History journey content (no longer used for seeding)
 //
-// Single source of truth for the Medieval History journey content.
-// Used by /api/teacher/connect to seed every new journey automatically.
+// /api/teacher/connect now copies missions and planets directly from curriculum
+// template journeys stored in the database. This file is kept for reference only.
 //
-// To update content: edit the objects below.
-// To add a mission: append to the MISSIONS array (keep mission_order sequential).
+// To update curriculum content: edit the template rows in Supabase directly,
+// or re-run docs/content/curriculum-templates-seed.sql in a fresh environment.
 // =============================================================================
 
 export interface PlanetSeed {

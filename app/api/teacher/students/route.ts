@@ -156,17 +156,24 @@ export async function GET(req: NextRequest) {
 
   const signalMap = new Map<string, SignalType>();
 
-  // NOTE: generateSignals issues per-student DB queries internally (N+1 per journey).
-  // This is acceptable for Phase 1 classroom sizes (< 40 students). Replace with a
-  // batched query against planet_summaries once that pipeline is live (Phase 2 TODO).
-  for (const journey of targetJourneys) {
-    const lastSession = await prisma.classSession.findFirst({
-      where: { journeyId: journey.id, teacherId },
-      orderBy: { startedAt: 'desc' },
-    });
+  // Batch all lastSession lookups in one query, then process journeys in parallel.
+  const allSessions = await prisma.classSession.findMany({
+    where: { teacherId, journeyId: { in: targetJourneyIds } },
+    select: { journeyId: true, startedAt: true },
+    orderBy: { startedAt: 'desc' },
+  });
+  const lastSessionByJourney = new Map<string, Date>();
+  for (const s of allSessions) {
+    if (!lastSessionByJourney.has(s.journeyId)) lastSessionByJourney.set(s.journeyId, s.startedAt);
+  }
 
-    const signals = await generateSignals(journey.id, lastSession?.startedAt ?? null);
+  const allSignalArrays = await Promise.all(
+    targetJourneys.map(journey =>
+      generateSignals(journey.id, lastSessionByJourney.get(journey.id) ?? null)
+    )
+  );
 
+  for (const signals of allSignalArrays) {
     for (const signal of signals) {
       const existing = signalMap.get(signal.studentId);
       if (!existing || SIGNAL_PRIORITY[signal.signalType] < SIGNAL_PRIORITY[existing]) {

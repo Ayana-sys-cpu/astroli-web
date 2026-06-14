@@ -87,16 +87,24 @@ export async function GET(_req: NextRequest) {
   });
   const ackedSet = new Set(acked.map(a => `${a.journeyId}:${a.studentId}:${a.signalType}`));
 
+  // Batch all lastSession lookups in one query instead of N findFirst calls.
+  const allSessions = await prisma.classSession.findMany({
+    where: { teacherId, journeyId: { in: journeys.map(j => j.id) } },
+    select: { journeyId: true, startedAt: true },
+    orderBy: { startedAt: 'desc' },
+  });
+  const lastSessionByJourney = new Map<string, Date>();
+  for (const s of allSessions) {
+    if (!lastSessionByJourney.has(s.journeyId)) lastSessionByJourney.set(s.journeyId, s.startedAt);
+  }
+
   const overview = await Promise.all(journeys.map(async j => {
     const openSession = j.vote_sessions[0] ?? null;
     const status = deriveJourneyStatus(j.missions, openSession !== null);
     const voteEndsAt = openSession?.ends_at?.toISOString() ?? null;
 
-    const lastSession = await prisma.classSession.findFirst({
-      where: { journeyId: j.id, teacherId },
-      orderBy: { startedAt: 'desc' },
-    });
-    const rawSignals = await generateSignals(j.id, lastSession?.startedAt ?? null);
+    const missionIds = j.missions.map(m => m.id);
+    const rawSignals = await generateSignals(j.id, lastSessionByJourney.get(j.id) ?? null, missionIds);
     const cutoff = TEN_DAYS_AGO();
     const attentionCount = rawSignals.filter(s =>
       s.signalCreatedAt > cutoff &&

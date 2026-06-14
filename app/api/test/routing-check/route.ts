@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
 
   if (!user) {
     return NextResponse.json({
-      destination: '/onboarding/interest',
+      destination: '/onboarding/reveal',
       reason: 'no users row — new student',
     });
   }

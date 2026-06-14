@@ -1,14 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase-server';
-
-/** Normalise a Google Classroom course ID to its canonical numeric form. */
-function normaliseCourseId(id: string): string {
-  if (/^[0-9]+$/.test(id)) return id;
-  try {
-    const decoded = Buffer.from(id, 'base64').toString('utf8');
-    if (/^[0-9]+$/.test(decoded)) return decoded;
-  } catch {}
-  return id;
-}
+import { normaliseCourseId } from '@/lib/normalise-course-id';
 
 /**
  * Enrolls a student in all Astroli journeys that match their Google Classroom courses.

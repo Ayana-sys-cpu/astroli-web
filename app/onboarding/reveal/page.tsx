@@ -90,17 +90,6 @@ export default function RevealPage() {
         }}
       />
 
-      {/* Step label */}
-      <motion.p
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 0.7 }}
-        transition={{ delay: 0.3 }}
-        className="mt-10 text-[11px] tracking-[0.4em] font-space uppercase z-10"
-        style={{ color: '#00F5D4' }}
-      >
-        STEP 2 OF 2
-      </motion.p>
-
       {/* Avatar — floats freely, no clip */}
       <div className="relative flex items-center justify-center z-10" style={{ width: 320, height: 320, marginTop: 8 }}>
         {/* Expanding stardust rings */}

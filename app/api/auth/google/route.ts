@@ -96,11 +96,18 @@ async function upsertAuthUserAndToken(
     return null;
   }
 
-  // Do NOT call updateUserById after generateLink. Calling it with
-  // email_confirm: true clears the confirmation_token in auth.users,
-  // which invalidates the hashed_token and causes verifyOtp to 403.
-  // options.data above already sets user_metadata; the email is confirmed
-  // automatically when the client successfully calls verifyOtp.
+  // Explicitly sync user_metadata — generateLink's options.data does NOT reliably
+  // update raw_user_meta_data for EXISTING auth users (it only embeds the data in
+  // the token for potential application at verifyOtp time, but in practice the
+  // existing user record is not updated). We must call updateUserById here.
+  //
+  // IMPORTANT: pass ONLY user_metadata — NEVER email_confirm: true.
+  // email_confirm: true clears confirmation_token in auth.users, which
+  // invalidates hashed_token and causes verifyOtp to 403 (previous bug).
+  const { error: metaErr } = await supabaseAdmin.auth.admin.updateUserById(authUserId, {
+    user_metadata: metadata,
+  });
+  if (metaErr) console.error('[google] updateUserById user_metadata failed:', metaErr);
 
   return { authUserId, authToken: hashed_token };
 }
@@ -248,9 +255,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to save student' }, { status: 503 });
   }
 
+  // Canonical ID: always use the pre-existing row's ID when available.
+  // The users table may lack a UNIQUE constraint on email, which means
+  // the upsert can INSERT a new row instead of updating the existing one —
+  // producing a duplicate row with a different UUID. Using the pre-existing
+  // ID consistently ensures the enrollment in student_journeys and the
+  // student_id stored in auth user_metadata always reference the same row.
+  const canonicalStudentId = existing?.id ?? student.id;
+  if (existing && existing.id !== student.id) {
+    console.warn('[google] duplicate users row — existing.id:', existing.id, 'upsert.id:', student.id, '— using existing.id as canonical');
+  }
+
   // Generate alien identity for new students; reuse existing for returning ones.
-  let alienName    = student.alien_name   as string | null;
-  let baseAvatarUrl = student.base_avatar_url as string | null;
+  // Prefer the canonical row's values — they may differ from student.* when a
+  // duplicate row was inserted and student.* reflects the new (empty) row.
+  let alienName     = (existing?.alien_name     ?? student.alien_name)     as string | null;
+  let baseAvatarUrl = (existing?.base_avatar_url ?? student.base_avatar_url) as string | null;
 
   if (isNewStudent) {
     [alienName, baseAvatarUrl] = await Promise.all([generateAlienName(), Promise.resolve(pickAvatarUrl())]);
@@ -263,23 +283,23 @@ export async function POST(req: NextRequest) {
     await supabaseAdmin
       .from('users')
       .update({ alien_name: alienName, base_avatar_url: baseAvatarUrl })
-      .eq('id', student.id);
+      .eq('id', canonicalStudentId);
   }
 
   // Enroll student in matching journeys before returning — must be awaited so
   // the enrollment completes before the client navigates to /syncing and checks
   // journey status. Fire-and-forget silently fails on Vercel (function exits on
   // response, killing in-flight async work).
-  await enrollStudentInJourneys(student.id, accessToken);
+  await enrollStudentInJourneys(canonicalStudentId, accessToken);
 
   const authResult = await upsertAuthUserAndToken(email, {
-    role: 'student', student_id: student.id, teacher_id: null,
+    role: 'student', student_id: canonicalStudentId, teacher_id: null,
   });
   if (!authResult) {
     return NextResponse.json({ error: 'Failed to create auth session' }, { status: 503 });
   }
 
-  await supabaseAdmin.from('users').update({ auth_user_id: authResult.authUserId }).eq('id', student.id);
+  await supabaseAdmin.from('users').update({ auth_user_id: authResult.authUserId }).eq('id', canonicalStudentId);
 
   return NextResponse.json({
     role:         'student',

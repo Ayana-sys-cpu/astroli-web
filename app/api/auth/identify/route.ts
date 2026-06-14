@@ -41,7 +41,13 @@ async function upsertAuthUserAndToken(
     return null;
   }
 
-  // Do NOT call updateUserById after generateLink — see google/route.ts for explanation.
+  // Explicitly sync user_metadata — generateLink's options.data does NOT reliably
+  // update raw_user_meta_data for EXISTING auth users. See google/route.ts for
+  // the full explanation. Pass ONLY user_metadata — never email_confirm: true.
+  const { error: metaErr } = await supabaseAdmin.auth.admin.updateUserById(authUserId, {
+    user_metadata: metadata,
+  });
+  if (metaErr) console.error('[identify] updateUserById user_metadata failed:', metaErr);
 
   return { authUserId, authToken: hashed_token };
 }

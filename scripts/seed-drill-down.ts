@@ -5,36 +5,34 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-async function main() {
-  // ── Find a student by approximate name (edit to match your dev data) ──────
-  const TARGET_STUDENT_NAME = 'Alex'; // Change to any student in your dev DB
+const SAMPLE_PERFORMANCES = [
+  'explaining',
+  'applying_concepts',
+  'grace_completion',
+  'generalizing',
+  null, // not started / in_progress
+  'mustering_evidence',
+  'finding_examples',
+];
 
-  const student = await prisma.user.findFirst({
-    where: {
-      OR: [
-        { full_name: { contains: TARGET_STUDENT_NAME, mode: 'insensitive' } },
-        { first_name: { contains: TARGET_STUDENT_NAME, mode: 'insensitive' } },
-      ],
-      role: 'student',
-    },
-  });
+async function seedStudent(student: { id: string; full_name: string | null; first_name: string | null }) {
+  const name = student.full_name ?? student.first_name ?? student.id;
+  console.log(`\nSeeding: ${name} (${student.id})`);
 
-  if (!student) {
-    console.error(`No student found matching "${TARGET_STUDENT_NAME}". Edit TARGET_STUDENT_NAME.`);
-    process.exit(1);
-  }
-
-  console.log(`Seeding drill-down data for: ${student.full_name ?? student.first_name} (${student.id})`);
-
-  // ── Find this student's planets via journey enrollments ───────────────────
   const enrollments = await prisma.student_journeys.findMany({
     where: { student_id: student.id },
-    include: {
+    select: {
       journeys: {
-        include: {
+        select: {
+          id: true,
           missions: {
-            include: { planets: true },
             orderBy: { mission_order: 'asc' },
+            select: {
+              id: true,
+              planets: {
+                select: { id: true, title: true },
+              },
+            },
           },
         },
       },
@@ -46,21 +44,11 @@ async function main() {
   );
 
   if (planets.length === 0) {
-    console.error('No planets found for this student. Check their journey enrollments.');
-    process.exit(1);
+    console.log('  (no planets — skipping)');
+    return;
   }
 
-  console.log(`Found ${planets.length} planets. Seeding summaries...`);
-
-  const SAMPLE_PERFORMANCES = [
-    'explaining',
-    'applying_concepts',
-    'grace_completion',
-    'generalizing',
-    null, // not started
-    'mustering_evidence',
-    'finding_examples',
-  ];
+  console.log(`  Found ${planets.length} planets.`);
 
   for (let i = 0; i < planets.length; i++) {
     const planet = planets[i];
@@ -85,7 +73,6 @@ async function main() {
     });
 
     if (!isNotStarted && perfType) {
-      // Seed 1-2 learning goals per completed planet
       await prisma.planetSummaryGoal.deleteMany({ where: { summaryId: summary.id } });
 
       await prisma.planetSummaryGoal.create({
@@ -112,6 +99,24 @@ async function main() {
     }
 
     console.log(`  ✓ ${planet.title} → ${status}${perfType ? ` / ${perfType}` : ''}`);
+  }
+}
+
+async function main() {
+  const students = await prisma.user.findMany({
+    where: { role: 'student' },
+    select: { id: true, full_name: true, first_name: true },
+  });
+
+  if (students.length === 0) {
+    console.error('No students found in the database.');
+    process.exit(1);
+  }
+
+  console.log(`Found ${students.length} student(s). Seeding drill-down data...`);
+
+  for (const student of students) {
+    await seedStudent(student);
   }
 
   console.log('\nSeed complete.');

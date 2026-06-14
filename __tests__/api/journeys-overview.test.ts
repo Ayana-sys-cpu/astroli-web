@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deriveJourneyStatus } from '@/app/api/teacher/journeys-overview/route';
+import { deriveJourneyStatus } from '@/lib/journey-status';
 
 describe('deriveJourneyStatus', () => {
   it('returns live when any mission is active', () => {

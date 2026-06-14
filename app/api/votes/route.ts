@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Vote session not found or already closed' }, { status: 404 });
   }
 
+  const now = new Date().toISOString();
   const { error } = await supabaseAdmin
     .from('votes')
     .upsert(
@@ -46,6 +47,7 @@ export async function POST(req: NextRequest) {
         vote_session_id: voteSessionId,
         journey_id:      session.journey_id,
         big_idea_id:     bigIdeaId,
+        updated_at:      now,
       },
       { onConflict: 'student_id,vote_session_id' },
     );

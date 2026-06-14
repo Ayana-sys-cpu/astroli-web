@@ -29,21 +29,30 @@ export interface StudentSignal {
  * - If no messages since lastSessionAt → non_engagement
  * - No other signals detected yet (grace, stuck, breakthrough require planet data)
  */
+// knownMissionIds: callers that already fetched missions (e.g. journeys-overview) pass
+// them directly to skip the redundant Supabase round-trip.
 export async function generateSignals(
   journeyId: string,
   lastSessionAt: Date | null,
+  knownMissionIds?: string[],
 ): Promise<StudentSignal[]> {
-  const { data: missionRows, error: missionsError } = await supabaseAdmin
-    .from('missions')
-    .select('id')
-    .eq('journey_id', journeyId);
+  let missionIds: string[];
 
-  if (missionsError) {
-    console.error('[signals] missions query failed', missionsError);
-    return [];
+  if (knownMissionIds) {
+    missionIds = knownMissionIds;
+  } else {
+    const { data: missionRows, error: missionsError } = await supabaseAdmin
+      .from('missions')
+      .select('id')
+      .eq('journey_id', journeyId);
+
+    if (missionsError) {
+      console.error('[signals] missions query failed', missionsError);
+      return [];
+    }
+    missionIds = (missionRows ?? []).map((m: { id: string }) => m.id);
   }
 
-  const missionIds = (missionRows ?? []).map((m: { id: string }) => m.id);
   if (missionIds.length === 0) return [];
 
   const { data: startedRows, error: startedError } = await supabaseAdmin
@@ -66,23 +75,45 @@ export async function generateSignals(
     if (!byStudent.has(sid) || ts < byStudent.get(sid)!) byStudent.set(sid, ts);
   }
 
-  const signals: StudentSignal[] = [];
   const since = lastSessionAt ?? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const studentIds = Array.from(byStudent.keys());
 
-  for (const [studentId, startedAt] of Array.from(byStudent.entries())) {
-    // Test signal override — scoped to this journey's missions to avoid cross-journey contamination.
-    // Remove once planet_summaries pipeline is live.
-    const { data: overrideMsg } = await supabaseAdmin
+  // Run both message queries in parallel — they're independent.
+  // Remove override query once planet_summaries pipeline is live.
+  const [overridesResult, recentResult] = await Promise.all([
+    supabaseAdmin
       .from('messages')
-      .select('content')
-      .eq('student_id', studentId)
+      .select('student_id, content, created_at')
+      .in('student_id', studentIds)
       .in('mission_id', missionIds)
       .like('content', '[SIGNAL:%]')
-      .order('created_at', { ascending: false })
-      .limit(1);
+      .order('created_at', { ascending: false }),
+    supabaseAdmin
+      .from('messages')
+      .select('student_id')
+      .in('student_id', studentIds)
+      .in('mission_id', missionIds)
+      .gte('created_at', since.toISOString()),
+  ]);
 
-    if (overrideMsg && overrideMsg.length > 0) {
-      const match = (overrideMsg[0].content as string).match(/^\[SIGNAL:(\w+)\]/);
+  // Keep only the most recent override per student.
+  const overrideByStudent = new Map<string, string>();
+  for (const row of overridesResult.data ?? []) {
+    if (!overrideByStudent.has(row.student_id as string)) {
+      overrideByStudent.set(row.student_id as string, row.content as string);
+    }
+  }
+
+  const { data: recentMsgs } = recentResult;
+
+  const studentsWithActivity = new Set((recentMsgs ?? []).map(r => r.student_id as string));
+
+  const signals: StudentSignal[] = [];
+
+  for (const [studentId, startedAt] of Array.from(byStudent.entries())) {
+    const overrideContent = overrideByStudent.get(studentId);
+    if (overrideContent) {
+      const match = overrideContent.match(/^\[SIGNAL:(\w+)\]/);
       const overrideType = match?.[1] as SignalType | undefined;
       if (overrideType && ['breakthrough', 'grace_completion', 'stuck', 'non_engagement'].includes(overrideType)) {
         signals.push({ studentId, signalType: overrideType, signalCreatedAt: startedAt });
@@ -90,20 +121,7 @@ export async function generateSignals(
       }
     }
 
-    // Default: non_engagement if no messages in this journey's missions since last session
-    const { count, error: countError } = await supabaseAdmin
-      .from('messages')
-      .select('id', { count: 'exact', head: true })
-      .eq('student_id', studentId)
-      .in('mission_id', missionIds)
-      .gte('created_at', since.toISOString());
-
-    if (countError) {
-      console.error('[signals] message count query failed', countError);
-      continue;
-    }
-
-    if ((count ?? 0) === 0) {
+    if (!studentsWithActivity.has(studentId)) {
       signals.push({ studentId, signalType: 'non_engagement', signalCreatedAt: startedAt });
     }
   }

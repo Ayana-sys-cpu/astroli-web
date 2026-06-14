@@ -127,7 +127,7 @@ export default function LoginPage() {
       if (data.baseAvatarUrl) saveBaseAvatarUrl(data.baseAvatarUrl);
       if (!data.isNewStudent) markOnboardingComplete();
 
-      router.push(data.isNewStudent ? '/onboarding/interest' : '/syncing');
+      router.push(data.isNewStudent ? '/onboarding/reveal' : '/syncing');
     } catch (err) {
       console.error('[login]', err);
       setError("Couldn't sign you in. Check your connection and try again.");

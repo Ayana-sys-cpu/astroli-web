@@ -88,14 +88,16 @@ CREATE TRIGGER users_updated_at
 
 -- -----------------------------------------------------------------------------
 -- JOURNEYS
--- One journey per Google Classroom course linked to a teacher.
+-- Class journeys are linked to a Google Classroom course (google_course_id).
+-- Curriculum template journeys have google_course_id = NULL and teacher_id = NULL.
 -- Vote state is managed via the vote_sessions table — no vote_ends_at here.
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS journeys (
   id                     UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
-  google_course_id       TEXT        UNIQUE NOT NULL,
+  google_course_id       TEXT        UNIQUE,          -- NULL for curriculum templates
   title                  TEXT        NOT NULL,
-  teacher_id             UUID        NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  teacher_id             UUID        REFERENCES users(user_id) ON DELETE CASCADE, -- NULL for curriculum templates
+  curriculum_journey_id  UUID        REFERENCES journeys(id) ON DELETE SET NULL,
   last_material_sync_at  TIMESTAMPTZ,
   created_at             TIMESTAMPTZ DEFAULT now(),
   updated_at             TIMESTAMPTZ DEFAULT now()
