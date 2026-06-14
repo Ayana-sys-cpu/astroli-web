@@ -3,13 +3,12 @@ import { useRouter } from 'next/navigation';
 import type { JourneyStatus } from '@/lib/journey-status';
 
 export interface JourneyCardData {
-  id:             string;
-  title:          string;
-  status:         JourneyStatus;
-  statusNote:     string;
-  studentCount:   number;
-  attentionCount: number;
-  coverGradient:  { from: string; mid: string; accent: string };
+  id:            string;
+  title:         string;
+  status:        JourneyStatus;
+  statusNote:    string;
+  studentCount:  number;
+  coverGradient: { from: string; mid: string; accent: string };
 }
 
 const BADGE: Record<JourneyStatus, { label: string; color: string; bg: string; border: string }> = {
@@ -156,15 +155,6 @@ export default function JourneyCard({ journey }: { journey: JourneyCardData }) {
           <span style={{ fontSize: 9, color: 'rgba(26,26,46,0.35)', letterSpacing: '0.07em' }}>
             👥 {journey.studentCount} students
           </span>
-          {journey.attentionCount > 0 ? (
-            <span style={{ fontSize: 9, color: '#B45309', letterSpacing: '0.07em' }}>
-              ⚠️ {journey.attentionCount} need attention
-            </span>
-          ) : (
-            <span style={{ fontSize: 9, color: '#059669', letterSpacing: '0.07em' }}>
-              ✅ No alerts
-            </span>
-          )}
         </div>
       </div>
     </div>

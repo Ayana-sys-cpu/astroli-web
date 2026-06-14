@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, assertTeacherSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { generateSignals } from '@/lib/signals';
 import { deriveJourneyStatus } from '@/lib/journey-status';
 import type { JourneyStatus } from '@/lib/journey-status';
 
@@ -48,9 +47,6 @@ function buildStatusNote(
   }
 }
 
-const TEN_DAYS_AGO = () => new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
-const ATTENTION_SIGNAL_TYPES = new Set(['stuck', 'non_engagement', 'grace_completion']);
-
 export async function GET(_req: NextRequest) {
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
@@ -81,49 +77,22 @@ export async function GET(_req: NextRequest) {
     orderBy: { createdAt: 'asc' },
   });
 
-  const acked = await prisma.teacherSignalAcknowledgement.findMany({
-    where: { teacherId },
-    select: { studentId: true, journeyId: true, signalType: true },
-  });
-  const ackedSet = new Set(acked.map(a => `${a.journeyId}:${a.studentId}:${a.signalType}`));
-
-  // Batch all lastSession lookups in one query instead of N findFirst calls.
-  const allSessions = await prisma.classSession.findMany({
-    where: { teacherId, journeyId: { in: journeys.map(j => j.id) } },
-    select: { journeyId: true, startedAt: true },
-    orderBy: { startedAt: 'desc' },
-  });
-  const lastSessionByJourney = new Map<string, Date>();
-  for (const s of allSessions) {
-    if (!lastSessionByJourney.has(s.journeyId)) lastSessionByJourney.set(s.journeyId, s.startedAt);
-  }
-
-  const overview = await Promise.all(journeys.map(async j => {
+  const overview = journeys.map(j => {
     const openSession = j.vote_sessions[0] ?? null;
     const status = deriveJourneyStatus(j.missions, openSession !== null);
     const voteEndsAt = openSession?.ends_at?.toISOString() ?? null;
 
-    const missionIds = j.missions.map(m => m.id);
-    const rawSignals = await generateSignals(j.id, lastSessionByJourney.get(j.id) ?? null, missionIds);
-    const cutoff = TEN_DAYS_AGO();
-    const attentionCount = rawSignals.filter(s =>
-      s.signalCreatedAt > cutoff &&
-      ATTENTION_SIGNAL_TYPES.has(s.signalType) &&
-      !ackedSet.has(`${j.id}:${s.studentId}:${s.signalType}`)
-    ).length;
-
     return {
-      id:             j.id,
-      title:          j.title,
+      id:           j.id,
+      title:        j.title,
       googleCourseId: j.googleCourseId,
       status,
-      statusNote:     buildStatusNote(status, j.missions, voteEndsAt),
+      statusNote:   buildStatusNote(status, j.missions, voteEndsAt),
       voteEndsAt,
-      studentCount:   j.student_journeys.length,
-      attentionCount,
-      coverGradient:  coverGradient(j.id),
+      studentCount: j.student_journeys.length,
+      coverGradient: coverGradient(j.id),
     };
-  }));
+  });
 
   return NextResponse.json({ journeys: overview });
 }
