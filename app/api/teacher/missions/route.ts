@@ -87,7 +87,16 @@ export async function GET(req: NextRequest) {
 
     const owned = await verifyJourneyOwnership(missionRow.journey_id, teacherId);
     if (!owned) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      // Allow read-only access to curriculum template missions (teacher_id IS NULL).
+      const { data: templateJourney } = await supabaseAdmin
+        .from('journeys')
+        .select('id')
+        .eq('id', missionRow.journey_id)
+        .is('teacher_id', null)
+        .single();
+      if (!templateJourney) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
     }
 
     const { data, error } = await supabaseAdmin

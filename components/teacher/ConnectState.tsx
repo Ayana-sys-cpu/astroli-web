@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import { type CourseRecord } from '@/lib/teacher-store';
 
 const CURRICULUM_OPTIONS = [
@@ -34,6 +35,25 @@ const CURRICULUM_OPTIONS = [
   },
 ] as const;
 
+interface PlanetPreview {
+  id: string;
+  title: string;
+  content: string;
+  openingMessage: string | null;
+}
+
+interface MissionPreview {
+  id: string;
+  order: number;
+  question: string;
+  questionDescription: string | null;
+  projectTitle: string;
+  projectDescription: string | null;
+  planets: PlanetPreview[];
+}
+
+type JourneyDetails = MissionPreview[] | 'loading' | 'error';
+
 export default function ConnectState({
   courses,
   onConnected,
@@ -41,10 +61,33 @@ export default function ConnectState({
   courses: CourseRecord[];
   onConnected: () => void;
 }) {
+  const router = useRouter();
   const [selectedCourse,     setSelectedCourse]     = useState<string | null>(() => courses.length > 0 ? courses[0].id : null);
   const [selectedCurriculum, setSelectedCurriculum] = useState<string | null>(null);
   const [connecting,         setConnecting]         = useState(false);
   const [error,              setError]              = useState<string | null>(null);
+  const [journeyDetails,     setJourneyDetails]     = useState<Record<string, JourneyDetails>>({});
+  const [expandedMission,    setExpandedMission]    = useState<string | null>(null);
+
+  async function fetchJourneyDetails(journeyId: string) {
+    if (journeyDetails[journeyId]) return;
+    setJourneyDetails(prev => ({ ...prev, [journeyId]: 'loading' }));
+    try {
+      const res = await fetch(`/api/curriculum?id=${journeyId}`);
+      if (!res.ok) throw new Error('Failed');
+      const data = await res.json();
+      setJourneyDetails(prev => ({ ...prev, [journeyId]: data.missions }));
+    } catch {
+      setJourneyDetails(prev => ({ ...prev, [journeyId]: 'error' }));
+    }
+  }
+
+  function handleSelectCurriculum(id: string) {
+    const isDeselecting = selectedCurriculum === id;
+    setSelectedCurriculum(isDeselecting ? null : id);
+    setExpandedMission(null);
+    if (!isDeselecting) fetchJourneyDetails(id);
+  }
 
   async function handleConnect() {
     const course = courses.find(c => c.id === selectedCourse);
@@ -89,18 +132,10 @@ export default function ConnectState({
   const canConnect = selectedCourse !== null && selectedCurriculum !== null;
 
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }} className="max-w-lg mx-auto mt-16">
-      <div className="mb-8">
-        <h2 className="font-space font-black tracking-[0.12em] mb-2" style={{ fontSize: 20, color: '#1a1a2e' }}>
-          SET UP YOUR CLASS
-        </h2>
-        <p className="font-inter text-sm" style={{ color: 'rgba(26,26,46,0.45)' }}>
-          Choose your Google Classroom and the curriculum that matches it. Your roster is pulled automatically — no manual entry needed.
-        </p>
-      </div>
+    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }} className="max-w-2xl mx-auto mt-12">
 
       {/* Step 1 — Select classroom */}
-      <div className="mb-7">
+      <div className="mb-10">
         <p className="font-space text-[10px] font-bold tracking-[0.2em] mb-3" style={{ color: 'rgba(26,26,46,0.3)' }}>
           STEP 1 · SELECT CLASSROOM
         </p>
@@ -113,9 +148,7 @@ export default function ConnectState({
                 onClick={() => setSelectedCourse(course.id)}
                 className="flex items-center gap-4 rounded-xl px-5 py-4 text-left transition-all"
                 style={{
-                  background: isSelected
-                    ? 'linear-gradient(135deg, rgba(124,58,237,0.08) 0%, rgba(0,212,255,0.04) 100%)'
-                    : 'rgba(255,255,255,0.6)',
+                  background: isSelected ? 'linear-gradient(135deg, rgba(124,58,237,0.08) 0%, rgba(0,212,255,0.04) 100%)' : 'rgba(255,255,255,0.6)',
                   border: `1px solid ${isSelected ? 'rgba(124,58,237,0.4)' : 'rgba(26,26,46,0.08)'}`,
                   cursor: 'pointer',
                 }}
@@ -127,9 +160,7 @@ export default function ConnectState({
                   {isSelected && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#7C3AED' }} />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-space font-bold text-sm truncate" style={{ color: '#1a1a2e' }}>
-                    {course.name}
-                  </p>
+                  <p className="font-space font-bold text-sm truncate" style={{ color: '#1a1a2e' }}>{course.name}</p>
                   {course.section && (
                     <p className="font-inter text-xs mt-0.5" style={{ color: 'rgba(26,26,46,0.35)' }}>{course.section}</p>
                   )}
@@ -140,48 +171,194 @@ export default function ConnectState({
         </div>
       </div>
 
-      {/* Step 2 — Select curriculum */}
+      {/* Step 2 — Link to journey */}
       <div className="mb-8">
-        <p className="font-space text-[10px] font-bold tracking-[0.2em] mb-3" style={{ color: 'rgba(26,26,46,0.3)' }}>
-          STEP 2 · SELECT CURRICULUM
+        <p className="font-space text-[10px] font-bold tracking-[0.2em] mb-1" style={{ color: 'rgba(26,26,46,0.3)' }}>
+          STEP 2 · LINK TO JOURNEY
         </p>
+        <p className="font-inter text-xs mb-4" style={{ color: 'rgba(26,26,46,0.4)', lineHeight: 1.6 }}>
+          A journey is a series of missions built around a big question. In each mission, students explore knowledge stops called planets — guided by a character bot — and apply what they discover to a real project.
+        </p>
+
         <div className="flex flex-col gap-3">
           {CURRICULUM_OPTIONS.map(option => {
             const isSelected = selectedCurriculum === option.id;
+            const details    = journeyDetails[option.id];
+            const missions   = Array.isArray(details) ? details : null;
+
             return (
-              <button
+              <div
                 key={option.id}
-                onClick={() => setSelectedCurriculum(option.id)}
-                className="flex items-center gap-4 rounded-xl px-5 py-4 text-left transition-all"
+                className="rounded-xl overflow-hidden transition-all"
                 style={{
-                  background: isSelected
-                    ? 'linear-gradient(135deg, rgba(124,58,237,0.08) 0%, rgba(0,212,255,0.04) 100%)'
-                    : 'rgba(255,255,255,0.6)',
-                  border: `1px solid ${isSelected ? 'rgba(124,58,237,0.4)' : 'rgba(26,26,46,0.08)'}`,
-                  cursor: 'pointer',
+                  background: isSelected ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.55)',
+                  border: `1.5px solid ${isSelected ? 'rgba(124,58,237,0.45)' : 'rgba(26,26,46,0.09)'}`,
                 }}
               >
-                <span style={{ fontSize: 22, flexShrink: 0 }}>{option.emoji}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-space font-bold text-sm" style={{ color: '#1a1a2e' }}>
-                    {option.label}
-                  </p>
-                  <p className="font-inter text-xs mt-0.5" style={{ color: isSelected ? '#7C3AED' : 'rgba(26,26,46,0.4)' }}>
-                    {option.tagline} · {option.detail}
-                  </p>
-                </div>
-                <div
-                  className="flex items-center justify-center flex-shrink-0"
-                  style={{ width: 18, height: 18, borderRadius: '50%', border: `1.5px solid ${isSelected ? '#7C3AED' : 'rgba(26,26,46,0.2)'}`, background: isSelected ? 'rgba(124,58,237,0.12)' : 'transparent' }}
+                {/* Journey header — always visible */}
+                <button
+                  onClick={() => handleSelectCurriculum(option.id)}
+                  className="w-full flex items-center gap-4 px-5 py-4 text-left transition-all"
                 >
-                  {isSelected && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#7C3AED' }} />}
-                </div>
-              </button>
+                  <div
+                    className="flex items-center justify-center flex-shrink-0"
+                    style={{ width: 18, height: 18, borderRadius: '50%', border: `1.5px solid ${isSelected ? '#7C3AED' : 'rgba(26,26,46,0.2)'}`, background: isSelected ? 'rgba(124,58,237,0.12)' : 'transparent' }}
+                  >
+                    {isSelected && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#7C3AED' }} />}
+                  </div>
+                  <span style={{ fontSize: 22, flexShrink: 0 }}>{option.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-space font-bold text-sm" style={{ color: '#1a1a2e' }}>{option.label}</p>
+                    <p className="font-inter text-xs mt-0.5" style={{ color: isSelected ? '#7C3AED' : 'rgba(26,26,46,0.4)' }}>
+                      {option.tagline} · {option.detail}
+                    </p>
+                  </div>
+                  <span style={{ fontSize: 16, color: 'rgba(26,26,46,0.3)', flexShrink: 0, transform: isSelected ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>›</span>
+                </button>
+
+                {/* Expanded: missions */}
+                <AnimatePresence initial={false}>
+                  {isSelected && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25 }}
+                      style={{ overflow: 'hidden', borderTop: '1px solid rgba(124,58,237,0.12)' }}
+                    >
+                      <div style={{ padding: '14px 18px 18px' }}>
+                        <p className="font-space font-bold text-[10px] tracking-[0.18em] mb-3" style={{ color: 'rgba(26,26,46,0.3)' }}>
+                          MISSIONS IN THIS JOURNEY
+                        </p>
+
+                        {details === 'loading' && (
+                          <div className="flex items-center gap-2 py-4">
+                            <span className="w-3.5 h-3.5 rounded-full border-2 border-purple-300 border-t-purple-600 animate-spin" />
+                            <span className="font-space text-[10px] tracking-widest" style={{ color: 'rgba(26,26,46,0.3)' }}>LOADING MISSIONS…</span>
+                          </div>
+                        )}
+
+                        {details === 'error' && (
+                          <p className="font-inter text-xs py-2" style={{ color: '#DC2626' }}>Failed to load mission details. Please try again.</p>
+                        )}
+
+                        {missions && (
+                          <div className="flex flex-col gap-2">
+                            {missions.map(mission => {
+                              const mOpen = expandedMission === mission.id;
+                              return (
+                                <div
+                                  key={mission.id}
+                                  className="rounded-xl overflow-hidden"
+                                  style={{
+                                    background: mOpen ? 'rgba(124,58,237,0.05)' : 'rgba(26,26,46,0.025)',
+                                    border: `1px solid ${mOpen ? 'rgba(124,58,237,0.25)' : 'rgba(26,26,46,0.07)'}`,
+                                  }}
+                                >
+                                  {/* Mission header */}
+                                  <button
+                                    onClick={() => setExpandedMission(mOpen ? null : mission.id)}
+                                    className="w-full flex items-start gap-3 px-4 py-3 text-left"
+                                  >
+                                    <span className="font-space font-bold text-[10px] tracking-[0.1em] flex-shrink-0 pt-0.5" style={{ color: mOpen ? '#7C3AED' : 'rgba(26,26,46,0.3)' }}>
+                                      M{String(mission.order).padStart(2, '0')}
+                                    </span>
+                                    <p className="flex-1 font-space font-bold text-sm leading-snug" style={{ color: '#1a1a2e' }}>
+                                      {mission.question}
+                                    </p>
+                                    <span style={{ fontSize: 15, color: 'rgba(26,26,46,0.25)', flexShrink: 0, transform: mOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', marginTop: 2 }}>›</span>
+                                  </button>
+
+                                  {/* Mission body */}
+                                  <AnimatePresence initial={false}>
+                                    {mOpen && (
+                                      <motion.div
+                                        initial={{ height: 0 }}
+                                        animate={{ height: 'auto' }}
+                                        exit={{ height: 0 }}
+                                        transition={{ duration: 0.2 }}
+                                        style={{ overflow: 'hidden' }}
+                                      >
+                                        <div style={{ padding: '0 16px 16px 36px' }}>
+
+                                          {/* What students do */}
+                                          {mission.questionDescription && (
+                                            <p className="font-inter text-xs mb-3" style={{ color: 'rgba(26,26,46,0.55)', lineHeight: 1.65 }}>
+                                              {mission.questionDescription}
+                                            </p>
+                                          )}
+
+                                          {/* How they learn */}
+                                          <div className="mb-3 rounded-lg px-3 py-2.5" style={{ background: 'rgba(124,58,237,0.06)', border: '1px solid rgba(124,58,237,0.15)' }}>
+                                            <p className="font-space font-bold text-[9px] tracking-[0.15em] mb-1" style={{ color: '#7C3AED' }}>HOW STUDENTS LEARN</p>
+                                            <p className="font-inter text-[11px]" style={{ color: 'rgba(26,26,46,0.5)', lineHeight: 1.6 }}>
+                                              Students explore each planet by chatting with a character bot embedded in the time period or concept. They ask questions, get challenged, and form their own understanding before moving to the next planet.
+                                            </p>
+                                          </div>
+
+                                          {/* Planet list */}
+                                          {mission.planets.length > 0 && (
+                                            <>
+                                              <p className="font-space font-bold text-[9px] tracking-[0.15em] mb-2" style={{ color: 'rgba(26,26,46,0.3)' }}>
+                                                PLANETS · {mission.planets.length} KNOWLEDGE STOPS
+                                              </p>
+                                              <div className="grid grid-cols-2 gap-1.5 mb-3">
+                                                {mission.planets.map((planet, pi) => (
+                                                  <div
+                                                    key={planet.id}
+                                                    className="flex items-start gap-2 rounded-lg px-3 py-2"
+                                                    style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(26,26,46,0.07)' }}
+                                                  >
+                                                    <span className="font-space font-bold text-[9px] flex-shrink-0 pt-0.5" style={{ color: 'rgba(26,26,46,0.2)' }}>
+                                                      {String(pi + 1).padStart(2, '0')}
+                                                    </span>
+                                                    <span className="font-space font-bold text-[11px] leading-snug" style={{ color: '#1a1a2e' }}>
+                                                      {planet.title}
+                                                    </span>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </>
+                                          )}
+
+                                          {/* Preview button */}
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              router.push(`/teacher/mission/${mission.id}`);
+                                            }}
+                                            className="flex items-center gap-2 font-space font-bold text-[10px] tracking-[0.08em] px-3 py-2 rounded-lg transition-all"
+                                            style={{ background: 'rgba(26,26,46,0.05)', border: '1px solid rgba(26,26,46,0.12)', color: 'rgba(26,26,46,0.55)', cursor: 'pointer' }}
+                                          >
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                                            </svg>
+                                            Preview from student view
+                                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                              <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+                                            </svg>
+                                          </button>
+
+                                        </div>
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             );
           })}
         </div>
       </div>
 
+      {/* CTA */}
       <motion.button
         onClick={handleConnect}
         disabled={connecting || !canConnect}
@@ -206,7 +383,7 @@ export default function ConnectState({
 
       {!canConnect && !connecting && (
         <p className="font-inter text-[11px] text-center mt-3" style={{ color: 'rgba(26,26,46,0.3)' }}>
-          Select a classroom and a curriculum to continue
+          Select a classroom and link a journey to continue
         </p>
       )}
 
