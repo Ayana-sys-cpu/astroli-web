@@ -19,10 +19,10 @@ export default function NewJourneyPage() {
   return (
     <div style={{ padding: '40px 48px' }}>
       <div style={{ marginBottom: 32 }}>
-        <h1 className="font-space font-black" style={{ fontSize: 26, letterSpacing: '0.12em', color: '#E8E8F0' }}>
+        <h1 className="font-space font-black" style={{ fontSize: 26, letterSpacing: '0.12em', color: '#1a1a2e' }}>
           NEW JOURNEY
         </h1>
-        <p className="font-inter" style={{ fontSize: 11, color: 'rgba(232,232,240,0.35)', letterSpacing: '0.04em', marginTop: 6 }}>
+        <p className="font-inter" style={{ fontSize: 11, color: 'rgba(26,26,46,0.35)', letterSpacing: '0.04em', marginTop: 6 }}>
           Connect a classroom and select a curriculum to get started
         </p>
       </div>

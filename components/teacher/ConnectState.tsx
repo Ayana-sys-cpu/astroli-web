@@ -71,14 +71,14 @@ export default function ConnectState({
   if (courses.length === 0) {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center mt-28 gap-4">
-        <p className="font-space text-sm tracking-widest" style={{ color: 'rgba(232,232,240,0.4)' }}>NO CLASSROOMS DETECTED</p>
-        <p className="font-inter text-xs text-center max-w-xs" style={{ color: 'rgba(232,232,240,0.25)' }}>
+        <p className="font-space text-sm tracking-widest" style={{ color: 'rgba(26,26,46,0.4)' }}>NO CLASSROOMS DETECTED</p>
+        <p className="font-inter text-xs text-center max-w-xs" style={{ color: 'rgba(26,26,46,0.35)' }}>
           Your Google Classroom courses couldn&apos;t be loaded. Sign out and sign back in to try again.
         </p>
         <button
           onClick={() => { if (typeof window !== 'undefined') { localStorage.clear(); window.location.href = '/'; } }}
           className="mt-2 px-5 py-2 rounded-lg font-space font-bold text-xs tracking-[0.12em]"
-          style={{ background: 'rgba(124,58,237,0.2)', color: '#A78BFA', border: '1px solid rgba(124,58,237,0.4)' }}
+          style={{ background: 'rgba(124,58,237,0.12)', color: '#7C3AED', border: '1px solid rgba(124,58,237,0.3)' }}
         >
           SIGN OUT &amp; RETRY
         </button>
@@ -91,17 +91,17 @@ export default function ConnectState({
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }} className="max-w-lg mx-auto mt-16">
       <div className="mb-8">
-        <h2 className="font-space font-black tracking-[0.12em] mb-2" style={{ fontSize: 20, color: '#E8E8F0' }}>
+        <h2 className="font-space font-black tracking-[0.12em] mb-2" style={{ fontSize: 20, color: '#1a1a2e' }}>
           SET UP YOUR CLASS
         </h2>
-        <p className="font-inter text-sm" style={{ color: 'rgba(232,232,240,0.4)' }}>
+        <p className="font-inter text-sm" style={{ color: 'rgba(26,26,46,0.45)' }}>
           Choose your Google Classroom and the curriculum that matches it. Your roster is pulled automatically — no manual entry needed.
         </p>
       </div>
 
       {/* Step 1 — Select classroom */}
       <div className="mb-7">
-        <p className="font-space text-[10px] font-bold tracking-[0.2em] mb-3" style={{ color: 'rgba(232,232,240,0.3)' }}>
+        <p className="font-space text-[10px] font-bold tracking-[0.2em] mb-3" style={{ color: 'rgba(26,26,46,0.3)' }}>
           STEP 1 · SELECT CLASSROOM
         </p>
         <div className="flex flex-col gap-3">
@@ -116,29 +116,29 @@ export default function ConnectState({
                 className="flex items-center gap-4 rounded-xl px-5 py-4 text-left transition-all"
                 style={{
                   background: isSelected
-                    ? 'linear-gradient(135deg, rgba(124,58,237,0.12) 0%, rgba(0,212,255,0.06) 100%)'
-                    : 'rgba(232,232,240,0.03)',
-                  border: `1px solid ${isSelected ? 'rgba(124,58,237,0.4)' : 'rgba(232,232,240,0.08)'}`,
+                    ? 'linear-gradient(135deg, rgba(124,58,237,0.08) 0%, rgba(0,212,255,0.04) 100%)'
+                    : 'rgba(255,255,255,0.6)',
+                  border: `1px solid ${isSelected ? 'rgba(124,58,237,0.4)' : 'rgba(26,26,46,0.08)'}`,
                   opacity: isLocked ? 0.38 : 1,
                   cursor: isLocked ? 'not-allowed' : 'pointer',
                 }}
               >
                 <div
                   className="flex items-center justify-center flex-shrink-0"
-                  style={{ width: 18, height: 18, borderRadius: '50%', border: `1.5px solid ${isSelected ? '#7C3AED' : 'rgba(232,232,240,0.2)'}`, background: isSelected ? 'rgba(124,58,237,0.15)' : 'transparent' }}
+                  style={{ width: 18, height: 18, borderRadius: '50%', border: `1.5px solid ${isSelected ? '#7C3AED' : 'rgba(26,26,46,0.2)'}`, background: isSelected ? 'rgba(124,58,237,0.12)' : 'transparent' }}
                 >
                   {isSelected && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#7C3AED' }} />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-space font-bold text-sm truncate" style={{ color: isLocked ? 'rgba(232,232,240,0.4)' : '#E8E8F0' }}>
+                  <p className="font-space font-bold text-sm truncate" style={{ color: isLocked ? 'rgba(26,26,46,0.35)' : '#1a1a2e' }}>
                     {course.name}
                   </p>
                   {course.section && (
-                    <p className="font-inter text-xs mt-0.5" style={{ color: 'rgba(232,232,240,0.3)' }}>{course.section}</p>
+                    <p className="font-inter text-xs mt-0.5" style={{ color: 'rgba(26,26,46,0.35)' }}>{course.section}</p>
                   )}
                 </div>
                 {isLocked && (
-                  <span className="font-space text-[9px] font-bold tracking-[0.1em] px-2 py-1 rounded flex-shrink-0" style={{ background: 'rgba(232,232,240,0.05)', color: 'rgba(232,232,240,0.3)', border: '1px solid rgba(232,232,240,0.1)' }}>
+                  <span className="font-space text-[9px] font-bold tracking-[0.1em] px-2 py-1 rounded flex-shrink-0" style={{ background: 'rgba(26,26,46,0.04)', color: 'rgba(26,26,46,0.3)', border: '1px solid rgba(26,26,46,0.08)' }}>
                     🔒 PHASE 1
                   </span>
                 )}
@@ -150,7 +150,7 @@ export default function ConnectState({
 
       {/* Step 2 — Select curriculum */}
       <div className="mb-8">
-        <p className="font-space text-[10px] font-bold tracking-[0.2em] mb-3" style={{ color: 'rgba(232,232,240,0.3)' }}>
+        <p className="font-space text-[10px] font-bold tracking-[0.2em] mb-3" style={{ color: 'rgba(26,26,46,0.3)' }}>
           STEP 2 · SELECT CURRICULUM
         </p>
         <div className="flex flex-col gap-3">
@@ -163,26 +163,26 @@ export default function ConnectState({
                 className="flex items-center gap-4 rounded-xl px-5 py-4 text-left transition-all"
                 style={{
                   background: isSelected
-                    ? 'linear-gradient(135deg, rgba(0,212,255,0.08) 0%, rgba(124,58,237,0.06) 100%)'
-                    : 'rgba(232,232,240,0.03)',
-                  border: `1px solid ${isSelected ? 'rgba(0,212,255,0.35)' : 'rgba(232,232,240,0.08)'}`,
+                    ? 'linear-gradient(135deg, rgba(124,58,237,0.08) 0%, rgba(0,212,255,0.04) 100%)'
+                    : 'rgba(255,255,255,0.6)',
+                  border: `1px solid ${isSelected ? 'rgba(124,58,237,0.4)' : 'rgba(26,26,46,0.08)'}`,
                   cursor: 'pointer',
                 }}
               >
                 <span style={{ fontSize: 22, flexShrink: 0 }}>{option.emoji}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="font-space font-bold text-sm" style={{ color: '#E8E8F0' }}>
+                  <p className="font-space font-bold text-sm" style={{ color: '#1a1a2e' }}>
                     {option.label}
                   </p>
-                  <p className="font-inter text-xs mt-0.5" style={{ color: isSelected ? 'rgba(0,212,255,0.7)' : 'rgba(232,232,240,0.35)' }}>
+                  <p className="font-inter text-xs mt-0.5" style={{ color: isSelected ? '#7C3AED' : 'rgba(26,26,46,0.4)' }}>
                     {option.tagline} · {option.detail}
                   </p>
                 </div>
                 <div
                   className="flex items-center justify-center flex-shrink-0"
-                  style={{ width: 18, height: 18, borderRadius: '50%', border: `1.5px solid ${isSelected ? '#00D4FF' : 'rgba(232,232,240,0.2)'}`, background: isSelected ? 'rgba(0,212,255,0.15)' : 'transparent' }}
+                  style={{ width: 18, height: 18, borderRadius: '50%', border: `1.5px solid ${isSelected ? '#7C3AED' : 'rgba(26,26,46,0.2)'}`, background: isSelected ? 'rgba(124,58,237,0.12)' : 'transparent' }}
                 >
-                  {isSelected && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#00D4FF' }} />}
+                  {isSelected && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#7C3AED' }} />}
                 </div>
               </button>
             );
@@ -197,10 +197,11 @@ export default function ConnectState({
         whileTap={!connecting && canConnect ? { scale: 0.97 } : undefined}
         className="w-full py-3 rounded-xl font-space font-bold text-sm tracking-[0.12em]"
         style={{
-          background: canConnect ? 'linear-gradient(120deg, rgba(124,58,237,0.7), rgba(0,212,255,0.4))' : 'rgba(232,232,240,0.05)',
-          color: canConnect ? '#E8E8F0' : 'rgba(232,232,240,0.2)',
-          border: `1px solid ${canConnect ? 'rgba(124,58,237,0.5)' : 'rgba(232,232,240,0.08)'}`,
+          background: canConnect ? 'linear-gradient(120deg, #FF0080, #8B00FF)' : 'rgba(26,26,46,0.05)',
+          color: canConnect ? '#fff' : 'rgba(26,26,46,0.25)',
+          border: `1px solid ${canConnect ? 'transparent' : 'rgba(26,26,46,0.08)'}`,
           cursor: connecting || !canConnect ? 'default' : 'pointer',
+          boxShadow: canConnect ? '0 4px 18px rgba(139,0,255,0.25)' : 'none',
         }}
       >
         {connecting ? (
@@ -212,13 +213,13 @@ export default function ConnectState({
       </motion.button>
 
       {!canConnect && !connecting && (
-        <p className="font-inter text-[11px] text-center mt-3" style={{ color: 'rgba(232,232,240,0.25)' }}>
+        <p className="font-inter text-[11px] text-center mt-3" style={{ color: 'rgba(26,26,46,0.3)' }}>
           Select a classroom and a curriculum to continue
         </p>
       )}
 
       {error && (
-        <p className="font-inter text-xs text-center mt-4" style={{ color: '#FF6B6B' }}>{error}</p>
+        <p className="font-inter text-xs text-center mt-4" style={{ color: '#DC2626' }}>{error}</p>
       )}
     </motion.div>
   );
