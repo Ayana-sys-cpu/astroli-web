@@ -105,22 +105,19 @@ export default function ConnectState({
           STEP 1 · SELECT CLASSROOM
         </p>
         <div className="flex flex-col gap-3">
-          {courses.map((course, idx) => {
+          {courses.map((course) => {
             const isSelected = selectedCourse === course.id;
-            const isLocked   = idx > 0;
             return (
               <button
                 key={course.id}
-                onClick={() => !isLocked && setSelectedCourse(course.id)}
-                disabled={isLocked}
+                onClick={() => setSelectedCourse(course.id)}
                 className="flex items-center gap-4 rounded-xl px-5 py-4 text-left transition-all"
                 style={{
                   background: isSelected
                     ? 'linear-gradient(135deg, rgba(124,58,237,0.08) 0%, rgba(0,212,255,0.04) 100%)'
                     : 'rgba(255,255,255,0.6)',
                   border: `1px solid ${isSelected ? 'rgba(124,58,237,0.4)' : 'rgba(26,26,46,0.08)'}`,
-                  opacity: isLocked ? 0.38 : 1,
-                  cursor: isLocked ? 'not-allowed' : 'pointer',
+                  cursor: 'pointer',
                 }}
               >
                 <div
@@ -130,18 +127,13 @@ export default function ConnectState({
                   {isSelected && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#7C3AED' }} />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-space font-bold text-sm truncate" style={{ color: isLocked ? 'rgba(26,26,46,0.35)' : '#1a1a2e' }}>
+                  <p className="font-space font-bold text-sm truncate" style={{ color: '#1a1a2e' }}>
                     {course.name}
                   </p>
                   {course.section && (
                     <p className="font-inter text-xs mt-0.5" style={{ color: 'rgba(26,26,46,0.35)' }}>{course.section}</p>
                   )}
                 </div>
-                {isLocked && (
-                  <span className="font-space text-[9px] font-bold tracking-[0.1em] px-2 py-1 rounded flex-shrink-0" style={{ background: 'rgba(26,26,46,0.04)', color: 'rgba(26,26,46,0.3)', border: '1px solid rgba(26,26,46,0.08)' }}>
-                    🔒 PHASE 1
-                  </span>
-                )}
               </button>
             );
           })}
