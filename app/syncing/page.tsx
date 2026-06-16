@@ -3,7 +3,6 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import StarField from '@/components/StarField';
-import { saveJourneyActive } from '@/lib/student-store';
 
 /* Constellation map nodes and edges */
 const NODES: [number, number][] = [
@@ -44,13 +43,10 @@ export default function SyncingPage() {
     Promise.all([delay, journeyCheck]).then(([, data]) => {
       if (!alive) return;
       if ((data as any).__redirect) { router.replace((data as any).__redirect); return; }
-      const hasJourney = Boolean(data.hasActiveJourney);
-      const hasVote    = Boolean(data.hasActiveVote);
-      saveJourneyActive(hasJourney);
-      if (hasJourney) {
-        router.replace('/landscape');
-      } else if (hasVote) router.replace('/vote');
-      else router.replace('/pending-journey');
+      // Multi-journey: always land on the home hub, which lists every
+      // enrolled class by its own state. See
+      // docs/superpowers/specs/2026-06-16-student-multi-journey-home-design.md.
+      router.replace('/home');
     });
 
     return () => { alive = false; };
