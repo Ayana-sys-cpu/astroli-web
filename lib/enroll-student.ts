@@ -63,33 +63,38 @@ export async function enrollStudentInJourneys(
     currentClasses = classes ?? [];
   }
 
-  // 3. Upsert new enrollments.
+  // 3. Insert new enrollments.
   //
-  // journey_id is still written here (set to the class's TEMPLATE id) because
-  // it remains a NOT NULL foreign key into journeys(id) until the cleanup
-  // migration runs — classes are a different table with non-overlapping ids,
-  // so a class id can never go in that column. class_id is the real "which
-  // class" answer going forward; template_journey_id is denormalized for the
-  // one-class-per-template-per-student constraint (a partial unique index,
-  // not modeled in Prisma's schema — see schema.prisma comment on this table).
+  // student_classes (renamed from student_journeys by the classes-split
+  // cleanup migration) has no unique constraint that ON CONFLICT can target —
+  // its one-per-template rule is a partial unique index, which Postgres can
+  // only use as an upsert arbiter when the predicate is restated, and
+  // Supabase's REST upsert doesn't support that. So this checks for an
+  // existing (student_id, class_id) row first and only inserts if absent —
+  // idempotent across repeated sign-ins without relying on ON CONFLICT.
   if (currentClasses.length > 0) {
-    const { error: upsertError } = await supabaseAdmin
-      .from('student_journeys')
-      .upsert(
-        currentClasses.map((c) => ({
+    for (const c of currentClasses) {
+      const { data: existingRow } = await supabaseAdmin
+        .from('student_classes')
+        .select('id')
+        .eq('student_id', studentId)
+        .eq('class_id', c.id)
+        .maybeSingle();
+      if (existingRow) continue;
+
+      const { error: insertError } = await supabaseAdmin
+        .from('student_classes')
+        .insert({
           student_id:          studentId,
-          journey_id:          c.journey_id,
           class_id:            c.id,
           template_journey_id: c.journey_id,
-        })),
-        { onConflict: 'student_id,journey_id', ignoreDuplicates: true },
-      );
-    if (upsertError) {
-      // A unique-violation here most likely means the student already has a
-      // class on this same template (the constraint working as designed) —
-      // not every conflict is an error worth surfacing loudly.
-      console.error('[enroll] upsert student_journeys failed:', upsertError);
-      return;
+        });
+      if (insertError) {
+        // A unique-violation here most likely means the student already has a
+        // class on this same template (the constraint working as designed) —
+        // not every conflict is an error worth surfacing loudly.
+        console.error('[enroll] insert student_classes failed:', insertError);
+      }
     }
     console.log(`[enroll] enrolled student ${studentId} in ${currentClasses.length} class(es)`);
   }
@@ -110,7 +115,7 @@ export async function enrollStudentInJourneys(
   const currentClassIds = currentClasses.map((c) => c.id);
 
   const { data: existing } = await supabaseAdmin
-    .from('student_journeys')
+    .from('student_classes')
     .select('class_id')
     .eq('student_id', studentId);
 
@@ -120,7 +125,7 @@ export async function enrollStudentInJourneys(
 
   if (stale.length > 0) {
     const { error: deleteError } = await supabaseAdmin
-      .from('student_journeys')
+      .from('student_classes')
       .delete()
       .eq('student_id', studentId)
       .in('class_id', stale);

@@ -36,7 +36,20 @@ function VoteSetupInner() {
 
   const [startDate,  setStartDate]  = useState(() => toDatetimeLocal(new Date()));
   const [endDate,    setEndDate]    = useState(() => toDatetimeLocal(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)));
+  const [startTouched, setStartTouched] = useState(false);
+  const [endTouched,   setEndTouched]   = useState(false);
   const [starting,   setStarting]   = useState(false);
+
+  // Keep the vote duration defaults pinned to "now" while the teacher hasn't
+  // touched them — otherwise they freeze at whatever time the page happened
+  // to mount, which can be hours before the teacher actually opens the vote.
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (!startTouched) setStartDate(toDatetimeLocal(new Date()));
+      if (!endTouched) setEndDate(toDatetimeLocal(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)));
+    }, 30_000);
+    return () => clearInterval(id);
+  }, [startTouched, endTouched]);
   const [voteActive, setVoteActive] = useState(false);
   const [voteEndIso, setVoteEndIso] = useState('');
   const [copied,     setCopied]     = useState(false);
@@ -361,7 +374,7 @@ function VoteSetupInner() {
             <input
               type="datetime-local"
               value={startDate}
-              onChange={e => setStartDate(e.target.value)}
+              onChange={e => { setStartDate(e.target.value); setStartTouched(true); }}
               className="input-light w-full px-3 py-2 font-inter text-sm outline-none"
               style={{ colorScheme: 'light' }}
             />
@@ -373,7 +386,7 @@ function VoteSetupInner() {
             <input
               type="datetime-local"
               value={endDate}
-              onChange={e => setEndDate(e.target.value)}
+              onChange={e => { setEndDate(e.target.value); setEndTouched(true); }}
               className="input-light w-full px-3 py-2 font-inter text-sm outline-none"
               style={{ colorScheme: 'light' }}
             />

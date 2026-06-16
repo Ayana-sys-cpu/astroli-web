@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
     // lives in class_mission_state — find the student's class for this
     // mission's template, then look up that pair.
     const { data: enrollment } = await supabaseAdmin
-      .from('student_journeys')
+      .from('student_classes')
       .select('class_id')
       .eq('student_id', studentId)
       .eq('template_journey_id', data.journey_id)

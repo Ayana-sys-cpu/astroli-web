@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   try {
     // Fetch the classes the student is enrolled in.
     const { data: enrollments, error: eErr } = await supabaseAdmin
-      .from('student_journeys')
+      .from('student_classes')
       .select('class_id')
       .eq('student_id', studentId);
 

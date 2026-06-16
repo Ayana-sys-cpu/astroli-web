@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   try {
     // Resolve enrolled classes for this student.
     const { data: enrollments } = await supabaseAdmin
-      .from('student_journeys')
+      .from('student_classes')
       .select('class_id')
       .eq('student_id', studentId);
 
@@ -61,17 +61,18 @@ export async function GET(req: NextRequest) {
           .maybeSingle();
 
         if (fallbackClass) {
+          // Plain insert, not upsert — student_classes has no unique
+          // constraint that ON CONFLICT can target (the partial index from
+          // the classes-split migration can't be used as a REST upsert
+          // arbiter), and we already know this student has zero enrollment
+          // rows at this point, so there's nothing to conflict with.
           const { error: enrollErr } = await supabaseAdmin
-            .from('student_journeys')
-            .upsert(
-              {
-                student_id:          studentId,
-                journey_id:          fallbackClass.journey_id,
-                class_id:            fallbackClass.id,
-                template_journey_id: fallbackClass.journey_id,
-              },
-              { onConflict: 'student_id,journey_id', ignoreDuplicates: true },
-            );
+            .from('student_classes')
+            .insert({
+              student_id:          studentId,
+              class_id:            fallbackClass.id,
+              template_journey_id: fallbackClass.journey_id,
+            });
           if (enrollErr) {
             console.error('[GET /api/student/journey] fallback enroll failed:', enrollErr);
           } else {

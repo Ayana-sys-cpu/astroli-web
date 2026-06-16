@@ -185,12 +185,11 @@ export async function PATCH(req: NextRequest) {
       }
       sessionId = updated.id;
     } else {
-      // Create a new session. journey_id still must be set (NOT NULL FK into
-      // journeys until the cleanup migration runs) — it gets the class's
-      // template id, which is now the only valid value for that column.
+      // Create a new session. vote_sessions.journey_id was dropped by the
+      // classes-split cleanup migration — class_id is the only FK now.
       const { data: created, error: sessionError } = await supabaseAdmin
         .from('vote_sessions')
-        .insert({ journey_id: klass.journey_id, class_id: classId, starts_at: parsedStartsAt, ends_at: parsedEndsAt, status: 'open' })
+        .insert({ class_id: classId, starts_at: parsedStartsAt, ends_at: parsedEndsAt, status: 'open' })
         .select('id, ends_at, starts_at')
         .single();
 

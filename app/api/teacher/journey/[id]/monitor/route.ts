@@ -102,7 +102,7 @@ export async function GET(
 
   // 3. Get enrolled students
   const { data: enrollmentRows } = await supabaseAdmin
-    .from('student_journeys')
+    .from('student_classes')
     .select('student_id')
     .eq('class_id', journeyId);
 

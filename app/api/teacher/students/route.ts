@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
 
   // 2. Find all student_journey enrollments for the target classes
   const { data: enrollmentRows } = await supabaseAdmin
-    .from('student_journeys')
+    .from('student_classes')
     .select('student_id, class_id')
     .in('class_id', targetJourneyIds);
 
@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
   const fullStudentJourneyMap: Map<string, Set<string>> = journeyIdFilter
     ? await (async () => {
         const { data: allEnrollRows } = await supabaseAdmin
-          .from('student_journeys')
+          .from('student_classes')
           .select('student_id, class_id')
           .in('student_id', allStudentIds);
         const m = new Map<string, Set<string>>();
