@@ -37,6 +37,7 @@ function LandscapeContent() {
   const searchParams  = useSearchParams();
   const previewId     = searchParams.get('preview'); // teacher preview mode
   const isPreview     = Boolean(previewId);
+  const classId       = searchParams.get('classId');
 
   const [orinOpen, setOrinOpen] = useState(true);
   const [botName, setBotName]   = useState('');
@@ -68,11 +69,15 @@ function LandscapeContent() {
   // Student normal mode — fetch via student session.
   useEffect(() => {
     if (isPreview) return;
-    fetch('/api/student/journey')
+    fetch(`/api/student/journey${classId ? `?classId=${classId}` : ''}`)
       .then(r => r.json())
       .then(({ hasActiveJourney, hasActiveVote, activeMissionId, missionStatus }) => {
         if (!hasActiveJourney) {
-          router.replace(hasActiveVote ? '/vote' : '/pending-journey');
+          // Mismatch (e.g. mission was reset) — bounce to the hub rather
+          // than cross-redirecting to /vote, since this page no longer
+          // knows whether that's even the right class for the student to
+          // vote on next.
+          router.replace(hasActiveVote && classId ? `/vote?classId=${classId}` : '/home');
           return;
         }
         if (activeMissionId) {
@@ -91,7 +96,7 @@ function LandscapeContent() {
         }
       })
       .catch(() => {});
-  }, [isPreview, router]);
+  }, [isPreview, router, classId]);
 
   const handleAcceptMission = () => {
     setShowOverlay(false);
