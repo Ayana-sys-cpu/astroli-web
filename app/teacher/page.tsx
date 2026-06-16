@@ -1,34 +1,25 @@
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { createSSRServerClient } from '@/lib/supabase-server';
+import { getHomescreenData } from '@/lib/homescreen';
 import StartClassCTA from '@/components/teacher/homescreen/StartClassCTA';
 import StudentSpotlight from '@/components/teacher/homescreen/StudentSpotlight';
 import ClassPicture from '@/components/teacher/homescreen/ClassPicture';
-import type { SpotlightStudent, ClassInsight } from '@/app/api/teacher/homescreen/route';
-
-interface HomescreenData {
-  journeys: { id: string; title: string }[];
-  spotlight: SpotlightStudent[];
-  classPicture: ClassInsight[];
-}
-
-async function getHomescreenData(cookieHeader: string): Promise<HomescreenData> {
-  const base = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3001';
-  const res = await fetch(`${base}/api/teacher/homescreen`, {
-    headers: { cookie: cookieHeader },
-    cache: 'no-store',
-  });
-  if (!res.ok) return { journeys: [], spotlight: [], classPicture: [] };
-  return res.json();
-}
+import type { SpotlightStudent, ClassInsight } from '@/lib/homescreen';
 
 export default async function TeacherHomepage() {
+  // cookies() is read here only to satisfy Next.js dynamic rendering — the
+  // actual auth token is validated by supabase.auth.getUser() below.
+  cookies();
+
   const supabase = createSSRServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/');
 
-  const cookieHeader = cookies().toString();
-  const data = await getHomescreenData(cookieHeader);
+  const teacherId = user.user_metadata?.teacher_id as string | undefined;
+  if (!teacherId) redirect('/');
+
+  const data = await getHomescreenData(teacherId);
 
   const primaryJourneyId = data.journeys[0]?.id ?? '';
 

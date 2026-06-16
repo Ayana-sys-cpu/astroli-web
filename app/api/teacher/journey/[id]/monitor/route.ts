@@ -17,7 +17,6 @@ import { generateSignals, type SignalType } from '@/lib/signals';
 import {
   buildContextLine,
   orderAttentionStudents,
-  buildStatusLine,
   type AttentionSignalType,
 } from '@/lib/journey-monitor-helpers';
 
@@ -64,24 +63,39 @@ export async function GET(
   if (sessionError) return sessionError;
 
   const teacherId = auth.user.user_metadata.teacher_id as string;
-  const journeyId = params.id;
+  const journeyId = params.id; // a classes.id — see redesign doc
 
-  // 1. Verify journey belongs to this teacher; fetch missions
-  const journey = await prisma.journey.findFirst({
+  // 1. Verify the class belongs to this teacher; fetch the template's
+  // missions plus this class's live state.
+  const klass = await prisma.class.findFirst({
     where: { id: journeyId, teacherId },
     select: {
       id: true,
       title: true,
-      missions: {
-        select: { id: true, question: true, mission_order: true, state: true },
-        orderBy: { mission_order: 'asc' },
+      journey: {
+        select: {
+          missions: {
+            select: { id: true, question: true, mission_order: true },
+            orderBy: { mission_order: 'asc' },
+          },
+        },
+      },
+      classMissionState: {
+        select: { missionId: true, state: true },
       },
     },
   });
 
-  if (!journey) {
+  if (!klass) {
     return NextResponse.json({ error: 'Journey not found' }, { status: 404 });
   }
+
+  const stateByMission = new Map(klass.classMissionState.map(s => [s.missionId, s.state]));
+  const missions = klass.journey.missions.map(m => ({
+    ...m,
+    state: stateByMission.get(m.id) ?? 'locked',
+  }));
+  const journey = { id: klass.id, title: klass.title, missions };
 
   // 2. Find the active mission
   const activeMission = journey.missions.find(m => m.state === 'active') ?? null;
@@ -90,7 +104,7 @@ export async function GET(
   const { data: enrollmentRows } = await supabaseAdmin
     .from('student_journeys')
     .select('student_id')
-    .eq('journey_id', journeyId);
+    .eq('class_id', journeyId);
 
   const studentIds = (enrollmentRows ?? []).map((r: { student_id: string }) => r.student_id);
 
@@ -170,13 +184,16 @@ export async function GET(
     }
   }
 
-  // 6. Generate signals for this journey
+  // 6. Generate signals for this class. generateSignals falls back to
+  // looking up missions by journey_id when missionIds is omitted — but
+  // journeyId here is a class id, so pass the template's mission ids
+  // explicitly (already resolved in step 1).
   const lastSession = await prisma.classSession.findFirst({
-    where: { journeyId, teacherId },
+    where: { classId: journeyId, teacherId },
     orderBy: { startedAt: 'desc' },
   });
 
-  const rawSignals = await generateSignals(journeyId, lastSession?.startedAt ?? null);
+  const rawSignals = await generateSignals(journeyId, lastSession?.startedAt ?? null, journey.missions.map(m => m.id));
 
   // Map studentId → signal (keep highest priority attention signal only)
   const SIGNAL_PRIORITY: Record<SignalType, number> = {
@@ -197,7 +214,7 @@ export async function GET(
 
   // 7. Check acknowledgements
   const acked = await prisma.teacherSignalAcknowledgement.findMany({
-    where: { teacherId, journeyId },
+    where: { teacherId, classId: journeyId },
     select: { studentId: true, signalType: true },
   });
   const ackedSet = new Set(acked.map(a => `${a.studentId}:${a.signalType}`));
@@ -209,19 +226,26 @@ export async function GET(
     const name = profile?.full_name ?? profile?.first_name ?? 'Student';
     const lastSeen = lastSeenMap.get(studentId) ?? null;
     const isActiveNow = lastSeen ? now - lastSeen.getTime() < ACTIVE_THRESHOLD_MS : false;
-    // isOffline: not active and last seen more than 10 min ago (or never)
-    const isOffline = !isActiveNow && (lastSeen ? now - lastSeen.getTime() > 10 * 60 * 1000 : true);
 
     const signal = signalMap.get(studentId);
     const isAcked = signal ? ackedSet.has(`${studentId}:${signal.signalType}`) : false;
     const effectiveSignal = signal && !isAcked ? signal : null;
+
+    // "Offline" only when the student has never been active in this journey.
+    // Students who were active but stepped away get a relative "last active" line.
+    const statusLine = (() => {
+      if (isActiveNow) return 'Actively exploring';
+      if (!lastSeen) return 'Not yet started';
+      const mins = Math.round((now - lastSeen.getTime()) / 60000);
+      return mins <= 1 ? 'Just stepped away' : `Last active ${mins} min ago`;
+    })();
 
     return {
       studentId,
       name,
       initials: toInitials(name),
       avatarUrl: profile?.avatar_url ?? null,
-      statusLine: buildStatusLine(isActiveNow, null, isOffline),
+      statusLine,
       isActiveNow,
       lastSeenAt: lastSeen?.toISOString() ?? null,
       signalType: effectiveSignal ? (effectiveSignal.signalType as AttentionSignalType) : null,

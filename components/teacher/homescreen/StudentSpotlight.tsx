@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SpotlightCard from './SpotlightCard';
-import type { SpotlightStudent } from '@/app/api/teacher/homescreen/route';
+import type { SpotlightStudent } from '@/lib/homescreen';
 
 const SIGNAL_LABELS: Record<string, string> = {
   breakthrough: '🌟 Breakthroughs',

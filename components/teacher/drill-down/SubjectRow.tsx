@@ -17,10 +17,32 @@ const PERKINS_RANK_OUT_OF_10: Record<string, number> = {
   actionable_extrapolation: 10,
 };
 
+const PERKINS_LABEL: Record<string, string> = {
+  grace_completion: 'Grace Completion',
+  explaining: 'Explaining',
+  mustering_evidence: 'Mustering Evidence',
+  finding_examples: 'Finding Examples',
+  generalizing: 'Generalizing',
+  applying_concepts: 'Applying Concepts',
+  analogizing: 'Analogizing',
+  representing_in_new_ways: 'Representing in New Ways',
+  considering_alternatives: 'Considering Alternatives',
+  actionable_extrapolation: 'Actionable Extrapolation',
+};
+
 function DotProgress({ performanceType }: { performanceType: string | null }) {
   const filled = performanceType ? (PERKINS_RANK_OUT_OF_10[performanceType] ?? 0) : 0;
+  const name = performanceType ? (PERKINS_LABEL[performanceType] ?? performanceType) : null;
+  const tooltip = name
+    ? `${name} — level ${filled} of 10 on the Perkins Thinking Scale`
+    : 'Not yet assessed';
   return (
-    <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+    <div
+      style={{ display: 'flex', gap: 2, alignItems: 'center' }}
+      title={tooltip}
+      aria-label={tooltip}
+      role="img"
+    >
       {Array.from({ length: 10 }).map((_, i) => (
         <div
           key={i}
@@ -41,16 +63,23 @@ interface Props {
   subject: SubjectSummary;
   mode: 'this-week' | 'all-time';
   studentInitials: string;
+  /** Controlled accordion — when provided, local state is ignored */
+  isExpanded?: boolean;
+  onToggle?: () => void;
 }
 
-export default function SubjectRow({ subject, mode, studentInitials }: Props) {
-  const [expanded, setExpanded] = useState(false);
+export default function SubjectRow({ subject, mode, studentInitials, isExpanded, onToggle }: Props) {
+  const [localExpanded, setLocalExpanded] = useState(false);
+  const controlled = isExpanded !== undefined && onToggle !== undefined;
+  const expanded = controlled ? isExpanded : localExpanded;
+  const toggle = controlled ? onToggle : () => setLocalExpanded((v) => !v);
+
   const canExpand = subject.status !== 'not_started' && subject.status !== 'pending_activation';
 
   return (
     <div style={{ borderBottom: '1px solid rgba(26,26,46,0.06)' }}>
       <div
-        onClick={() => canExpand && setExpanded((v) => !v)}
+        onClick={() => canExpand && toggle()}
         style={{
           display: 'flex',
           alignItems: 'center',

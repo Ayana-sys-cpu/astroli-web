@@ -51,28 +51,29 @@ export async function GET(req: NextRequest) {
   // ── Enrollment check ───────────────────────────────────────────────────────
   const { data: enrollments, error: enrollErr } = await supabaseAdmin
     .from('student_journeys')
-    .select('journey_id')
+    .select('class_id')
     .eq('student_id', studentId);
 
   if (enrollErr) {
     return NextResponse.json({ error: 'DB error', detail: enrollErr.message }, { status: 503 });
   }
 
-  const journeyIds = (enrollments ?? []).map((e: { journey_id: string }) => e.journey_id);
+  const classIds = (enrollments ?? []).map((e: { class_id: string | null }) => e.class_id).filter((id): id is string => Boolean(id));
 
-  if (journeyIds.length === 0) {
+  if (classIds.length === 0) {
     return NextResponse.json({
       destination: '/pending-journey',
       reason: 'no enrollments',
     });
   }
 
+  // Missions live on templates only — state lives in class_mission_state.
   // ── Active mission? ────────────────────────────────────────────────────────
-  const { data: activeMission, error: missionErr } = await supabaseAdmin
-    .from('missions')
-    .select('id')
+  const { data: activeState, error: missionErr } = await supabaseAdmin
+    .from('class_mission_state')
+    .select('mission_id')
     .eq('state', 'active')
-    .in('journey_id', journeyIds)
+    .in('class_id', classIds)
     .limit(1)
     .maybeSingle();
 
@@ -80,7 +81,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'DB error', detail: missionErr.message }, { status: 503 });
   }
 
-  if (activeMission) {
+  if (activeState) {
     return NextResponse.json({
       destination: '/landscape',
       reason: 'active mission found',
@@ -94,7 +95,7 @@ export async function GET(req: NextRequest) {
     .select('id')
     .eq('status', 'open')
     .gt('ends_at', now)
-    .in('journey_id', journeyIds)
+    .in('class_id', classIds)
     .limit(1)
     .maybeSingle();
 
@@ -110,11 +111,11 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Vote concluded, mission pending_start? ─────────────────────────────────
-  const { data: pendingMission, error: pendingErr } = await supabaseAdmin
-    .from('missions')
-    .select('id')
+  const { data: pendingState, error: pendingErr } = await supabaseAdmin
+    .from('class_mission_state')
+    .select('mission_id')
     .eq('state', 'pending_start')
-    .in('journey_id', journeyIds)
+    .in('class_id', classIds)
     .limit(1)
     .maybeSingle();
 
@@ -122,7 +123,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'DB error', detail: pendingErr.message }, { status: 503 });
   }
 
-  if (pendingMission) {
+  if (pendingState) {
     return NextResponse.json({
       destination: '/vote',
       reason: 'pending_start — awaiting teacher activation',

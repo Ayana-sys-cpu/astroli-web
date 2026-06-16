@@ -21,8 +21,8 @@ export async function GET(req: NextRequest) {
     const { data, error } = await supabaseAdmin
       .from('missions')
       .select(`
-        id, question, question_description, project_title, project_description,
-        opening_message, "order", state,
+        id, journey_id, question, question_description, project_title, project_description,
+        opening_message, "order",
         planets ( id, title, label, short_title, planet_question, content, opening_message, character_figure, character_year, character_location, student_reveal_message, media_url, media_type )
       `)
       .eq('id', missionId)
@@ -31,6 +31,28 @@ export async function GET(req: NextRequest) {
 
     if (error || !data) {
       return NextResponse.json({ error: 'Mission not found' }, { status: 404 });
+    }
+
+    // Resolve this mission's state for THIS student's class. Missions are
+    // owned by the template only (never duplicated per class), so state
+    // lives in class_mission_state — find the student's class for this
+    // mission's template, then look up that pair.
+    const { data: enrollment } = await supabaseAdmin
+      .from('student_journeys')
+      .select('class_id')
+      .eq('student_id', studentId)
+      .eq('template_journey_id', data.journey_id)
+      .maybeSingle();
+
+    let state: string | null = null;
+    if (enrollment?.class_id) {
+      const { data: stateRow } = await supabaseAdmin
+        .from('class_mission_state')
+        .select('state')
+        .eq('class_id', enrollment.class_id)
+        .eq('mission_id', missionId)
+        .maybeSingle();
+      state = stateRow?.state ?? 'locked';
     }
 
     return NextResponse.json({
@@ -42,7 +64,7 @@ export async function GET(req: NextRequest) {
         projectDescription:  data.project_description,
         openingMessage:      data.opening_message,
         order:               (data as any).order,
-        state:               data.state,
+        state,
         planets: (data.planets ?? []).map((p: any) => ({
           id:                   p.id,
           title:                p.title,

@@ -3,9 +3,10 @@
 //
 // GET ?id=<journeyId>
 //
-// Returns missions + planets for a curriculum template journey.
-// Template journeys have teacher_id IS NULL. No ownership check is needed —
-// any authenticated teacher may preview any curriculum template.
+// Returns missions + planets for a curriculum template journey. Every journey
+// is a template now (classes are a separate table) — no ownership check is
+// needed: any authenticated teacher may preview any curriculum template.
+// See docs/architecture/2026-06-16-journeys-classes-redesign.md.
 // =============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -28,7 +29,6 @@ export async function GET(req: NextRequest) {
     .from('journeys')
     .select('id, title')
     .eq('id', journeyId)
-    .is('teacher_id', null)
     .single();
 
   if (!journey) {
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
 
   const { data: missions, error } = await supabaseAdmin
     .from('missions')
-    .select('id, order, question, question_description, project_title, project_description, planets(id, title, content, opening_message)')
+    .select('id, order, question, question_description, project_title, project_description, planets(id, title)')
     .eq('journey_id', journeyId)
     .order('order');
 
@@ -54,10 +54,8 @@ export async function GET(req: NextRequest) {
       projectTitle:        m.project_title,
       projectDescription:  m.project_description,
       planets: ((m.planets as any[]) ?? []).map(p => ({
-        id:             p.id,
-        title:          p.title,
-        content:        p.content,
-        openingMessage: p.opening_message,
+        id:    p.id,
+        title: p.title,
       })),
     })),
   });

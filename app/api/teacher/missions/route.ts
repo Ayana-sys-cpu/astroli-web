@@ -1,21 +1,25 @@
 // =============================================================================
 // /api/teacher/missions
 //
-// GET  ?id=<missionId>    — single mission with its planets
-// GET  ?journeyId=<uuid>  — all missions for a journey
-// PATCH { missionId, state } — update a mission's state
+// GET  ?id=<missionId>     — single mission with its planets (curriculum preview —
+//                            no class context, so no per-class state is returned)
+// GET  ?journeyId=<classId> — all missions for a class, with that class's live state
+// PATCH { journeyId, missionId, state } — update a mission's state FOR THAT CLASS
 //
-// All endpoints require a valid teacher session. Ownership of the journey
-// (and thus the mission) is verified against the session's teacher_id before
-// any read or write is performed.
+// NOTE on naming: `journeyId` here is a wire-format field name kept for
+// frontend backward compatibility — see docs/architecture/2026-06-16-journeys-classes-redesign.md.
+// The value is a classes.id, not a journeys.id. Missions/planets are owned
+// exclusively by template journeys now (never duplicated per class), so a
+// mission's live "locked/active/completed" state lives in class_mission_state,
+// keyed by (class_id, mission_id) — which is why PATCH now needs journeyId
+// (the class) in addition to missionId: one mission can serve many classes.
 // =============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { requireAuth, assertTeacherSession } from '@/lib/auth';
 
-// Map Supabase snake_case columns → camelCase shape the frontend expects.
-function toMission(m: any) {
+function toMission(m: any, state: string | null) {
   return {
     id:                  m.id,
     journeyId:           m.journey_id,
@@ -24,7 +28,7 @@ function toMission(m: any) {
     projectTitle:        m.project_title,
     projectDescription:  m.project_description,
     openingMessage:      m.opening_message,
-    state:               m.state,
+    state,
     order:               m.order,
     planets:             (m.planets ?? []).map((p: any) => ({
       id:             p.id,
@@ -37,30 +41,9 @@ function toMission(m: any) {
   };
 }
 
-/**
- * Verifies that the given journey belongs to the teacher.
- * Returns the journey id on success, null on failure.
- */
-async function verifyJourneyOwnership(journeyId: string, teacherId: string): Promise<boolean> {
-  const { data } = await supabaseAdmin
-    .from('journeys')
-    .select('id, teacher_id')
-    .eq('id', journeyId)
-    .maybeSingle();
-  if (!data) {
-    console.error(`[verifyJourneyOwnership] journey ${journeyId} not found`);
-    return false;
-  }
-  if ((data as any).teacher_id !== teacherId) {
-    console.error(`[verifyJourneyOwnership] mismatch — journey.teacher_id=${(data as any).teacher_id} session.teacher_id=${teacherId}`);
-    return false;
-  }
-  return true;
-}
-
 // ---------------------------------------------------------------------------
-// GET /api/teacher/missions?journeyId=   — list all missions for a journey
-// GET /api/teacher/missions?id=          — single mission with its planets
+// GET /api/teacher/missions?journeyId=   — list all missions for a class
+// GET /api/teacher/missions?id=          — single mission with its planets (preview)
 // ---------------------------------------------------------------------------
 export async function GET(req: NextRequest) {
   const auth = await requireAuth();
@@ -69,79 +52,76 @@ export async function GET(req: NextRequest) {
   const sessionError = assertTeacherSession(auth.user);
   if (sessionError) return sessionError;
 
-  const teacherId  = auth.user.user_metadata.teacher_id as string;
-  const missionId  = req.nextUrl.searchParams.get('id');
+  const teacherId = auth.user.user_metadata.teacher_id as string;
+  const missionId = req.nextUrl.searchParams.get('id');
 
-  // ── Single mission lookup ────────────────────────────────────────────────
+  // ── Single mission lookup (curriculum preview, no class context) ─────────
   if (missionId) {
-    // Fetch mission to determine journey_id for ownership check.
-    const { data: missionRow, error: missionErr } = await supabaseAdmin
-      .from('missions')
-      .select('journey_id')
-      .eq('id', missionId)
-      .single();
-
-    if (missionErr || !missionRow) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    }
-
-    const owned = await verifyJourneyOwnership(missionRow.journey_id, teacherId);
-    if (!owned) {
-      // Allow read-only access to curriculum template missions (teacher_id IS NULL).
-      const { data: templateJourney } = await supabaseAdmin
-        .from('journeys')
-        .select('id')
-        .eq('id', missionRow.journey_id)
-        .is('teacher_id', null)
-        .single();
-      if (!templateJourney) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-      }
-    }
-
+    // Missions are public curriculum content now — they're never owned by a
+    // teacher, only by a template journey, so there's no per-mission
+    // ownership check left to make here.
     const { data, error } = await supabaseAdmin
       .from('missions')
       .select('*, planets(*)')
       .eq('id', missionId)
       .order('created_at', { referencedTable: 'planets' })
-      .single();
+      .maybeSingle();
 
     if (error || !data) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
-    return NextResponse.json({ mission: toMission(data) });
+
+    return NextResponse.json({ mission: toMission(data, null) });
   }
 
-  // ── Mission list for a journey ────────────────────────────────────────────
-  const journeyId = req.nextUrl.searchParams.get('journeyId');
+  // ── Mission list for a class ──────────────────────────────────────────────
+  const journeyId = req.nextUrl.searchParams.get('journeyId'); // a classes.id
   if (!journeyId) {
     return NextResponse.json({ error: 'journeyId or id required' }, { status: 400 });
   }
 
-  const owned = await verifyJourneyOwnership(journeyId, teacherId);
-  if (!owned) {
+  // Verify ownership and resolve the class's template in one query.
+  const { data: klass } = await supabaseAdmin
+    .from('classes')
+    .select('id, journey_id, teacher_id')
+    .eq('id', journeyId)
+    .maybeSingle();
+
+  if (!klass) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  if (klass.teacher_id !== teacherId) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const { data, error } = await supabaseAdmin
-    .from('missions')
-    .select('*, planets(*)')
-    .eq('journey_id', journeyId)
-    .order('order');
+  const [{ data: missions, error }, { data: stateRows }] = await Promise.all([
+    supabaseAdmin
+      .from('missions')
+      .select('*, planets(*)')
+      .eq('journey_id', klass.journey_id)
+      .order('order'),
+    supabaseAdmin
+      .from('class_mission_state')
+      .select('mission_id, state')
+      .eq('class_id', klass.id),
+  ]);
 
   if (error) {
     console.error('[GET /api/teacher/missions]', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ missions: (data ?? []).map(toMission) });
+  const stateByMissionId = new Map((stateRows ?? []).map(r => [r.mission_id, r.state]));
+
+  return NextResponse.json({
+    missions: (missions ?? []).map(m => toMission(m, stateByMissionId.get(m.id) ?? 'locked')),
+  });
 }
 
 // ---------------------------------------------------------------------------
 // PATCH /api/teacher/missions
-// Body: { missionId: string; state: MissionState }
-// Updates a single mission's state. Supabase Realtime automatically publishes
-// the UPDATE event to all subscribed clients — no extra push needed.
+// Body: { journeyId: string (a classes.id); missionId: string; state: MissionState }
 // ---------------------------------------------------------------------------
 export async function PATCH(req: NextRequest) {
   const auth = await requireAuth();
@@ -152,38 +132,50 @@ export async function PATCH(req: NextRequest) {
 
   const teacherId = auth.user.user_metadata.teacher_id as string;
 
-  let body: { missionId?: string; state?: string };
+  let body: { journeyId?: string; missionId?: string; state?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { missionId, state } = body;
-  if (!missionId || !state) {
-    return NextResponse.json({ error: 'missionId and state required' }, { status: 400 });
+  const { journeyId: classId, missionId, state } = body;
+  if (!classId || !missionId || !state) {
+    return NextResponse.json({ error: 'journeyId, missionId, and state required' }, { status: 400 });
   }
 
-  // Verify ownership: fetch the mission's journey, then check the teacher owns it.
-  const { data: missionRow, error: lookupErr } = await supabaseAdmin
-    .from('missions')
-    .select('journey_id')
-    .eq('id', missionId)
-    .single();
+  // Verify the teacher owns this class, and resolve its template.
+  const { data: klass } = await supabaseAdmin
+    .from('classes')
+    .select('id, journey_id, teacher_id')
+    .eq('id', classId)
+    .maybeSingle();
 
-  if (lookupErr || !missionRow) {
+  if (!klass) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
-
-  const owned = await verifyJourneyOwnership(missionRow.journey_id, teacherId);
-  if (!owned) {
+  if (klass.teacher_id !== teacherId) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const { data, error } = await supabaseAdmin
+  // Verify the mission actually belongs to this class's template — prevents
+  // a teacher from writing class_mission_state for an unrelated mission.
+  const { data: mission } = await supabaseAdmin
     .from('missions')
-    .update({ state })           // updated_at handled by the DB trigger
+    .select('id, journey_id')
     .eq('id', missionId)
+    .maybeSingle();
+
+  if (!mission || mission.journey_id !== klass.journey_id) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('class_mission_state')
+    .upsert(
+      { class_id: classId, mission_id: missionId, state },
+      { onConflict: 'class_id,mission_id' },
+    )
     .select()
     .single();
 
@@ -192,8 +184,5 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Supabase fires a postgres_changes UPDATE event here automatically.
-  // Every client running useSupabaseRealtime({ journeyId }) receives it
-  // within ~100ms — no polling, no manual broadcast needed.
-  return NextResponse.json({ mission: data });
+  return NextResponse.json({ mission: { ...mission, state: data.state } });
 }

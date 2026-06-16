@@ -42,6 +42,7 @@ let _idCounter = 0;
 function uid() { return `msg_${++_idCounter}_${Date.now()}`; }
 
 export interface PipGuidePanelProps {
+  missionId?: string;
   missionOrder: number;
   firstPlanet?: { id: string; label: string };
   onLaunch?: () => void;
@@ -570,7 +571,7 @@ function DoneDock() {
 // CHANGE 4: flex-1 + overflow-y-auto for scrollable content area
 // =============================================================================
 
-export default function PipGuidePanel({ missionOrder, firstPlanet, onLaunch }: PipGuidePanelProps) {
+export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, onLaunch }: PipGuidePanelProps) {
   const [mission, setMission] = useState<PipMission | null>(null);
 
   const [messages,      setMessages]      = useState<ChatMsg[]>([]);
@@ -597,29 +598,34 @@ export default function PipGuidePanel({ missionOrder, firstPlanet, onLaunch }: P
 
   // ── Fetch mission data from DB ─────────────────────────────────────────────
   useEffect(() => {
-    fetch(`/api/mission?order=${missionOrder}`)
+    const url = missionId
+      ? `/api/mission?missionId=${missionId}`
+      : `/api/mission?order=${missionOrder}`;
+    fetch(url)
       .then((r) => r.json())
       .then(setMission)
       .catch(console.error);
-  }, [missionOrder]);
+  }, [missionId, missionOrder]);
 
-  // ── Show opening messages once mission data has loaded ─────────────────────
+  // ── Show opening sequence once mission data has loaded ────────────────────
+  // Order: hook message → HowToCard (planets + start suggestion) → brief CTA
   // Cleanup ensures strict-mode double-fire clears first-set timers before second.
   useEffect(() => {
     if (!mission) return;
     const t1 = setTimeout(() => showTyping(), 300);
     const t2 = setTimeout(() => {
-      push({
-        id: uid(), role: 'pip', type: 'text',
-        html: mission.openingMessage.replace(/\n/g, '<br/>'),
-      });
+      push({ id: uid(), role: 'pip', type: 'text', html: mission.openingMessage.replace(/\n/g, '<br>') });
     }, 1600);
-    const t3 = setTimeout(() => showTyping(), 2100);
+    const t3 = setTimeout(() => showTyping(), 2200);
     const t4 = setTimeout(() => {
-      push({ id: uid(), role: 'pip', type: 'text', html: mission.openingMessage2 });
+      push({ id: uid(), role: 'pip', type: 'howto', planets: mission.planets });
+    }, 3600);
+    const t5 = setTimeout(() => showTyping(), 4200);
+    const t6 = setTimeout(() => {
+      push({ id: uid(), role: 'pip', type: 'text', html: mission.openingMessage2.replace(/\n/g, '<br>') });
       setDock('cta-brief');
-    }, 3400);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
+    }, 5500);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); clearTimeout(t5); clearTimeout(t6); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mission]);
 
@@ -687,7 +693,10 @@ export default function PipGuidePanel({ missionOrder, firstPlanet, onLaunch }: P
     push({ id: uid(), role: 'user', type: 'chip', icon: '✓', text: 'Got it — Accept Mission' });
     setTimeout(showTyping, 400);
     setTimeout(() => {
-      push({ id: uid(), role: 'pip', type: 'howto', planets: mission!.planets });
+      push({
+        id: uid(), role: 'pip', type: 'text',
+        html: `You&apos;re set. Explore the planets, save insights with ✦, and return when you&apos;re ready to build your argument.`,
+      });
       setDock('launch');
     }, 1600);
   }

@@ -3,8 +3,11 @@ import { requireAuth, assertTeacherSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { deriveJourneyStatus } from '@/lib/journey-status';
 import type { JourneyStatus } from '@/lib/journey-status';
+import { generateSignalsBatch } from '@/lib/signals';
 
 type MissionState = 'locked' | 'voting' | 'pending_start' | 'active' | 'completed' | 'skipped';
+
+const ATTENTION_SIGNAL_TYPES = new Set(['stuck', 'non_engagement', 'grace_completion']);
 
 const COVER_GRADIENTS = [
   { from: '#0d2137', mid: '#1e4d7a', accent: '#204060' },
@@ -55,42 +58,79 @@ export async function GET(_req: NextRequest) {
 
   const teacherId = auth.user.user_metadata.teacher_id as string;
 
-  const journeys = await prisma.journey.findMany({
+  // `journeys` in the response keeps its old field name for frontend
+  // backward compatibility, but these rows are classes now — missions are
+  // owned exclusively by the template (via journey relation) and never
+  // duplicated; each class's live state comes from classMissionState.
+  // See docs/architecture/2026-06-16-journeys-classes-redesign.md.
+  const classes = await prisma.class.findMany({
     where: { teacherId },
     select: {
       id: true,
       title: true,
       googleCourseId: true,
-      missions: {
-        select: { id: true, state: true, mission_order: true },
-        orderBy: { mission_order: 'asc' },
+      journey: {
+        select: {
+          missions: {
+            select: { id: true, mission_order: true, question: true },
+            orderBy: { mission_order: 'asc' },
+          },
+        },
       },
-      vote_sessions: {
+      classMissionState: {
+        select: { missionId: true, state: true },
+      },
+      voteSessions: {
         where: { status: 'open' },
         select: { id: true, ends_at: true },
         take: 1,
       },
-      student_journeys: {
+      studentJourneys: {
         select: { id: true },
       },
     },
     orderBy: { createdAt: 'asc' },
   });
 
+  const journeys = classes.map(c => {
+    const stateByMission = new Map(c.classMissionState.map(s => [s.missionId, s.state]));
+    const missions = c.journey.missions.map(m => ({
+      id:            m.id,
+      mission_order: m.mission_order,
+      question:      m.question,
+      state:         stateByMission.get(m.id) ?? 'locked',
+    }));
+    return { id: c.id, title: c.title, googleCourseId: c.googleCourseId, missions, voteSessions: c.voteSessions, studentCount: c.studentJourneys.length };
+  });
+
+  // One batch call instead of N individual generateSignals calls.
+  const signalsByJourney = await generateSignalsBatch(
+    journeys.map(j => ({
+      journeyId:     j.id,
+      missionIds:    j.missions.map(m => m.id),
+      lastSessionAt: null,
+    })),
+  );
+
   const overview = journeys.map(j => {
-    const openSession = j.vote_sessions[0] ?? null;
-    const status = deriveJourneyStatus(j.missions, openSession !== null);
-    const voteEndsAt = openSession?.ends_at?.toISOString() ?? null;
+    const openSession    = j.voteSessions[0] ?? null;
+    const status         = deriveJourneyStatus(j.missions, openSession !== null);
+    const voteEndsAt     = openSession?.ends_at?.toISOString() ?? null;
+    const activeMission  = j.missions.find(m => m.state === 'active') ?? null;
+    const signals        = signalsByJourney.get(j.id) ?? [];
+    const attentionCount = signals.filter(s => ATTENTION_SIGNAL_TYPES.has(s.signalType)).length;
 
     return {
-      id:           j.id,
-      title:        j.title,
-      googleCourseId: j.googleCourseId,
+      id:                    j.id,
+      title:                 j.title,
+      googleCourseId:        j.googleCourseId,
       status,
-      statusNote:   buildStatusNote(status, j.missions, voteEndsAt),
+      statusNote:            buildStatusNote(status, j.missions, voteEndsAt),
       voteEndsAt,
-      studentCount: j.student_journeys.length,
-      coverGradient: coverGradient(j.id),
+      studentCount:          j.studentCount,
+      attentionCount,
+      activeMissionQuestion: activeMission?.question ?? null,
+      coverGradient:         coverGradient(j.id),
     };
   });
 

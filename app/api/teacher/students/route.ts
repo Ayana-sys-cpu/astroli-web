@@ -14,7 +14,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, assertTeacherSession } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { prisma } from '@/lib/prisma';
-import { generateSignals, type SignalType } from '@/lib/signals';
+import { generateSignalsBatch, type SignalType } from '@/lib/signals';
 
 export interface StudentSummary {
   studentId: string;
@@ -46,12 +46,14 @@ export async function GET(req: NextRequest) {
   if (sessionError) return sessionError;
 
   const teacherId = auth.user.user_metadata.teacher_id as string;
-  const journeyIdFilter = req.nextUrl.searchParams.get('journeyId');
+  const journeyIdFilter = req.nextUrl.searchParams.get('journeyId'); // a classes.id
 
-  // 1. Fetch all journeys for this teacher
-  const allJourneys = await prisma.journey.findMany({
+  // 1. Fetch all classes for this teacher. The response's `journeys` field
+  // keeps its old name for frontend backward compatibility, but these are
+  // classes.id values now — see docs/architecture/2026-06-16-journeys-classes-redesign.md.
+  const allJourneys = await prisma.class.findMany({
     where: { teacherId },
-    select: { id: true, title: true },
+    select: { id: true, title: true, journeyId: true },
     orderBy: { title: 'asc' },
   });
 
@@ -63,23 +65,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ students: [], journeys: allJourneys });
   }
 
-  const targetJourneyIds = targetJourneys.map((j) => j.id);
+  const targetJourneyIds = targetJourneys.map((j) => j.id); // class ids
 
-  // 2. Find all student_journey enrollments for the target journeys
+  // 2. Find all student_journey enrollments for the target classes
   const { data: enrollmentRows } = await supabaseAdmin
     .from('student_journeys')
-    .select('student_id, journey_id')
-    .in('journey_id', targetJourneyIds);
+    .select('student_id, class_id')
+    .in('class_id', targetJourneyIds);
 
   const rows = enrollmentRows ?? [];
 
-  // Build: studentId → set of journey IDs they're enrolled in
+  // Build: studentId → set of class IDs they're enrolled in
   const studentJourneyMap = new Map<string, Set<string>>();
   for (const row of rows) {
     const sid = row.student_id as string;
-    const jid = row.journey_id as string;
+    const cid = row.class_id as string | null;
+    if (!cid) continue;
     if (!studentJourneyMap.has(sid)) studentJourneyMap.set(sid, new Set());
-    studentJourneyMap.get(sid)!.add(jid);
+    studentJourneyMap.get(sid)!.add(cid);
   }
 
   const allStudentIds = Array.from(studentJourneyMap.keys());
@@ -87,20 +90,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ students: [], journeys: allJourneys });
   }
 
-  // When a journey filter is active, enrollmentRows only covers that journey.
-  // Fetch all enrollments for the included students so journey pills show every journey.
+  // When a class filter is active, enrollmentRows only covers that class.
+  // Fetch all enrollments for the included students so journey pills show every class.
   const fullStudentJourneyMap: Map<string, Set<string>> = journeyIdFilter
     ? await (async () => {
         const { data: allEnrollRows } = await supabaseAdmin
           .from('student_journeys')
-          .select('student_id, journey_id')
+          .select('student_id, class_id')
           .in('student_id', allStudentIds);
         const m = new Map<string, Set<string>>();
         for (const row of allEnrollRows ?? []) {
           const sid = row.student_id as string;
-          const jid = row.journey_id as string;
+          const cid = row.class_id as string | null;
+          if (!cid) continue;
           if (!m.has(sid)) m.set(sid, new Set());
-          m.get(sid)!.add(jid);
+          m.get(sid)!.add(cid);
         }
         return m;
       })()
@@ -125,28 +129,38 @@ export async function GET(req: NextRequest) {
   }
   const allAuthIds = Array.from(authIdToUserId.keys());
 
-  // 4. Fetch last-seen timestamps (most recent message per student).
-  //    messages.student_id stores the Supabase auth UUID, not users.id.
-  //    Limit is set high enough that even a very active student cannot starve the rest.
-  //    TODO: replace with DISTINCT ON (student_id) RPC once Supabase supports it.
-  const { data: lastMsgRows } = allAuthIds.length > 0
-    ? await supabaseAdmin
-        .from('messages')
-        .select('student_id, created_at')
-        .in('student_id', allAuthIds)
-        .order('created_at', { ascending: false })
-        .limit(Math.max(allAuthIds.length * 50, 500))
-    : { data: [] };
-
-  const lastSeenMap = new Map<string, Date>();
-  for (const row of lastMsgRows ?? []) {
-    const authId = row.student_id as string;
-    const userId = authIdToUserId.get(authId);
-    if (userId && !lastSeenMap.has(userId)) lastSeenMap.set(userId, new Date(row.created_at));
+  // 4. Fetch last-seen timestamps via MAX(created_at) GROUP BY — avoids
+  //    pulling N×50 rows and scanning them in JS memory.
+  let lastSeenRows: { student_id: string; last_seen: Date | null }[] = [];
+  if (allAuthIds.length > 0) {
+    try {
+      lastSeenRows = await prisma.$queryRawUnsafe<{ student_id: string; last_seen: Date | null }[]>(
+        `SELECT student_id::text, MAX(created_at) AS last_seen
+         FROM messages
+         WHERE student_id = ANY($1::uuid[])
+         GROUP BY student_id`,
+        allAuthIds,
+      );
+    } catch (err) {
+      console.error('[GET /api/teacher/students] last-seen query failed', err);
+      // Non-fatal: last-seen data degrades gracefully to null for all students.
+    }
   }
 
-  // 5. Generate signals across all target journeys
-  //    Highest-priority signal wins when a student appears in multiple journeys.
+  const lastSeenMap = new Map<string, Date>();
+  for (const row of lastSeenRows) {
+    const userId = authIdToUserId.get(row.student_id);
+    if (userId && row.last_seen) lastSeenMap.set(userId, row.last_seen);
+  }
+
+  // 5. Generate signals across all target classes — one batch call instead of
+  //    one generateSignals call per class. Highest-priority signal wins when
+  //    a student appears in multiple classes.
+  //
+  // generateSignalsBatch treats `journeyId` as an opaque grouping key as long
+  // as `missionIds` is pre-supplied (it only falls back to looking up
+  // missions by journey_id when missionIds is omitted) — so a class id works
+  // fine here as long as we resolve each class's template missions ourselves.
   const SIGNAL_PRIORITY: Record<SignalType, number> = {
     breakthrough: 0,
     grace_completion: 1,
@@ -154,26 +168,39 @@ export async function GET(req: NextRequest) {
     non_engagement: 3,
   };
 
-  const signalMap = new Map<string, SignalType>();
+  const templateJourneyIds = Array.from(new Set(targetJourneys.map(j => j.journeyId)));
+  const { data: missionRows } = await supabaseAdmin
+    .from('missions')
+    .select('id, journey_id')
+    .in('journey_id', templateJourneyIds);
 
-  // Batch all lastSession lookups in one query, then process journeys in parallel.
+  const missionIdsByTemplate = new Map<string, string[]>();
+  for (const m of missionRows ?? []) {
+    const list = missionIdsByTemplate.get(m.journey_id) ?? [];
+    list.push(m.id);
+    missionIdsByTemplate.set(m.journey_id, list);
+  }
+
   const allSessions = await prisma.classSession.findMany({
-    where: { teacherId, journeyId: { in: targetJourneyIds } },
-    select: { journeyId: true, startedAt: true },
+    where: { teacherId, classId: { in: targetJourneyIds } },
+    select: { classId: true, startedAt: true },
     orderBy: { startedAt: 'desc' },
   });
   const lastSessionByJourney = new Map<string, Date>();
   for (const s of allSessions) {
-    if (!lastSessionByJourney.has(s.journeyId)) lastSessionByJourney.set(s.journeyId, s.startedAt);
+    if (s.classId && !lastSessionByJourney.has(s.classId)) lastSessionByJourney.set(s.classId, s.startedAt);
   }
 
-  const allSignalArrays = await Promise.all(
-    targetJourneys.map(journey =>
-      generateSignals(journey.id, lastSessionByJourney.get(journey.id) ?? null)
-    )
+  const signalsByJourney = await generateSignalsBatch(
+    targetJourneys.map(j => ({
+      journeyId:     j.id,
+      missionIds:    missionIdsByTemplate.get(j.journeyId) ?? [],
+      lastSessionAt: lastSessionByJourney.get(j.id) ?? null,
+    })),
   );
 
-  for (const signals of allSignalArrays) {
+  const signalMap = new Map<string, SignalType>();
+  for (const signals of Array.from(signalsByJourney.values())) {
     for (const signal of signals) {
       const existing = signalMap.get(signal.studentId);
       if (!existing || SIGNAL_PRIORITY[signal.signalType] < SIGNAL_PRIORITY[existing]) {

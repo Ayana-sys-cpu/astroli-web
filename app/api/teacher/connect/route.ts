@@ -5,16 +5,24 @@
 //
 // The teacher is already in Supabase by the time this is called — the
 // identify route upserts the teacher row during sign-in.
-// This route only handles the course → journey step:
+// This route only handles the course → class step:
 //
 //   For each course:
-//     1. Upsert a journey row (keyed by google_course_id — safe to re-call).
-//     2. If the journey is brand new (no missions yet), copy missions + planets
-//        from the selected curriculum template journey.
+//     1. Upsert a `classes` row (keyed by google_course_id — safe to re-call),
+//        pointing at the selected curriculum journey (template). The template
+//        is never copied — classes only ever reference it.
+//     2. Seed one class_mission_state row per template mission, defaulting to
+//        'locked', using ON CONFLICT DO NOTHING so re-calling this is safe
+//        even under concurrent/duplicate requests.
 //
-// Returns the first journey's id as journeyId (matches existing contract).
+// Returns the first class's id as journeyId (matches existing contract — the
+// field name stays journeyId for backward compatibility with the frontend
+// that calls this route; it is a class id now, not a journey id).
 //
 // teacherId is taken from the session — the body's teacherId field is ignored.
+//
+// See docs/architecture/2026-06-16-journeys-classes-redesign.md for the full
+// rationale behind this split.
 // =============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -50,192 +58,128 @@ export async function POST(req: NextRequest) {
   if (!parsed.ok) return parsed.response;
   const { courses, curriculumJourneyId } = parsed.data;
 
-  // Verify the curriculum journey exists
+  // Verify the curriculum journey exists. journeys are template-only now —
+  // there is no google_course_id check needed since that column no longer
+  // exists on journeys (it lives on classes instead).
   const { data: curriculum, error: currErr } = await supabaseAdmin
     .from('journeys')
     .select('id, title')
     .eq('id', curriculumJourneyId)
-    .is('google_course_id', null)   // safety: only templates have no course id
     .single();
 
   if (currErr || !curriculum) {
     return NextResponse.json({ error: 'Curriculum journey not found' }, { status: 400 });
   }
 
-  let firstJourneyId: string | null = null;
-  let lastJourneyError: unknown = null;
+  let firstClassId: string | null = null;
+  let lastClassError: unknown = null;
 
   for (const course of courses) {
     const normCourseId = normaliseCourseId(course.id);
 
-    // ── Insert or fetch journey ───────────────────────────────────────────────
-    // On first connect: INSERT with curriculum_journey_id set.
+    // ── Insert or fetch class ─────────────────────────────────────────────────
+    // On first connect: INSERT with journey_id set.
     // On reconnect:     INSERT fails (unique conflict) → SELECT the existing row
     //                   and UPDATE only title/teacher_id — never overwriting
-    //                   curriculum_journey_id so the seeded missions stay linked
-    //                   to their original curriculum.
-    let journeyId: string;
+    //                   journey_id, which is immutable after creation (see
+    //                   design doc §3.3 — the one-class-per-template-per-student
+    //                   constraint depends on a class's template never changing).
+    let classId: string;
 
     const { data: inserted, error: insertErr } = await supabaseAdmin
-      .from('journeys')
+      .from('classes')
       .insert({
-        google_course_id:      normCourseId,
-        title:                 course.name,
-        teacher_id:            teacherId,
-        curriculum_journey_id: curriculumJourneyId,
+        google_course_id: normCourseId,
+        title:            course.name,
+        teacher_id:       teacherId,
+        journey_id:       curriculumJourneyId,
       })
       .select('id')
       .single();
 
     if (insertErr) {
-      // Conflict — journey already exists. Refresh mutable fields only.
+      // Conflict — class already exists. Refresh mutable fields only.
       const { data: existing, error: fetchErr } = await supabaseAdmin
-        .from('journeys')
+        .from('classes')
         .select('id')
         .eq('google_course_id', normCourseId)
         .single();
 
       if (fetchErr || !existing) {
-        console.error('[teacher/connect] fetch existing journey failed', course.id, fetchErr);
-        lastJourneyError = fetchErr;
+        console.error('[teacher/connect] fetch existing class failed', course.id, fetchErr);
+        lastClassError = fetchErr;
         continue;
       }
 
-      // Update title + teacher_id in case they changed; leave curriculum_journey_id alone.
+      // Update title + teacher_id in case they changed; leave journey_id alone.
       await supabaseAdmin
-        .from('journeys')
+        .from('classes')
         .update({ title: course.name, teacher_id: teacherId })
         .eq('id', existing.id);
 
-      journeyId = existing.id as string;
+      classId = existing.id as string;
     } else if (!inserted) {
       console.error('[teacher/connect] insert returned no data', course.id);
-      lastJourneyError = new Error('No data from insert');
+      lastClassError = new Error('No data from insert');
       continue;
     } else {
-      journeyId = inserted.id as string;
+      classId = inserted.id as string;
     }
 
-    if (!firstJourneyId) firstJourneyId = journeyId;
+    if (!firstClassId) firstClassId = classId;
 
-    // ── Seed if brand-new ─────────────────────────────────────────────────────
-    const { count, error: countErr } = await supabaseAdmin
-      .from('missions')
-      .select('id', { count: 'exact', head: true })
-      .eq('journey_id', journeyId);
-
-    if (countErr) {
-      // If the count query fails we cannot safely determine whether the journey
-      // is new — skip seeding to avoid duplicating missions on reconnect.
-      console.error('[teacher/connect] mission count query failed, skipping seed', countErr);
-      continue;
-    }
-
-    if ((count ?? 0) === 0) {
-      try {
-        await copyFromCurriculum(journeyId, curriculumJourneyId, teacherId);
-        console.log(`[teacher/connect] seeded journey ${journeyId} from curriculum "${curriculum.title}"`);
-      } catch (seedErr) {
-        const detail = seedErr instanceof Error ? seedErr.message : String(seedErr);
-        console.error('[teacher/connect] seeding failed, rolling back journey upsert', detail);
-        // Delete the empty journey so reconnect can retry cleanly
-        await supabaseAdmin.from('journeys').delete().eq('id', journeyId);
-        return NextResponse.json({ error: 'Failed to seed journey from curriculum. Please try again.' }, { status: 500 });
+    // ── Seed class_mission_state ──────────────────────────────────────────────
+    // One row per template mission, defaulting to locked. ON CONFLICT DO
+    // NOTHING makes this idempotent on reconnect — no count-then-act race.
+    try {
+      await seedClassMissionState(classId, curriculumJourneyId);
+    } catch (seedErr) {
+      const detail = seedErr instanceof Error ? seedErr.message : String(seedErr);
+      console.error('[teacher/connect] seeding class_mission_state failed', detail);
+      // Only roll back the class if it was newly created this call — never
+      // delete a pre-existing class on a reconnect failure.
+      if (insertErr === null) {
+        await supabaseAdmin.from('classes').delete().eq('id', classId);
       }
+      return NextResponse.json({ error: 'Failed to set up class missions. Please try again.' }, { status: 500 });
     }
   }
 
-  if (!firstJourneyId) {
-    const detail = lastJourneyError instanceof Error
-      ? lastJourneyError.message
-      : JSON.stringify(lastJourneyError);
-    console.error('[teacher/connect] all journey upserts failed. Last error:', detail);
-    return NextResponse.json({ error: 'Failed to create any journeys' }, { status: 500 });
+  if (!firstClassId) {
+    const detail = lastClassError instanceof Error
+      ? lastClassError.message
+      : JSON.stringify(lastClassError);
+    console.error('[teacher/connect] all class upserts failed. Last error:', detail);
+    return NextResponse.json({ error: 'Failed to create any classes' }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, journeyId: firstJourneyId });
+  return NextResponse.json({ ok: true, journeyId: firstClassId });
 }
 
 // -----------------------------------------------------------------------------
-// copyFromCurriculum — copies all missions and planets from a curriculum
-// template journey into a new class journey.
-// Throws if any mission fails to copy so the caller can surface the error.
+// seedClassMissionState — inserts one class_mission_state row (state: 'locked')
+// per mission belonging to the curriculum template, skipping any that already
+// exist. Safe to call repeatedly (reconnect, or a template gaining missions
+// after the class was created — see design doc §3.2).
 // -----------------------------------------------------------------------------
-async function copyFromCurriculum(
-  classJourneyId:      string,
+async function seedClassMissionState(
+  classId:             string,
   curriculumJourneyId: string,
-  teacherId:           string,
 ): Promise<void> {
   const { data: missions, error: fetchErr } = await supabaseAdmin
     .from('missions')
-    .select('*')
-    .eq('journey_id', curriculumJourneyId)
-    .order('order');
+    .select('id')
+    .eq('journey_id', curriculumJourneyId);
 
   if (fetchErr) throw new Error(`Failed to fetch curriculum missions: ${fetchErr.message}`);
+  if (!missions || missions.length === 0) return;
 
-  for (const m of (missions ?? [])) {
-    const { data: newMission, error: mErr } = await supabaseAdmin
-      .from('missions')
-      .insert({
-        journey_id:           classJourneyId,
-        order:                m.order,
-        state:                'locked',
-        question:             m.question,
-        question_description: m.question_description,
-        mission_brief:        m.mission_brief,
-        chapter:              m.chapter,
-        project_title:        m.project_title,
-        project_description:  m.project_description,
-        opening_message:       m.opening_message,
-        opening_quick_replies: m.opening_quick_replies,
-        opening_message_2:     m.opening_message_2,
-        world_brief_summary:   m.world_brief_summary,
-        world_brief_items:     m.world_brief_items,
-        qa_answers:            m.qa_answers,
-        mission_qa_answers:    m.mission_qa_answers,
-        source:                'HARDCODED',
-        created_by:            teacherId,
-      })
-      .select('id')
-      .single();
+  const { error: insertErr } = await supabaseAdmin
+    .from('class_mission_state')
+    .upsert(
+      missions.map(m => ({ class_id: classId, mission_id: m.id, state: 'locked' })),
+      { onConflict: 'class_id,mission_id', ignoreDuplicates: true },
+    );
 
-    if (mErr || !newMission) {
-      throw new Error(`Failed to copy mission order ${m.order}: ${mErr?.message ?? 'no data returned'}`);
-    }
-
-    const { data: planets } = await supabaseAdmin
-      .from('planets')
-      .select('*')
-      .eq('mission_id', m.id);
-
-    if (planets && planets.length > 0) {
-      const { error: pErr } = await supabaseAdmin
-        .from('planets')
-        .insert(
-          planets.map(p => ({
-            mission_id:            newMission.id,
-            icon:                  p.icon,
-            label:                 p.label,
-            title:                 p.title,
-            short_title:           p.short_title,
-            hint:                  p.hint,
-            character_figure:      p.character_figure,
-            character_year:        p.character_year,
-            character_location:    p.character_location,
-            content:               p.content,
-            planet_question:       p.planet_question,
-            opening_message:        p.opening_message,
-            opening_quick_replies:  p.opening_quick_replies,
-            student_reveal_message: p.student_reveal_message,
-            source:                 'HARDCODED',
-            created_by:             teacherId,
-          })),
-        );
-
-      if (pErr) {
-        console.error('[copyFromCurriculum] insert planets for mission', newMission.id, pErr);
-      }
-    }
-  }
+  if (insertErr) throw new Error(`Failed to seed class_mission_state: ${insertErr.message}`);
 }

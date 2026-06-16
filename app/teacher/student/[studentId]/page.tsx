@@ -59,6 +59,10 @@ export default function StudentDrillDownPage() {
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'rgba(248,248,252,0.8)' }}>
+      <style>{`
+        .dd-btn:focus-visible { outline: 2px solid #8B00FF !important; outline-offset: 2px; }
+      `}</style>
+
       {/* Student identity header */}
       <DrillDownHeader student={data.student} />
 
@@ -76,6 +80,7 @@ export default function StudentDrillDownPage() {
         {(['this-week', 'all-time'] as MainTab[]).map((tab) => (
           <button
             key={tab}
+            className="dd-btn"
             onClick={() => setMainTab(tab)}
             style={{
               padding: '12px 16px',
@@ -87,7 +92,8 @@ export default function StudentDrillDownPage() {
               cursor: 'pointer',
               borderBottom: mainTab === tab ? '2px solid #8B00FF' : '2px solid transparent',
               transition: 'all 0.15s',
-              marginBottom: -1,
+              position: 'relative',
+              bottom: -1,
             }}
           >
             {tab === 'this-week' ? 'This week' : 'All time'}
@@ -95,26 +101,40 @@ export default function StudentDrillDownPage() {
         ))}
       </div>
 
-      {/* Journey sub-tabs (only when multiple journeys) */}
-      {data.journeys.length > 1 && (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          padding: '10px 20px',
-          borderBottom: '1px solid rgba(26,26,46,0.06)',
-          background: 'rgba(255,255,255,0.5)',
-          flexShrink: 0,
-          overflowX: 'auto',
-        }}>
-          {data.journeys.map((journey) => {
+      {/* Journey sub-tabs — always rendered so layout is stable regardless of journey count */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '10px 20px',
+        borderBottom: '1px solid rgba(26,26,46,0.06)',
+        background: 'rgba(255,255,255,0.5)',
+        flexShrink: 0,
+        overflowX: 'auto',
+      }}>
+        {data.journeys.length === 1 ? (
+          <span style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: '#8B00FF',
+            padding: '5px 14px',
+            borderRadius: 20,
+            border: '1px solid rgba(139,0,255,0.3)',
+            background: 'rgba(139,0,255,0.08)',
+            whiteSpace: 'nowrap',
+          }}>
+            {data.journeys[0].title}
+          </span>
+        ) : (
+          data.journeys.map((journey) => {
             const active = selectedJourneyId === journey.id;
             return (
               <button
                 key={journey.id}
+                className="dd-btn"
                 onClick={() => setSelectedJourneyId(journey.id)}
                 style={{
-                  padding: '5px 14px',
+                  padding: '8px 16px',
                   borderRadius: 20,
                   border: active ? '1px solid rgba(139,0,255,0.3)' : '1px solid rgba(26,26,46,0.1)',
                   background: active ? 'rgba(139,0,255,0.08)' : 'rgba(255,255,255,0.7)',
@@ -124,19 +144,24 @@ export default function StudentDrillDownPage() {
                   cursor: 'pointer',
                   whiteSpace: 'nowrap',
                   transition: 'all 0.15s',
+                  minHeight: 36,
                 }}
               >
                 {journey.title}
               </button>
             );
-          })}
-        </div>
-      )}
+          })
+        )}
+      </div>
 
       {/* Main content */}
       {selectedJourneyId && (
         mainTab === 'this-week' ? (
-          <ThisWeekView data={data} selectedJourneyId={selectedJourneyId} />
+          <ThisWeekView
+            data={data}
+            selectedJourneyId={selectedJourneyId}
+            onSwitchToAllTime={() => setMainTab('all-time')}
+          />
         ) : (
           <AllTimeView data={data} selectedJourneyId={selectedJourneyId} />
         )

@@ -38,8 +38,6 @@ const CURRICULUM_OPTIONS = [
 interface PlanetPreview {
   id: string;
   title: string;
-  content: string;
-  openingMessage: string | null;
 }
 
 interface MissionPreview {
@@ -325,7 +323,7 @@ export default function ConnectState({
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              router.push(`/teacher/mission/${mission.id}`);
+                                              router.push(`/landscape?preview=${mission.id}`);
                                             }}
                                             className="flex items-center gap-2 font-space font-bold text-[10px] tracking-[0.08em] px-3 py-2 rounded-lg transition-all"
                                             style={{ background: 'rgba(26,26,46,0.05)', border: '1px solid rgba(26,26,46,0.12)', color: 'rgba(26,26,46,0.55)', cursor: 'pointer' }}

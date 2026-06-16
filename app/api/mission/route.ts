@@ -1,14 +1,8 @@
 // =============================================================================
-// GET /api/mission?order=N
+// GET /api/mission?missionId=X  (preferred — exact match by ID)
+// GET /api/mission?order=N      (legacy fallback — avoid; ambiguous across journeys)
 //
-// Returns a PipMission object for the given mission order number.
-// Data is read from Supabase (missions + planets tables) — this is the single
-// source of truth after the content migration.
-//
-// Picks the first mission in the DB with the given order that has been
-// backfilled (world_brief_summary IS NOT NULL). Falls back to any mission
-// of that order if the backfill hasn't run yet.
-//
+// Returns a PipMission object. Always use missionId when available.
 // No auth required — content is educational material, not sensitive.
 // =============================================================================
 
@@ -17,24 +11,29 @@ import { supabaseAdmin } from '@/lib/supabase-server';
 import type { PipMission, PipPlanet, WorldBriefItem } from '@/lib/pip-mission-types';
 
 export async function GET(req: NextRequest) {
+  const missionId  = req.nextUrl.searchParams.get('missionId');
   const orderParam = req.nextUrl.searchParams.get('order');
-  const order      = parseInt(orderParam ?? '1', 10);
 
-  if (isNaN(order) || order < 1) {
-    return NextResponse.json({ error: 'order must be a positive integer' }, { status: 400 });
-  }
-
-  // Fetch up to 10 missions with the given order — prefer backfilled rows
-  const { data: rows, error: missionError } = await supabaseAdmin
+  let query = supabaseAdmin
     .from('missions')
     .select(`
       id, "order", question, question_description,
       project_title, project_description, opening_message,
       world_brief_summary, world_brief_items, opening_message_2,
       mission_brief, chapter, qa_answers, mission_qa_answers
-    `)
-    .eq('"order"', order)
-    .limit(10);
+    `);
+
+  if (missionId) {
+    query = query.eq('id', missionId).limit(1);
+  } else {
+    const order = parseInt(orderParam ?? '1', 10);
+    if (isNaN(order) || order < 1) {
+      return NextResponse.json({ error: 'order must be a positive integer' }, { status: 400 });
+    }
+    query = query.eq('"order"', order).limit(10);
+  }
+
+  const { data: rows, error: missionError } = await query;
 
   if (missionError) {
     console.error('[GET /api/mission] mission lookup error:', missionError);
@@ -45,8 +44,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Mission not found' }, { status: 404 });
   }
 
-  // Prefer a row that has been backfilled (non-null world_brief_summary)
-  const mission = rows.find((r) => r.world_brief_summary != null) ?? rows[0];
+  // When querying by order (legacy), prefer a backfilled row
+  const mission = missionId
+    ? rows[0]
+    : (rows.find((r) => r.world_brief_summary != null) ?? rows[0]);
 
   // ── Fetch planets for this mission instance ────────────────────────────────
   const { data: planets, error: planetsError } = await supabaseAdmin
@@ -82,7 +83,7 @@ export async function GET(req: NextRequest) {
     openingMessage:    mission.opening_message as string,
     openingMessage2:   (mission.opening_message_2 as string | null) ?? '',
     missionBrief,
-    chapter:           (mission.chapter as string | null) ?? `Medieval History · Ch.${order}`,
+    chapter:           (mission.chapter as string | null) ?? `Ch.${(mission as any).order}`,
     planets: (planets ?? []).map((p): PipPlanet => ({
       icon: (p.icon as string | null) ?? '🌍',
       name: p.label as string,

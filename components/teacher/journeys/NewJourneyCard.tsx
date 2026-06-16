@@ -1,12 +1,15 @@
 'use client';
 import { useRouter } from 'next/navigation';
 
-export default function NewJourneyCard() {
+export default function NewJourneyCard({ isFirst }: { isFirst: boolean }) {
   const router = useRouter();
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       onClick={() => router.push('/teacher/journeys/new')}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') router.push('/teacher/journeys/new'); }}
       style={{
         borderRadius: 16,
         border: '1px dashed rgba(139,0,255,0.3)',
@@ -20,6 +23,7 @@ export default function NewJourneyCard() {
         cursor: 'pointer',
         minHeight: 240,
         transition: 'background 0.15s, border-color 0.15s',
+        outline: 'none',
       }}
       onMouseEnter={e => {
         (e.currentTarget as HTMLDivElement).style.background = 'rgba(139,0,255,0.06)';
@@ -47,15 +51,17 @@ export default function NewJourneyCard() {
       }}>
         NEW JOURNEY
       </div>
-      <div style={{
-        fontSize: 10,
-        color: 'rgba(26,26,46,0.3)',
-        fontFamily: 'var(--font-inter)',
-        textAlign: 'center',
-        lineHeight: 1.6,
-      }}>
-        Connect a Google Classroom<br />and choose a curriculum
-      </div>
+      {isFirst && (
+        <div style={{
+          fontSize: 10,
+          color: 'rgba(26,26,46,0.3)',
+          fontFamily: 'var(--font-inter)',
+          textAlign: 'center',
+          lineHeight: 1.6,
+        }}>
+          Connect a Google Classroom<br />and choose a curriculum
+        </div>
+      )}
     </div>
   );
 }

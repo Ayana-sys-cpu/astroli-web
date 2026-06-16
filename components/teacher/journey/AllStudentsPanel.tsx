@@ -41,10 +41,9 @@ export default function AllStudentsPanel({ students }: AllStudentsPanelProps) {
           textAlign: 'left',
         }}
       >
-        <span style={{ fontSize: 12 }}>{expanded ? '↑' : '↓'}</span>
         {expanded
           ? 'Hide students ↑'
-          : `See all ${students.length} students`}
+          : `See all ${students.length} students ↓`}
       </button>
 
       <AnimatePresence>

@@ -1,13 +1,18 @@
 // =============================================================================
 // /api/teacher/journeys
 //
-// GET  — list all journeys for the authenticated teacher, each with its
-//         active vote session. The ?teacherId= query param is ignored —
-//         identity comes from the verified session cookie.
+// GET  — list all classes for the authenticated teacher, each with its
+//         template's missions, that class's live state, and its active vote
+//         session. The ?teacherId= query param is ignored — identity comes
+//         from the verified session cookie.
 // PATCH — vote session state machine:
 //   voteEndsAt set, no open session → INSERT vote_session + locked→voting
 //   voteEndsAt set, session exists  → UPDATE session ends_at
 //   voteEndsAt null                 → conclude active session + voting→locked
+//
+// NOTE: `journeyId` in the wire format (query/body field names, response
+// `journey.id`) is kept for frontend backward compatibility, but the value
+// is a classes.id — see docs/architecture/2026-06-16-journeys-classes-redesign.md.
 // =============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -27,52 +32,75 @@ export async function GET(req: NextRequest) {
 
   const teacherId = auth.user.user_metadata.teacher_id as string;
 
-  const { data, error } = await supabaseAdmin
-    .from('journeys')
-    .select(`
-      id,
-      title,
-      google_course_id,
-      missions (
-        id,
-        question,
-        project_title,
-        state,
-        "order"
-      ),
-      vote_sessions (
-        id,
-        starts_at,
-        ends_at,
-        status,
-        winner_id
-      )
-    `)
+  const { data: classes, error } = await supabaseAdmin
+    .from('classes')
+    .select('id, title, google_course_id, journey_id')
     .eq('teacher_id', teacherId)
-    .order('created_at')
-    .order('"order"', { referencedTable: 'missions' });
+    .order('created_at');
 
   if (error) {
     console.error('[GET /api/teacher/journeys]', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const journeys = (data ?? []).map(j => {
-    const sessions = (j.vote_sessions as any[]) ?? [];
-    const activeSession = sessions.find((s: any) => s.status === 'open') ?? null;
+  if (!classes || classes.length === 0) {
+    return NextResponse.json({ journeys: [] });
+  }
+
+  const classIds  = classes.map(c => c.id);
+  const journeyIds = classes.map(c => c.journey_id);
+
+  const [{ data: missionRows, error: mErr }, { data: stateRows }, { data: sessionRows }] = await Promise.all([
+    supabaseAdmin
+      .from('missions')
+      .select('id, journey_id, question, project_title, "order"')
+      .in('journey_id', journeyIds)
+      .order('"order"'),
+    supabaseAdmin
+      .from('class_mission_state')
+      .select('class_id, mission_id, state')
+      .in('class_id', classIds),
+    supabaseAdmin
+      .from('vote_sessions')
+      .select('id, class_id, starts_at, ends_at, status, winner_id')
+      .in('class_id', classIds),
+  ]);
+
+  if (mErr) {
+    console.error('[GET /api/teacher/journeys]', mErr);
+    return NextResponse.json({ error: mErr.message }, { status: 500 });
+  }
+
+  const missionsByJourney = new Map<string, typeof missionRows>();
+  for (const m of missionRows ?? []) {
+    const list = missionsByJourney.get(m.journey_id) ?? [];
+    list.push(m);
+    missionsByJourney.set(m.journey_id, list);
+  }
+  const stateByClassAndMission = new Map((stateRows ?? []).map(r => [`${r.class_id}:${r.mission_id}`, r.state]));
+  const sessionsByClass = new Map<string, typeof sessionRows>();
+  for (const s of sessionRows ?? []) {
+    const list = sessionsByClass.get(s.class_id!) ?? [];
+    list.push(s);
+    sessionsByClass.set(s.class_id!, list);
+  }
+
+  const journeys = classes.map(c => {
+    const sessions = sessionsByClass.get(c.id) ?? [];
+    const activeSession = (sessions as any[]).find(s => s.status === 'open') ?? null;
 
     return {
-      id:             j.id,
-      title:          j.title,
-      googleCourseId: j.google_course_id,
+      id:             c.id,
+      title:          c.title,
+      googleCourseId: c.google_course_id,
       activeVoteSession: activeSession
         ? { id: activeSession.id, startsAt: activeSession.starts_at, endsAt: activeSession.ends_at }
         : null,
-      missions: (j.missions as any[]).map(m => ({
+      missions: (missionsByJourney.get(c.journey_id) ?? []).map(m => ({
         id:           m.id,
         question:     m.question,
         projectTitle: m.project_title,
-        state:        m.state,
+        state:        stateByClassAndMission.get(`${c.id}:${m.id}`) ?? 'locked',
         order:        m.order,
       })),
     };
@@ -109,20 +137,20 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { journeyId, voteEndsAt, voteStartsAt } = body as { journeyId?: string; voteEndsAt?: string | null; voteStartsAt?: string | null };
-  if (!journeyId) {
+  const { journeyId: classId, voteEndsAt, voteStartsAt } = body as { journeyId?: string; voteEndsAt?: string | null; voteStartsAt?: string | null };
+  if (!classId) {
     return NextResponse.json({ error: 'journeyId required' }, { status: 400 });
   }
 
-  // Verify the journey belongs to this teacher.
-  const { data: journeyCheck } = await supabaseAdmin
-    .from('journeys')
-    .select('id')
-    .eq('id', journeyId)
+  // Verify the class belongs to this teacher, and resolve its template.
+  const { data: klass } = await supabaseAdmin
+    .from('classes')
+    .select('id, journey_id')
+    .eq('id', classId)
     .eq('teacher_id', teacherId)
     .maybeSingle();
 
-  if (!journeyCheck) {
+  if (!klass) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -132,11 +160,11 @@ export async function PATCH(req: NextRequest) {
   if (parsedEndsAt) {
     // ── Opening or extending a vote ────────────────────────────────────────
 
-    // Check if there's already an open session for this journey.
+    // Check if there's already an open session for this class.
     const { data: existing } = await supabaseAdmin
       .from('vote_sessions')
       .select('id')
-      .eq('journey_id', journeyId)
+      .eq('class_id', classId)
       .eq('status', 'open')
       .maybeSingle();
 
@@ -157,10 +185,12 @@ export async function PATCH(req: NextRequest) {
       }
       sessionId = updated.id;
     } else {
-      // Create a new session and transition all locked missions to 'voting'.
+      // Create a new session. journey_id still must be set (NOT NULL FK into
+      // journeys until the cleanup migration runs) — it gets the class's
+      // template id, which is now the only valid value for that column.
       const { data: created, error: sessionError } = await supabaseAdmin
         .from('vote_sessions')
-        .insert({ journey_id: journeyId, starts_at: parsedStartsAt, ends_at: parsedEndsAt, status: 'open' })
+        .insert({ journey_id: klass.journey_id, class_id: classId, starts_at: parsedStartsAt, ends_at: parsedEndsAt, status: 'open' })
         .select('id, ends_at, starts_at')
         .single();
 
@@ -170,21 +200,23 @@ export async function PATCH(req: NextRequest) {
       }
       sessionId = created.id;
 
-      // Transition locked → voting so students are routed to /vote in real time.
-      const { error: missionError } = await supabaseAdmin
-        .from('missions')
+      // Transition this class's locked missions to 'voting' so students are
+      // routed to /vote in real time. State lives in class_mission_state now,
+      // not on the (shared, template-owned) missions row.
+      const { error: stateError } = await supabaseAdmin
+        .from('class_mission_state')
         .update({ state: 'voting' })
-        .eq('journey_id', journeyId)
+        .eq('class_id', classId)
         .eq('state', 'locked');
 
-      if (missionError) {
-        console.error('[PATCH /api/teacher/journeys] mission → voting', missionError);
-        return NextResponse.json({ error: missionError.message }, { status: 500 });
+      if (stateError) {
+        console.error('[PATCH /api/teacher/journeys] mission → voting', stateError);
+        return NextResponse.json({ error: stateError.message }, { status: 500 });
       }
     }
 
     return NextResponse.json({
-      journey: { id: journeyId },
+      journey: { id: classId },
       sessionId,
       sessionEndsAt:   parsedEndsAt,
       sessionStartsAt: parsedStartsAt,
@@ -196,7 +228,7 @@ export async function PATCH(req: NextRequest) {
     const { error: sessionError } = await supabaseAdmin
       .from('vote_sessions')
       .update({ status: 'concluded' })
-      .eq('journey_id', journeyId)
+      .eq('class_id', classId)
       .eq('status', 'open');
 
     if (sessionError) {
@@ -204,19 +236,20 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: sessionError.message }, { status: 500 });
     }
 
-    // Revert voting missions to locked. The caller (handleFinishVote) will
-    // then PATCH individual missions to pending_start / skipped as needed.
-    const { error: missionError } = await supabaseAdmin
-      .from('missions')
+    // Revert voting missions to locked for this class. The caller
+    // (handleFinishVote) will then PATCH individual missions to
+    // pending_start / skipped as needed.
+    const { error: stateError } = await supabaseAdmin
+      .from('class_mission_state')
       .update({ state: 'locked' })
-      .eq('journey_id', journeyId)
+      .eq('class_id', classId)
       .eq('state', 'voting');
 
-    if (missionError) {
-      console.error('[PATCH /api/teacher/journeys] mission → locked', missionError);
-      return NextResponse.json({ error: missionError.message }, { status: 500 });
+    if (stateError) {
+      console.error('[PATCH /api/teacher/journeys] mission → locked', stateError);
+      return NextResponse.json({ error: stateError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ journey: { id: journeyId } });
+    return NextResponse.json({ journey: { id: classId } });
   }
 }

@@ -64,13 +64,13 @@ function signalMessage(
 ): string {
   switch (signalType) {
     case 'breakthrough':
-      return `${studentFirstName} is making a breakthrough in ${journeyTitle}. Let her know how remarkable that is.`;
+      return `${studentFirstName} is making a breakthrough in ${journeyTitle}. Let ${studentFirstName} know how remarkable that is.`;
     case 'non_engagement':
       return `${studentFirstName} hasn't been active in ${journeyTitle} recently. A quick "how are you finding it?" could be all it takes — not a reminder, just a check-in.`;
     case 'grace_completion':
-      return `${studentFirstName}'s answers in ${journeyTitle} stayed surface-level. She can go deeper — she may just need someone to ask a better question.`;
+      return `${studentFirstName}'s answers in ${journeyTitle} stayed surface-level. ${studentFirstName} can go deeper — they may just need someone to ask a better question.`;
     case 'stuck':
-      return `${studentFirstName} seems stuck in ${journeyTitle}. A short conversation might help her get unstuck.`;
+      return `${studentFirstName} seems stuck in ${journeyTitle}. A short conversation might help ${studentFirstName} get unstuck.`;
   }
 }
 

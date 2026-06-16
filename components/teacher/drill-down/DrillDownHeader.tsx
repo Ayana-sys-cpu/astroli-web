@@ -29,15 +29,16 @@ export default function DrillDownHeader({ student }: Props) {
         alignItems: 'center',
         gap: 14,
         padding: '20px 20px 16px',
-        borderBottom: '1px solid rgba(255,255,255,0.7)',
+        borderBottom: '1px solid rgba(26,26,46,0.08)',
         background: 'rgba(255,255,255,0.6)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
         flexShrink: 0,
       }}
     >
-      {/* Back button */}
+      {/* Back button — 44×44px touch target */}
       <button
+        className="dd-btn"
         onClick={() => router.push('/teacher/progress')}
         aria-label="Back to students"
         style={{
@@ -46,9 +47,14 @@ export default function DrillDownHeader({ student }: Props) {
           color: 'rgba(26,26,46,0.4)',
           fontSize: 20,
           cursor: 'pointer',
-          padding: '0 6px 0 0',
+          padding: '0 10px 0 4px',
           lineHeight: 1,
           flexShrink: 0,
+          minWidth: 44,
+          minHeight: 44,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
         ‹
@@ -73,31 +79,19 @@ export default function DrillDownHeader({ student }: Props) {
         {student.initials}
       </div>
 
-      {/* Name */}
-      <span style={{ fontSize: 16, fontWeight: 700, color: '#1a1a2e' }}>
-        {student.name}
-      </span>
-
-      {/* Journey tags */}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {student.journeyEnrollments.map((je) => (
-          <span
-            key={je.journeyId}
-            style={{
-              fontSize: 11,
-              fontWeight: 500,
-              padding: '3px 8px',
-              borderRadius: 4,
-              background: 'rgba(139,0,255,0.08)',
-              color: '#8B00FF',
-              border: '1px solid rgba(139,0,255,0.2)',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {je.title}
-          </span>
-        ))}
+      {/* Name + journey count */}
+      <div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#1a1a2e' }}>
+          {student.name}
+        </div>
+        {student.journeyEnrollments.length > 0 && (
+          <div style={{ fontSize: 11, color: 'rgba(26,26,46,0.45)', marginTop: 1 }}>
+            {student.grade ? `${student.grade} · ` : ''}
+            {student.journeyEnrollments.length} active {student.journeyEnrollments.length === 1 ? 'journey' : 'journeys'}
+          </div>
+        )}
       </div>
+
     </div>
   );
 }

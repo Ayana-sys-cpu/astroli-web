@@ -29,7 +29,7 @@ export default function ClassPulse({ activeCount, totalCount, attentionCount }: 
         className="font-inter"
         style={{
           fontSize: 14,
-          color: attentionCount > 0 ? '#FF0080' : 'rgba(26,26,46,0.35)',
+          color: attentionCount > 0 ? '#DC2626' : 'rgba(26,26,46,0.35)',
           fontWeight: attentionCount > 0 ? 600 : 400,
         }}
       >

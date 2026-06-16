@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
   const { data: session, error: sessionLookupError } = await supabaseAdmin
     .from('vote_sessions')
-    .select('journey_id')
+    .select('journey_id, class_id')
     .eq('id', voteSessionId)
     .eq('status', 'open')
     .maybeSingle();
@@ -38,6 +38,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Vote session not found or already closed' }, { status: 404 });
   }
 
+  // journey_id is kept (set to the session's template id) because it remains
+  // a NOT NULL FK into journeys until the cleanup migration runs. class_id is
+  // the real "which class this vote belongs to" answer going forward.
   const now = new Date().toISOString();
   const { error } = await supabaseAdmin
     .from('votes')
@@ -46,6 +49,7 @@ export async function POST(req: NextRequest) {
         student_id:      studentId,
         vote_session_id: voteSessionId,
         journey_id:      session.journey_id,
+        class_id:        session.class_id,
         big_idea_id:     bigIdeaId,
         updated_at:      now,
       },

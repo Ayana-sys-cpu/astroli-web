@@ -1,5 +1,5 @@
 'use client';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import SubjectRow from './SubjectRow';
 import PerformanceBadge from './PerformanceBadge';
 import type { DrillDownResponse, MissionMeta, PerformanceType } from '@/lib/drill-down-types';
@@ -29,6 +29,7 @@ interface Props {
 }
 
 export default function AllTimeView({ data, selectedJourneyId }: Props) {
+  const [expandedPlanetId, setExpandedPlanetId] = useState<string | null>(null);
   const missions: MissionMeta[] = data.missionsByJourney[selectedJourneyId] ?? [];
 
   const journeySubjects = useMemo(
@@ -91,6 +92,7 @@ export default function AllTimeView({ data, selectedJourneyId }: Props) {
           return (
             <button
               key={mission.id}
+              className="dd-btn"
               onClick={() => scrollToMission(mission.id)}
               style={{
                 display: 'flex',
@@ -188,6 +190,10 @@ export default function AllTimeView({ data, selectedJourneyId }: Props) {
                     subject={subject}
                     mode="all-time"
                     studentInitials={data.student.initials}
+                    isExpanded={expandedPlanetId === subject.planetId}
+                    onToggle={() => setExpandedPlanetId(
+                      expandedPlanetId === subject.planetId ? null : subject.planetId
+                    )}
                   />
                 ))
               )}

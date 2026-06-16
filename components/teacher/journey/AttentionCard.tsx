@@ -17,31 +17,48 @@ export interface AttentionStudent {
   acknowledged: boolean;
 }
 
+function extractPlanetName(ctx: string): string | null {
+  const m = ctx.match(/\b(Planet \w+)\b/i);
+  return m?.[1] ?? null;
+}
+
+function relativeTime(iso: string): string {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins === 1) return '1 min ago';
+  return `${mins} min ago`;
+}
+
 const SIGNAL_CONFIG: Record<
   AttentionSignalType,
   { icon: string; label: string; color: string; border: string; template: (name: string, context: string) => string }
 > = {
   grace_completion: {
     icon: '🔴',
-    label: 'Grace',
-    color: '#FF0080',
-    border: 'rgba(255,0,128,0.3)',
-    template: (name, _ctx) =>
-      `Hey ${name}, I saw you worked through Planet X. Want to find 2 minutes to chat about it now? I have an idea for a different angle.`,
+    label: 'Grace completion',
+    color: '#DC2626',
+    border: 'rgba(220,38,38,0.3)',
+    template: (name, ctx) => {
+      const planet = extractPlanetName(ctx) ?? 'a recent planet';
+      return `Hey ${name}, I saw you worked through ${planet}. Want to find 2 minutes to chat about it now? I have an idea for a different angle.`;
+    },
   },
   stuck: {
     icon: '🔄',
     label: 'Stuck',
     color: '#0369A1',
     border: 'rgba(14,165,233,0.3)',
-    template: (name, _ctx) =>
-      `Hey ${name}, I can see you've been spending real time on this. You're close — want a quick hint to unlock it?`,
+    template: (name, ctx) => {
+      const planet = extractPlanetName(ctx);
+      const ref = planet ? `on ${planet}` : 'working through this';
+      return `Hey ${name}, I can see you've been spending real time ${ref}. You're close — want a quick hint to unlock it?`;
+    },
   },
   non_engagement: {
     icon: '⚠️',
     label: 'Not engaging',
-    color: '#64748B',
-    border: 'rgba(100,116,139,0.3)',
+    color: '#D97706',
+    border: 'rgba(217,119,6,0.3)',
     template: (name, _ctx) =>
       `Hey ${name}, I can see you haven't jumped in yet — everything okay? I'm here if you need a nudge to get started.`,
   },
@@ -115,12 +132,15 @@ export default function AttentionCard({ student, onAcknowledge }: AttentionCardP
           </div>
 
           <div style={{ flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
               <span className="font-inter" style={{ fontSize: 15, fontWeight: 600, color: '#1a1a2e' }}>
                 {student.name}
               </span>
               <span className="font-space" style={{ fontSize: 10, color: cfg.color, letterSpacing: '0.06em' }}>
                 {cfg.icon} {cfg.label}
+              </span>
+              <span className="font-inter" style={{ fontSize: 11, color: 'rgba(26,26,46,0.35)', marginLeft: 'auto' }}>
+                {relativeTime(student.signalCreatedAt)}
               </span>
             </div>
             <p className="font-inter" style={{ fontSize: 13, color: 'rgba(26,26,46,0.5)', lineHeight: 1.5, marginBottom: 14 }}>

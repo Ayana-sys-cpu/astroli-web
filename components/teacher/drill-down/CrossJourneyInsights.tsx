@@ -34,7 +34,10 @@ interface Props {
 export default function CrossJourneyInsights({ data, studentFirstName }: Props) {
   const { crossJourneyStats: stats, prewrittenMessage } = data;
 
+  const hasAssessedGoals = stats.peakPerformanceType !== null;
+
   function handleWhatsApp() {
+    if (!hasAssessedGoals) return;
     const encoded = encodeURIComponent(prewrittenMessage);
     window.open(`https://wa.me/?text=${encoded}`, '_blank', 'noopener,noreferrer');
   }
@@ -56,7 +59,7 @@ export default function CrossJourneyInsights({ data, studentFirstName }: Props) 
     }}>
       {/* Stats */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(26,26,46,0.35)', letterSpacing: '0.08em', textTransform: 'uppercase', flexShrink: 0 }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,26,46,0.6)', letterSpacing: '0.04em', textTransform: 'uppercase', flexShrink: 0 }}>
           All Journeys
         </span>
 
@@ -83,29 +86,35 @@ export default function CrossJourneyInsights({ data, studentFirstName }: Props) 
       {/* WhatsApp CTA */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3, flexShrink: 0 }}>
         <button
+          className="dd-btn"
           onClick={handleWhatsApp}
+          disabled={!hasAssessedGoals}
+          title={hasAssessedGoals ? undefined : `Review ${studentFirstName}'s work first — the message is ready once goals are assessed`}
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: 8,
             padding: '9px 16px',
-            background: '#25D366',
+            background: hasAssessedGoals ? '#25D366' : 'rgba(26,26,46,0.12)',
             border: 'none',
             borderRadius: 10,
-            color: '#fff',
+            color: hasAssessedGoals ? '#fff' : 'rgba(26,26,46,0.35)',
             fontSize: 13,
             fontWeight: 600,
-            cursor: 'pointer',
+            cursor: hasAssessedGoals ? 'pointer' : 'not-allowed',
             transition: 'opacity 0.15s',
+            opacity: hasAssessedGoals ? 1 : 0.6,
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
-          onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+          onMouseEnter={(e) => { if (hasAssessedGoals) e.currentTarget.style.opacity = '0.9'; }}
+          onMouseLeave={(e) => { if (hasAssessedGoals) e.currentTarget.style.opacity = '1'; }}
         >
           <WhatsAppIcon />
           Send {studentFirstName} an encouragement ↗
         </button>
         <span style={{ fontSize: 10, color: 'rgba(26,26,46,0.35)' }}>
-          Pre-drafted by Claude · you edit before sending
+          {hasAssessedGoals
+            ? 'Pre-drafted by Claude · you edit before sending · WhatsApp will ask you who to send it to'
+            : 'Available once goals are assessed'}
         </span>
       </div>
     </div>

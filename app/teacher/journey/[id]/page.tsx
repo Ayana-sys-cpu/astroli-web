@@ -181,7 +181,7 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
           fetch('/api/teacher/missions', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ missionId: m.id, state: 'locked' }),
+            body: JSON.stringify({ journeyId: j.id, missionId: m.id, state: 'locked' }),
           }).catch(() => {});
         });
         localStorage.removeItem(`voteEnd_${j.id}`);
@@ -205,7 +205,7 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
       const r = await fetch('/api/teacher/missions', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ missionId: mission.id, state: nextState }),
+        body: JSON.stringify({ journeyId: params.id, missionId: mission.id, state: nextState }),
       });
       if (!r.ok) throw new Error('Server error');
       const update = (ms: Mission[]) => ms.map(m => m.id === mission.id ? { ...m, state: nextState } : m);
@@ -303,7 +303,7 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
           fetch('/api/teacher/missions', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ missionId: m.id, state: m.id === resolvedWinnerId ? 'pending_start' : 'skipped' }),
+            body: JSON.stringify({ journeyId, missionId: m.id, state: m.id === resolvedWinnerId ? 'pending_start' : 'skipped' }),
           })
         ),
       ]);
@@ -356,7 +356,7 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
           fetch('/api/teacher/missions', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ missionId: m.id, state: 'locked' }),
+            body: JSON.stringify({ journeyId, missionId: m.id, state: 'locked' }),
           })
         ),
       ]);

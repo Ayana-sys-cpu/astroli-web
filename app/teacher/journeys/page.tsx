@@ -95,10 +95,44 @@ export default function JourneysPage() {
         <div className="font-space" style={{ fontSize: 11, color: 'rgba(26,26,46,0.25)', letterSpacing: '0.1em', marginTop: 48, textAlign: 'center' }}>
           LOADING…
         </div>
+      ) : journeys.length === 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 64, gap: 16 }}>
+          <div className="font-space font-black" style={{ fontSize: 18, letterSpacing: '0.1em', color: '#1a1a2e' }}>
+            Start your first journey
+          </div>
+          <p className="font-inter" style={{ fontSize: 13, color: 'rgba(26,26,46,0.45)', textAlign: 'center', maxWidth: 340, lineHeight: 1.6 }}>
+            A journey connects a Google Classroom to a curriculum — your students explore big questions together, mission by mission.
+          </p>
+          <button
+            onClick={() => router.push('/teacher/journeys/new')}
+            className="font-space font-bold"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '12px 24px',
+              borderRadius: 999,
+              fontSize: 11,
+              letterSpacing: '0.12em',
+              background: 'linear-gradient(120deg, #FF0080, #8B00FF)',
+              color: '#fff',
+              border: 'none',
+              boxShadow: '0 4px 18px rgba(139,0,255,0.25)',
+              cursor: 'pointer',
+              marginTop: 8,
+            }}
+          >
+            <span style={{
+              width: 18, height: 18, borderRadius: '50%',
+              background: 'rgba(255,255,255,0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 14, lineHeight: '1',
+            }}>+</span>
+            NEW JOURNEY
+          </button>
+        </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
           {filtered.map(j => <JourneyCard key={j.id} journey={j} />)}
-          <NewJourneyCard />
+          <NewJourneyCard isFirst={false} />
         </div>
       )}
     </div>

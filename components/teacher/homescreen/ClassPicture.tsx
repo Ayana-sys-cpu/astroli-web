@@ -1,4 +1,4 @@
-import type { ClassInsight } from '@/app/api/teacher/homescreen/route';
+import type { ClassInsight } from '@/lib/homescreen';
 import KineticText from '@/components/KineticText';
 
 const INSIGHT_CONFIG = {

@@ -18,7 +18,7 @@ interface PlanetProps {
   name: string;
   shortTitle: string;
   number: string;
-  planetQuestion: string;
+  planetQuestion: string | null;
   x: number;
   y: number;
   explored?: boolean;
@@ -58,9 +58,15 @@ export default function Planet({ id, name, shortTitle, number, planetQuestion, x
             >
               PLANET {number}
             </p>
-            <p className="text-[15px] font-inter leading-snug text-white/90">
-              "{planetQuestion}"
-            </p>
+            {planetQuestion ? (
+              <p className="text-[15px] font-inter leading-snug text-white/90">
+                &ldquo;{planetQuestion}&rdquo;
+              </p>
+            ) : (
+              <p className="text-[13px] font-inter text-white/40 italic">
+                Click to explore this planet
+              </p>
+            )}
             <div className="mt-3 flex items-center gap-2">
               <div
                 className="w-1.5 h-1.5 rounded-full"
@@ -81,7 +87,6 @@ export default function Planet({ id, name, shortTitle, number, planetQuestion, x
         onMouseLeave={() => setHovered(false)}
         className="relative flex items-center justify-center cursor-pointer"
         style={{ width: PLANET_SIZE + 20, height: PLANET_SIZE + 20 }}
-        title={shortTitle}
         aria-label={shortTitle}
       >
         {/* Orbital ring */}

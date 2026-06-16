@@ -1,7 +1,7 @@
 'use client';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
-import type { SpotlightStudent } from '@/app/api/teacher/homescreen/route';
+import type { SpotlightStudent } from '@/lib/homescreen';
 import KineticText from '@/components/KineticText';
 
 const SIGNAL_CONFIG = {
@@ -67,7 +67,7 @@ export default function SpotlightCard({ student, onDone, onDismiss, onWhatsApp, 
       {/* Student info row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         {/* Avatar */}
-        <div style={{ position: 'relative', flexShrink: 0 }}>
+        <div style={{ position: 'relative', flexShrink: 0, paddingBottom: 14 }}>
           {student.avatarUrl ? (
             <img
               src={student.avatarUrl}
@@ -121,12 +121,45 @@ export default function SpotlightCard({ student, onDone, onDismiss, onWhatsApp, 
       </div>
 
       {/* Done / Dismiss */}
-      <div style={{ display: 'flex', gap: 8, borderTop: '1px solid rgba(26,26,46,0.08)', paddingTop: 12 }}>
-        <button onClick={handleDone} style={btnStyle('rgba(5,150,105,0.08)', '#059669')}>
-          ✅ Done
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderTop: '1px solid rgba(26,26,46,0.08)', paddingTop: 14 }}>
+        <button onClick={handleDone} style={{
+          flex: 1,
+          background: '#059669',
+          border: 'none',
+          borderRadius: 10,
+          padding: '10px 20px',
+          fontSize: 12,
+          fontFamily: 'var(--font-space)',
+          fontWeight: 700,
+          letterSpacing: '0.04em',
+          color: '#fff',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 7,
+          boxShadow: '0 2px 8px rgba(5,150,105,0.25)',
+          transition: 'opacity 0.15s',
+        }}>
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M2 6.5L5.2 10L11 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Mark as done
         </button>
-        <button onClick={handleDismiss} style={btnStyle('rgba(26,26,46,0.04)', 'rgba(26,26,46,0.35)')}>
-          ✖ Not now
+        <button onClick={handleDismiss} style={{
+          background: 'none',
+          border: 'none',
+          padding: '10px 4px',
+          fontSize: 11,
+          fontFamily: 'var(--font-space)',
+          fontWeight: 500,
+          color: 'rgba(26,26,46,0.38)',
+          cursor: 'pointer',
+          letterSpacing: '0.03em',
+          whiteSpace: 'nowrap',
+          transition: 'color 0.15s',
+        }}>
+          Not now
         </button>
       </div>
     </motion.div>

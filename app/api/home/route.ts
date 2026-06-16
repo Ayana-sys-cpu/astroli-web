@@ -4,8 +4,14 @@ import { requireAuth, resolveStudentId } from '@/lib/auth';
 
 // GET /api/home
 //
-// Returns the journeys the authenticated student is enrolled in, each with
-// its missions.
+// Returns the classes the authenticated student is enrolled in, each with
+// its template's missions and that class's live state.
+//
+// The response's `id` field is a classes.id (kept as the JSON key the
+// frontend already expects — see docs/architecture/2026-06-16-journeys-classes-redesign.md).
+// missions/planets are owned exclusively by the template now, never
+// duplicated, so they're fetched via class.journey_id and joined against
+// class_mission_state for this specific class's progress.
 //
 // The ?studentId= query param is intentionally ignored — identity comes from
 // the verified session cookie only.
@@ -17,38 +23,70 @@ export async function GET(req: NextRequest) {
   if (!studentId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   try {
-    // Fetch journey IDs the student is enrolled in.
+    // Fetch the classes the student is enrolled in.
     const { data: enrollments, error: eErr } = await supabaseAdmin
       .from('student_journeys')
-      .select('journey_id')
+      .select('class_id')
       .eq('student_id', studentId);
 
     if (eErr) throw eErr;
 
-    const journeyIds = (enrollments ?? []).map((e) => e.journey_id);
+    const classIds = (enrollments ?? []).map((e) => e.class_id).filter((id): id is string => Boolean(id));
 
-    if (journeyIds.length === 0) {
+    if (classIds.length === 0) {
       return NextResponse.json({ journeys: [] });
     }
 
-    // Fetch the journeys with all their missions (all states — UI handles display).
-    const { data: rows, error: jErr } = await supabaseAdmin
-      .from('journeys')
-      .select('id, title, vote_ends_at, missions(id, question, state, "order")')
-      .in('id', journeyIds);
+    const { data: classes, error: cErr } = await supabaseAdmin
+      .from('classes')
+      .select('id, title, journey_id')
+      .in('id', classIds);
 
-    if (jErr) throw jErr;
+    if (cErr) throw cErr;
+    if (!classes || classes.length === 0) {
+      return NextResponse.json({ journeys: [] });
+    }
 
-    const journeys = (rows ?? []).map((j) => ({
-      id: j.id,
-      title: j.title,
-      voteEndsAt: j.vote_ends_at,
-      missions: ((j.missions as any[]) ?? [])
+    const journeyIds = classes.map((c) => c.journey_id);
+
+    const [{ data: missionRows, error: mErr }, { data: stateRows }, { data: openSessions }] = await Promise.all([
+      supabaseAdmin
+        .from('missions')
+        .select('id, journey_id, question, "order"')
+        .in('journey_id', journeyIds),
+      supabaseAdmin
+        .from('class_mission_state')
+        .select('class_id, mission_id, state')
+        .in('class_id', classIds),
+      supabaseAdmin
+        .from('vote_sessions')
+        .select('class_id, ends_at')
+        .in('class_id', classIds)
+        .eq('status', 'open'),
+    ]);
+
+    if (mErr) throw mErr;
+
+    const missionsByJourney = new Map<string, typeof missionRows>();
+    for (const m of missionRows ?? []) {
+      const list = missionsByJourney.get(m.journey_id) ?? [];
+      list.push(m);
+      missionsByJourney.set(m.journey_id, list);
+    }
+
+    const stateByClassAndMission = new Map((stateRows ?? []).map((r) => [`${r.class_id}:${r.mission_id}`, r.state]));
+    const voteEndsAtByClass = new Map((openSessions ?? []).map((s) => [s.class_id, s.ends_at]));
+
+    const journeys = classes.map((c) => ({
+      id: c.id,
+      title: c.title,
+      voteEndsAt: voteEndsAtByClass.get(c.id) ?? null,
+      missions: (missionsByJourney.get(c.journey_id) ?? [])
         .sort((a, b) => a.order - b.order)
         .map((m) => ({
           id: m.id,
           question: m.question,
-          state: m.state,
+          state: stateByClassAndMission.get(`${c.id}:${m.id}`) ?? 'locked',
           order: m.order,
         })),
     }));

@@ -13,13 +13,17 @@ export const PLANET_META: Record<string, PlanetMeta> = {
     label: 'Church',
     question: 'What would it actually cost an ordinary person to disagree with an institution that controlled everything?',
   },
-  'The Pope\'s Authority: How the Church Claimed Power Over Kings': {
-    label: 'The Pope\'s Power',
-    question: 'How does a priest claim authority over the most powerful kings in the world — and make it stick?',
+  'Pope Gregory VII: The Authority of God\'s Church': {
+    label: 'Walk to Canossa',
+    question: 'How does a priest claim authority over the most powerful man in the world — and make it stick?',
   },
-  'The Emperor\'s Challenge: Henry IV and the Fight for Control': {
-    label: 'The Emperor\'s Fight',
+  'Emperor Henry IV: The Authority of the Sword': {
+    label: 'Rule of the Sword',
     question: 'How does someone with that much power end up barefoot in the snow, begging forgiveness from a priest?',
+  },
+  'The Emperor\'s Stand: Henry IV at Canossa': {
+    label: 'Henry IV',
+    question: 'Was the Walk to Canossa a surrender — or the most calculated political move of the 11th century?',
   },
   'The Jewish Community in Ashkenaz: Rabbenu Gershom and Rashi': {
     label: 'Ashkenaz',
@@ -28,6 +32,15 @@ export const PLANET_META: Record<string, PlanetMeta> = {
   'The Geonim of Babylonia: Jewish Leadership in Exile': {
     label: 'Babylonia',
     question: 'What made that kind of authority work — with nothing behind it except reputation and trust?',
+  },
+  // Legacy title variants
+  'The Pope\'s Authority: How the Church Claimed Power Over Kings': {
+    label: 'The Pope\'s Power',
+    question: 'How does a priest claim authority over the most powerful kings in the world — and make it stick?',
+  },
+  'The Emperor\'s Challenge: Henry IV and the Fight for Control': {
+    label: 'The Emperor\'s Fight',
+    question: 'How does someone with that much power end up barefoot in the snow, begging forgiveness from a priest?',
   },
 
   // Mission 2 — Is Personal Security Worth The Loss Of Freedom?
@@ -107,5 +120,6 @@ export const PLANET_LAYOUT: { x: number; y: number }[] = [
 export const PLANET_EDGES: Record<number, [number, number][]> = {
   4: [[0, 1], [0, 2], [1, 3], [2, 3]],
   5: [[0, 1], [1, 2], [2, 3], [3, 4], [0, 4]],
+  6: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [0, 2], [1, 4]],
   7: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [0, 3], [1, 4]],
 };

@@ -114,7 +114,7 @@ function VoteSetupInner() {
           fetch('/api/teacher/missions', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ missionId: m.id, state: m.id === resolvedWinnerId ? 'pending_start' : 'skipped' }),
+            body: JSON.stringify({ journeyId, missionId: m.id, state: m.id === resolvedWinnerId ? 'pending_start' : 'skipped' }),
           })
         ),
       ]);
@@ -156,7 +156,7 @@ function VoteSetupInner() {
           fetch('/api/teacher/missions', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ missionId: m.id, state: 'locked' }),
+            body: JSON.stringify({ journeyId, missionId: m.id, state: 'locked' }),
           })
         ),
       ]);

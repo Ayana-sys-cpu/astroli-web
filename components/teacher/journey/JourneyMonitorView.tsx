@@ -22,6 +22,8 @@ interface JourneyMonitorViewProps {
 export default function JourneyMonitorView({ journeyId, nextMission }: JourneyMonitorViewProps) {
   const [data, setData] = useState<MonitorData | null>(null);
   const [activating, setActivating] = useState(false);
+  const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
+  const [, setTick] = useState(0);
 
   const fetchData = useCallback(async () => {
     try {
@@ -29,6 +31,7 @@ export default function JourneyMonitorView({ journeyId, nextMission }: JourneyMo
       if (!res.ok) return;
       const json: MonitorData = await res.json();
       setData(json);
+      setLastFetchedAt(new Date());
     } catch {
       // silently ignore network errors
     }
@@ -36,8 +39,13 @@ export default function JourneyMonitorView({ journeyId, nextMission }: JourneyMo
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 30_000);
-    return () => clearInterval(interval);
+    const dataInterval = setInterval(fetchData, 30_000);
+    // tick every 10s so the "updated X sec ago" label stays fresh
+    const tickInterval = setInterval(() => setTick(t => t + 1), 10_000);
+    return () => {
+      clearInterval(dataInterval);
+      clearInterval(tickInterval);
+    };
   }, [fetchData]);
 
   async function handleActivate() {
@@ -134,38 +142,42 @@ export default function JourneyMonitorView({ journeyId, nextMission }: JourneyMo
         />
       )}
 
-      {/* Zone 3 — Needs Attention */}
-      {isActive && (
-        <div style={{ marginBottom: 24 }}>
+      {/* Zone 3 — Needs Attention (always visible — spec: monitoring works even without activation) */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14 }}>
           <p
             className="font-space font-bold"
             style={{
-              fontSize: 10,
+              fontSize: 11,
               letterSpacing: '0.12em',
-              color: 'rgba(26,26,46,0.4)',
-              marginBottom: 14,
+              color: data.attentionStudents.length > 0 ? 'rgba(220,38,38,0.75)' : 'rgba(26,26,46,0.6)',
             }}
           >
             NEEDS ATTENTION
           </p>
-          {data.attentionStudents.length === 0 ? (
-            <p
-              className="font-inter"
-              style={{ fontSize: 14, color: 'rgba(26,26,46,0.45)' }}
-            >
-              ✅ Everyone is on track right now.
-            </p>
-          ) : (
-            data.attentionStudents.map(student => (
-              <AttentionCard
-                key={student.studentId}
-                student={student}
-                onAcknowledge={handleAcknowledge}
-              />
-            ))
+          {lastFetchedAt && (
+            <span className="font-inter" style={{ fontSize: 11, color: 'rgba(26,26,46,0.3)' }}>
+              updated {Math.floor((Date.now() - lastFetchedAt.getTime()) / 1000)}s ago
+            </span>
           )}
         </div>
-      )}
+        {data.attentionStudents.length === 0 ? (
+          <p
+            className="font-inter"
+            style={{ fontSize: 14, color: 'rgba(26,26,46,0.45)' }}
+          >
+            ✅ Everyone is on track right now.
+          </p>
+        ) : (
+          data.attentionStudents.map(student => (
+            <AttentionCard
+              key={student.studentId}
+              student={student}
+              onAcknowledge={handleAcknowledge}
+            />
+          ))
+        )}
+      </div>
 
       {/* Zone 4 — All Students */}
       {totalStudents > 0 && (

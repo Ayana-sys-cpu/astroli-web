@@ -32,6 +32,7 @@ model User {
   planetsCreated              Planet[]
   student_journeys            student_journeys[]
   planetSummaries             PlanetSummary[]
+  classes                     Class[]
 
   @@map("users")
 }
@@ -55,6 +56,7 @@ model Journey {
   student_journeys    student_journeys[]
   vote_sessions       vote_sessions[]
   classSessions       ClassSession[]
+  classes             Class[]
 
   @@index([teacherId])
   @@map("journeys")
@@ -90,6 +92,7 @@ model Mission {
   generationJob              GenerationJob?               @relation(fields: [generationJobId], references: [id])
   journey                    Journey                      @relation(fields: [journeyId], references: [id], onDelete: Cascade)
   planets                    Planet[]
+  classMissionState          ClassMissionState[]
 
   @@index([journeyId])
   @@map("missions")
@@ -181,15 +184,18 @@ model Vote {
   id              String         @id @default(dbgenerated("(gen_random_uuid())::text"))
   studentId       String         @map("student_id")
   journeyId       String         @map("journey_id")
+  classId         String?        @map("class_id") @db.Uuid
   bigIdeaId       String         @map("big_idea_id")
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @default(now()) @updatedAt @map("updated_at")
   vote_session_id String?
   vote_sessions   vote_sessions? @relation(fields: [vote_session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  class           Class?         @relation(fields: [classId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, journeyId])
   @@unique([studentId, vote_session_id], map: "votes_student_session_unique")
   @@index([journeyId])
+  @@index([classId])
   @@map("votes")
 }
 
@@ -259,19 +265,32 @@ model planet_characters {
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// template_journey_id is denormalized from classes.journey_id at enrollment
+/// time, to enforce one class per template per student — see design doc §4.
+/// That constraint is a PARTIAL unique index (WHERE template_journey_id IS
+/// NOT NULL), which Prisma's schema language can't express declaratively —
+/// it's created directly in the migration SQL, not via @@unique here. Don't
+/// add a @@unique for it; `prisma migrate dev` would generate a conflicting
+/// full (non-partial) constraint. This table contains check/index setup that
+/// requires additional setup for migrations — see https://pris.ly/d/check-constraints.
 model student_journeys {
-  id          String    @id @default(dbgenerated("(gen_random_uuid())::text"))
-  student_id  String
-  journey_id  String
-  enrolled_at DateTime? @default(now()) @db.Timestamptz(6)
-  created_at  DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at  DateTime? @default(now()) @db.Timestamptz(6)
-  journeys    Journey   @relation(fields: [journey_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users       User      @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                  String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  student_id          String
+  journey_id          String
+  class_id            String?   @db.Uuid
+  template_journey_id String?
+  enrolled_at         DateTime? @default(now()) @db.Timestamptz(6)
+  created_at          DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime? @default(now()) @db.Timestamptz(6)
+  journeys            Journey   @relation(fields: [journey_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  class               Class?    @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  users               User      @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([student_id, journey_id], map: "student_journeys_student_journey_unique")
   @@index([journey_id])
+  @@index([class_id])
   @@index([student_id])
+  @@index([template_journey_id])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -291,6 +310,7 @@ model students {
 model vote_sessions {
   id         String    @id @default(dbgenerated("(gen_random_uuid())::text"))
   journey_id String
+  class_id   String?   @db.Uuid
   starts_at  DateTime? @db.Timestamptz(6)
   ends_at    DateTime? @db.Timestamptz(6)
   winner_id  String?
@@ -298,22 +318,67 @@ model vote_sessions {
   created_at DateTime? @default(now()) @db.Timestamptz(6)
   updated_at DateTime? @default(now()) @db.Timestamptz(6)
   journeys   Journey   @relation(fields: [journey_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  class      Class?    @relation(fields: [class_id], references: [id], onDelete: Cascade)
   votes      Vote[]
 
   @@index([journey_id])
+  @@index([class_id])
   @@index([status])
 }
 
 model ClassSession {
   id        String   @id @default(dbgenerated("(gen_random_uuid())::text"))
   journeyId String   @map("journey_id")
+  classId   String?  @map("class_id") @db.Uuid
   teacherId String   @map("teacher_id")
   startedAt DateTime @default(now()) @map("started_at") @db.Timestamptz(6)
   journey   Journey  @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  class     Class?   @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@index([journeyId])
+  @@index([classId])
+  @@index([teacherId])
+  @@map("class_sessions")
+}
+
+/// A teacher's instance of exactly one curriculum journey (template).
+/// See docs/architecture/2026-06-16-journeys-classes-redesign.md.
+model Class {
+  id                          String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  journeyId                   String                        @map("journey_id")
+  teacherId                   String                        @map("teacher_id")
+  googleCourseId              String?                       @unique @map("google_course_id")
+  title                       String
+  createdAt                   DateTime                      @default(now()) @map("created_at")
+  updatedAt                   DateTime                      @default(now()) @updatedAt @map("updated_at")
+  journey                     Journey                       @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  teacher                     User                          @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  classMissionState           ClassMissionState[]
+  studentJourneys             student_journeys[]
+  votes                       Vote[]
+  voteSessions                vote_sessions[]
+  classSessions               ClassSession[]
+  teacherSignalAcknowledgements TeacherSignalAcknowledgement[]
 
   @@index([journeyId])
   @@index([teacherId])
-  @@map("class_sessions")
+  @@map("classes")
+}
+
+/// Per-class mission lock/active/completed state. Replaces missions.state,
+/// since missions are owned exclusively by templates and never duplicated.
+model ClassMissionState {
+  classId   String       @map("class_id") @db.Uuid
+  missionId String       @map("mission_id")
+  state     MissionState @default(locked)
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @default(now()) @updatedAt @map("updated_at")
+  class     Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  mission   Mission      @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  @@id([classId, missionId])
+  @@index([classId])
+  @@map("class_mission_state")
 }
 
 model PlanetSummary {
@@ -354,14 +419,17 @@ model TeacherSignalAcknowledgement {
   teacherId  String   @map("teacher_id")
   studentId  String   @map("student_id")
   journeyId  String   @map("journey_id")
+  classId    String?  @map("class_id") @db.Uuid
   signalType String   @map("signal_type")
   status     String
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   expiresAt  DateTime @map("expires_at") @db.Timestamptz(6)
+  class      Class?   @relation(fields: [classId], references: [id], onDelete: Cascade)
 
   @@unique([teacherId, studentId, journeyId, signalType], name: "unique_signal_ack")
   @@index([teacherId, journeyId])
   @@index([teacherId, studentId, signalType])
+  @@index([classId])
   @@map("teacher_signal_acknowledgements")
 }
 

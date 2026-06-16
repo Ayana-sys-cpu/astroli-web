@@ -1,6 +1,6 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useEffect, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
 import TopBar from '@/components/TopBar';
@@ -32,8 +32,12 @@ interface Mission {
   planets: Planet[];
 }
 
-export default function LandscapePage() {
-  const router = useRouter();
+function LandscapeContent() {
+  const router        = useRouter();
+  const searchParams  = useSearchParams();
+  const previewId     = searchParams.get('preview'); // teacher preview mode
+  const isPreview     = Boolean(previewId);
+
   const [orinOpen, setOrinOpen] = useState(true);
   const [botName, setBotName]   = useState('');
   const [mission, setMission]   = useState<Mission | null>(null);
@@ -47,7 +51,23 @@ export default function LandscapePage() {
     setBaseAvatarUrl(loadStudent()?.baseAvatarUrl ?? null);
   }, []);
 
+  // Teacher preview mode — fetch via teacher API, skip student session.
   useEffect(() => {
+    if (!isPreview || !previewId) return;
+    fetch(`/api/teacher/missions?id=${previewId}`)
+      .then(r => r.json())
+      .then(({ mission }) => {
+        if (mission) {
+          setMission(mission);
+          setShowOverlay(true);
+        }
+      })
+      .catch(() => {});
+  }, [isPreview, previewId]);
+
+  // Student normal mode — fetch via student session.
+  useEffect(() => {
+    if (isPreview) return;
     fetch('/api/student/journey')
       .then(r => r.json())
       .then(({ hasActiveJourney, hasActiveVote, activeMissionId, missionStatus }) => {
@@ -71,12 +91,12 @@ export default function LandscapePage() {
         }
       })
       .catch(() => {});
-  }, [router]);
+  }, [isPreview, router]);
 
   const handleAcceptMission = () => {
     setShowOverlay(false);
     setReady(true);
-    if (mission) {
+    if (mission && !isPreview) {
       // studentId comes from the server session — not sent in the body.
       fetch('/api/student/journey', {
         method: 'PATCH',
@@ -94,8 +114,10 @@ export default function LandscapePage() {
       id: p.id,
       name: label,
       label,
-      shortTitle:     p.shortTitle ?? label,
-      planetQuestion: p.planetQuestion ?? meta.question,
+      shortTitle:     (p.shortTitle ?? label).trim(),
+      planetQuestion: p.planetQuestion && p.planetQuestion.trim() !== '|||'
+        ? p.planetQuestion.trim()
+        : meta.question || null,
       number: String(i + 1).padStart(2, '0'),
       ...pos,
       explored: false,
@@ -159,6 +181,31 @@ export default function LandscapePage() {
 
             <TopBar left={`${missionLabel} · ${bigIdea.toUpperCase()}`} />
 
+            {/* Preview mode banner */}
+            {isPreview && (
+              <div
+                className="absolute top-14 left-1/2 z-50 flex items-center gap-2 px-3 py-1.5 rounded-full"
+                style={{
+                  transform: 'translateX(-50%)',
+                  background: 'rgba(139,0,255,0.18)',
+                  border: '1px solid rgba(139,0,255,0.35)',
+                  backdropFilter: 'blur(8px)',
+                }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#8B00FF' }} />
+                <span className="font-space text-[9px] tracking-[0.18em]" style={{ color: 'rgba(232,232,240,0.7)' }}>
+                  TEACHER PREVIEW · PLANET NAVIGATION DISABLED
+                </span>
+                <button
+                  onClick={() => router.back()}
+                  className="ml-2 font-space text-[9px] tracking-[0.12em] hover:opacity-100 transition-opacity"
+                  style={{ color: 'rgba(232,232,240,0.5)' }}
+                >
+                  ← BACK
+                </button>
+              </div>
+            )}
+
             {/* ── Main layout ─────────────────────────────────────────────── */}
             <div className="flex flex-1 pt-14 min-h-0 overflow-hidden">
 
@@ -168,7 +215,7 @@ export default function LandscapePage() {
                   <Planet
                     key={p.id}
                     {...p}
-                    onClick={() => router.push(`/landscape/${p.id}`)}
+                    onClick={isPreview ? () => {} : () => router.push(`/landscape/${p.id}`)}
                   />
                 ))}
               </div>
@@ -209,6 +256,7 @@ export default function LandscapePage() {
 
                     {/* Pip guide content — replaces old Orin chat */}
                     <PipGuidePanel
+                      missionId={mission?.id}
                       missionOrder={mission?.order ?? 1}
                       firstPlanet={firstPlanet}
                       onLaunch={() => setOrinOpen(false)}
@@ -242,5 +290,13 @@ export default function LandscapePage() {
       </AnimatePresence>
 
     </motion.div>
+  );
+}
+
+export default function LandscapePage() {
+  return (
+    <Suspense>
+      <LandscapeContent />
+    </Suspense>
   );
 }

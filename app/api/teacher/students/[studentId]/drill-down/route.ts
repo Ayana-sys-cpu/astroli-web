@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, assertTeacherSession } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { prisma } from '@/lib/prisma';
-import { generateSignals } from '@/lib/signals';
+import { generateSignalsBatch } from '@/lib/signals';
 import type {
   DrillDownResponse,
   SubjectSummary,
@@ -52,38 +52,64 @@ export async function GET(
   const teacherId = auth.user.user_metadata.teacher_id as string;
   const { studentId } = params;
 
-  // 1. Fetch all teacher journeys that this student is enrolled in
-  const sharedJourneys = await prisma.journey.findMany({
+  // 1. Fetch all teacher classes this student is enrolled in. Missions come
+  // from the template (journey relation), never duplicated; this class's
+  // live state comes from classMissionState. The rest of this file keeps
+  // calling these "journeys" (variable names, response field names) since
+  // that's the wire-format contract the frontend already expects — see
+  // docs/architecture/2026-06-16-journeys-classes-redesign.md.
+  const sharedClasses = await prisma.class.findMany({
     where: {
       teacherId,
-      student_journeys: { some: { student_id: studentId } },
+      studentJourneys: { some: { student_id: studentId } },
     },
     select: {
       id: true,
       title: true,
-      missions: {
-        orderBy: { mission_order: 'asc' },
+      journey: {
         select: {
-          id: true,
-          question: true,
-          mission_order: true,
-          state: true,
-          planets: {
-            orderBy: { createdAt: 'asc' },
-            select: { id: true, title: true },
+          missions: {
+            orderBy: { mission_order: 'asc' },
+            select: {
+              id: true,
+              question: true,
+              mission_order: true,
+              planets: {
+                orderBy: { createdAt: 'asc' },
+                select: { id: true, title: true },
+              },
+            },
           },
         },
+      },
+      classMissionState: {
+        select: { missionId: true, state: true },
       },
     },
     orderBy: { title: 'asc' },
   });
 
-  if (sharedJourneys.length === 0) {
+  if (sharedClasses.length === 0) {
     return NextResponse.json(
       { error: 'Student not found or not enrolled in any of your journeys.' },
       { status: 404 },
     );
   }
+
+  const sharedJourneys = sharedClasses.map(c => {
+    const stateByMission = new Map(c.classMissionState.map(s => [s.missionId, s.state]));
+    return {
+      id:    c.id,
+      title: c.title,
+      missions: c.journey.missions.map(m => ({
+        id:            m.id,
+        question:      m.question,
+        mission_order: m.mission_order,
+        state:         stateByMission.get(m.id) ?? 'locked',
+        planets:       m.planets,
+      })),
+    };
+  });
 
   // 2. Fetch student profile
   const { data: studentRow, error: studentError } = await supabaseAdmin
@@ -166,15 +192,22 @@ export async function GET(
     }
   }
 
-  // 7. Signals — one per journey for this student
+  // 7. Signals — batch across all shared journeys instead of one query per journey.
+  // journey.id is a class id here, so missionIds must be passed explicitly —
+  // generateSignalsBatch only auto-resolves missions by journey_id when
+  // missionIds is omitted, which would find nothing for a class id.
   const signalByJourney: Record<string, import('@/lib/signals').SignalType | null> = {};
-  await Promise.all(
-    sharedJourneys.map(async (journey) => {
-      const signals = await generateSignals(journey.id, null);
-      const studentSignal = signals.find((s) => s.studentId === studentId);
-      signalByJourney[journey.id] = studentSignal?.signalType ?? null;
-    }),
+  const batchResults = await generateSignalsBatch(
+    sharedJourneys.map((journey) => ({
+      journeyId:    journey.id,
+      missionIds:   journey.missions.map((m) => m.id),
+      lastSessionAt: null,
+    })),
   );
+  for (const [journeyId, signals] of Array.from(batchResults.entries())) {
+    const studentSignal = signals.find((s) => s.studentId === studentId);
+    signalByJourney[journeyId] = studentSignal?.signalType ?? null;
+  }
 
   // 8. Cross-journey stats
   let peakRank = -1;
@@ -245,11 +278,30 @@ export async function GET(
     weeklyExplorationChangePercent,
   };
 
-  // 9. Pre-written WhatsApp encouragement message
+  // 9. Pre-written WhatsApp message — matched to the student's dominant signal
+  const SIGNAL_PRIORITY: Record<string, number> = { non_engagement: 4, grace_completion: 3, stuck: 2, breakthrough: 1 };
+  let dominantSignal: string | null = null;
+  let dominantPriority = -1;
+  for (const signal of Object.values(signalByJourney)) {
+    if (signal) {
+      const p = SIGNAL_PRIORITY[signal] ?? 0;
+      if (p > dominantPriority) { dominantPriority = p; dominantSignal = signal; }
+    }
+  }
+
   const peakLabel = peakPerformanceType ? performanceLabel(peakPerformanceType) : null;
-  const prewrittenMessage = peakLabel && peakJourneyTitle
-    ? `Hi ${firstName}! I just wanted to let you know that I noticed your great work in ${peakJourneyTitle} — reaching ${peakLabel} level is something to be proud of. Keep it up! 🌟`
-    : `Hi ${firstName}! Just a quick note to say I see how hard you're working. Keep exploring and don't hesitate to ask me if anything feels tricky! 🌟`;
+  let prewrittenMessage: string;
+  if (dominantSignal === 'non_engagement') {
+    prewrittenMessage = `Hi ${firstName}, just thinking of you — noticed you haven't been around lately. Everything okay? I'm here if you need anything 🌟`;
+  } else if (dominantSignal === 'grace_completion') {
+    prewrittenMessage = `Hi ${firstName}! I saw you worked through the last planet. I'd love to find 5 minutes to chat about it — I think there's a cool angle we haven't explored yet 🌟`;
+  } else if (dominantSignal === 'stuck') {
+    prewrittenMessage = `Hi ${firstName} — I can see you've been spending real time on this. I have a feeling you're closer to the big idea than you think. Want a nudge? 🌟`;
+  } else if (peakLabel && peakJourneyTitle) {
+    prewrittenMessage = `Hi ${firstName}! I just wanted to let you know that I noticed your great work in ${peakJourneyTitle} — reaching ${peakLabel} level is something to be proud of. Keep it up! 🌟`;
+  } else {
+    prewrittenMessage = `Hi ${firstName}! Just a quick note to say I see how hard you're working. Keep exploring and don't hesitate to ask me if anything feels tricky! 🌟`;
+  }
 
   const response: DrillDownResponse = {
     student: {
