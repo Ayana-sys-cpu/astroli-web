@@ -93,8 +93,9 @@ export default function PendingJourneyPage() {
     try {
       // studentId comes from the server session — not passed in the URL.
       const res = await fetch('/api/student/home');
-      // 401 = no session — send back to login.
-      if (res.status === 401) { router.replace('/'); return; }
+      // 401 = no session, 403 = session isn't a student — send back to
+      // login rather than silently polling forever (mirrors syncing/page.tsx).
+      if (res.status === 401 || res.status === 403) { router.replace('/'); return; }
       const data = await res.json();
       if (Array.isArray(data.journeys) && data.journeys.length > 0) {
         router.replace('/home');

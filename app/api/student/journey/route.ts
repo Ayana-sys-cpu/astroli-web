@@ -44,13 +44,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ hasActiveJourney: false, hasActiveVote: false });
     }
 
-    const { data: enrolledClasses } = await supabaseAdmin
-      .from('classes')
-      .select('id, journey_id')
-      .in('id', classIds);
-
-    const journeyIdByClassId = new Map((enrolledClasses ?? []).map((c: any) => [c.id, c.journey_id]));
-
     // 1. Active mission check — only 'active' state counts as a launched mission.
     //    'pending_start' means vote is concluded but teacher hasn't activated yet;
     //    students should stay on the vote results screen until the teacher fires it.

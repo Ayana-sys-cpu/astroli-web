@@ -73,11 +73,18 @@ function LandscapeContent() {
       .then(r => r.json())
       .then(({ hasActiveJourney, hasActiveVote, activeMissionId, missionStatus }) => {
         if (!hasActiveJourney) {
-          // Mismatch (e.g. mission was reset) — bounce to the hub rather
-          // than cross-redirecting to /vote, since this page no longer
-          // knows whether that's even the right class for the student to
-          // vote on next.
-          router.replace(hasActiveVote && classId ? `/vote?classId=${classId}` : '/home');
+          if (hasActiveVote) {
+            // No classId means this came from a caller that never had one
+            // (onboarding, pip-guide) — preserve the old direct-to-vote hop
+            // for that case; otherwise this is a real mismatch on a known
+            // class (e.g. mission was reset), so keep the classId scoping.
+            router.replace(classId ? `/vote?classId=${classId}` : '/vote');
+          } else {
+            // No active vote either — bounce to the hub rather than the old
+            // single-journey /pending-journey, since other journeys may
+            // still need attention.
+            router.replace('/home');
+          }
           return;
         }
         if (activeMissionId) {

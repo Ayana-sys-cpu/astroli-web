@@ -43,7 +43,7 @@ export async function GET() {
     { data: voteSessionRows },
   ] = await Promise.all([
     supabaseAdmin.from('users').select('id, name').in('id', teacherIds.length > 0 ? teacherIds : ['__none__']),
-    supabaseAdmin.from('missions').select('id, journey_id, question, project_title, "order"').in('journey_id', journeyIds),
+    supabaseAdmin.from('missions').select('id, journey_id, question, project_title, "order"').in('journey_id', journeyIds).order('"order"'),
     supabaseAdmin.from('class_mission_state').select('class_id, mission_id, state').in('class_id', classIds),
     supabaseAdmin.from('vote_sessions').select('id, class_id, ends_at').eq('status', 'open').in('class_id', classIds),
   ]);

@@ -83,4 +83,49 @@ describe('resolveEnrolledClassIds', () => {
     const result = await resolveEnrolledClassIds('student-1');
     expect(result).toEqual([]);
   });
+
+  it('recovers by re-reading when a concurrent request already enrolled the student (unique violation)', async () => {
+    let studentClassesSelectCalls = 0;
+
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'student_classes') {
+        return {
+          select: () => ({
+            eq: () => {
+              studentClassesSelectCalls += 1;
+              // First call (initial check): no enrollment yet.
+              // Second call (after the race is detected): the concurrent
+              // request's insert is now visible.
+              return Promise.resolve({
+                data: studentClassesSelectCalls === 1 ? [] : [{ class_id: 'class-9' }],
+              });
+            },
+          }),
+          insert: () => Promise.resolve({ error: { code: '23505', message: 'duplicate key value' } }),
+        };
+      }
+      if (table === 'vote_sessions') {
+        return {
+          select: () => ({
+            eq: () => ({
+              gt: () => ({
+                not: () => ({
+                  limit: () => ({
+                    maybeSingle: () => Promise.resolve({ data: { class_id: 'class-9' } }),
+                  }),
+                }),
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === 'classes') {
+        return { select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { id: 'class-9', journey_id: 'journey-9' } }) }) }) };
+      }
+      throw new Error(`unexpected table ${table}`);
+    });
+
+    const result = await resolveEnrolledClassIds('student-1');
+    expect(result).toEqual(['class-9']);
+  });
 });

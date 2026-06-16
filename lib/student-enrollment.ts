@@ -7,8 +7,14 @@ import { supabaseAdmin } from './supabase-server';
  * enrollments when the student isn't formally in the teacher's GC classroom,
  * the GC API errored, or the class has no google_course_id (manual setup).
  * When that happens, enroll the student in any class with a currently open
- * vote — idempotent (a plain insert, safe because we already know there are
- * zero enrollment rows for this student at this point).
+ * vote. This is a plain insert, not an upsert — `student_classes`'s only
+ * uniqueness guard is a *partial* unique index (`student_classes_one_per_template`,
+ * `WHERE template_journey_id IS NOT NULL`), and PostgREST's upsert
+ * `onConflict` target can't match a partial index. Two concurrent requests
+ * can both observe zero enrollments and both attempt this insert; the loser
+ * hits a unique-violation (Postgres code 23505), which we treat as "someone
+ * else's request already enrolled this student" and recover from by
+ * re-reading the row instead of swallowing it into an empty result.
  */
 export async function resolveEnrolledClassIds(studentId: string): Promise<string[]> {
   const { data: enrollments } = await supabaseAdmin
@@ -52,6 +58,19 @@ export async function resolveEnrolledClassIds(studentId: string): Promise<string
     });
 
   if (enrollErr) {
+    // 23505 = unique_violation — a concurrent request already inserted this
+    // student's enrollment for this template between our read and write.
+    // Re-read rather than returning [] and stranding the student on
+    // /pending-journey despite being enrolled.
+    if ((enrollErr as any).code === '23505') {
+      const { data: retried } = await supabaseAdmin
+        .from('student_classes')
+        .select('class_id')
+        .eq('student_id', studentId);
+      return (retried ?? [])
+        .map((e: any) => e.class_id)
+        .filter((id: unknown): id is string => Boolean(id));
+    }
     console.error('[resolveEnrolledClassIds] fallback enroll failed:', enrollErr);
     return [];
   }
