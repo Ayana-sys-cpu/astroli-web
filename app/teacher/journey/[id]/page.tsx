@@ -49,15 +49,15 @@ const STATUS_STYLES: Record<MissionState, { label: string; color: string; bg: st
 
 
 function JourneySync({
-  journeyId,
+  classId,
   onMissionStateChange,
   onVoteCast,
 }: {
-  journeyId: string;
+  classId: string;
   onMissionStateChange: (m: RealtimeMission) => void;
   onVoteCast: (v: RealtimeVote) => void;
 }) {
-  useSupabaseRealtime({ journeyId, onMissionStateChange, onVoteCast });
+  useSupabaseRealtime({ classId, onMissionStateChange, onVoteCast });
   return null;
 }
 
@@ -72,7 +72,20 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
   const [studentView,  setStudentView]  = useState<Mission | null>(null);
   const [voteStart,    setVoteStart]    = useState(() => toDatetimeLocal(new Date()));
   const [voteEnd,      setVoteEnd]      = useState(() => toDatetimeLocal(new Date(Date.now() + 48 * 60 * 60 * 1000)));
+  const [voteStartTouched, setVoteStartTouched] = useState(false);
+  const [voteEndTouched,   setVoteEndTouched]   = useState(false);
   const [starting,     setStarting]     = useState(false);
+
+  // Keep the vote duration defaults pinned to "now" while the teacher hasn't
+  // touched them — otherwise they freeze at whatever time the page happened
+  // to mount, which can be hours before the teacher actually opens the vote.
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (!voteStartTouched) setVoteStart(toDatetimeLocal(new Date()));
+      if (!voteEndTouched) setVoteEnd(toDatetimeLocal(new Date(Date.now() + 48 * 60 * 60 * 1000)));
+    }, 30_000);
+    return () => clearInterval(id);
+  }, [voteStartTouched, voteEndTouched]);
   const [voteActiveMap,  setVoteActiveMap]  = useState<Record<string, string>>({});
   // Maps journeyId → sessionId for API calls (vote-counts, winner).
   // Persists after conclusion so results remain visible on the dashboard.
@@ -405,21 +418,21 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
             return (
               <Fragment key={journey.id}>
                 <JourneySync
-                  journeyId={journey.id}
+                  classId={journey.id}
                   onMissionStateChange={(mission) => {
                     setFullMissions(prev => ({
                       ...prev,
-                      [mission.journey_id]: prev[mission.journey_id]?.map(m =>
-                        m.id === mission.id ? { ...m, state: mission.state } : m
+                      [mission.class_id]: prev[mission.class_id]?.map(m =>
+                        m.id === mission.mission_id ? { ...m, state: mission.state } : m
                       ) ?? [],
                     }));
                   }}
                   onVoteCast={(vote) => {
                     setVoteCounts(prev => ({
                       ...prev,
-                      [vote.journey_id]: {
-                        ...(prev[vote.journey_id] ?? {}),
-                        [vote.big_idea_id]: (prev[vote.journey_id]?.[vote.big_idea_id] ?? 0) + 1,
+                      [vote.class_id]: {
+                        ...(prev[vote.class_id] ?? {}),
+                        [vote.big_idea_id]: (prev[vote.class_id]?.[vote.big_idea_id] ?? 0) + 1,
                       },
                     }));
                   }}
@@ -928,7 +941,7 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                         <input
                           type="datetime-local"
                           value={voteStart}
-                          onChange={e => setVoteStart(e.target.value)}
+                          onChange={e => { setVoteStart(e.target.value); setVoteStartTouched(true); }}
                           className="input-light w-full px-3 py-2.5 font-inter text-xs outline-none"
                           style={{ colorScheme: 'light' }}
                         />
@@ -940,7 +953,7 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
                         <input
                           type="datetime-local"
                           value={voteEnd}
-                          onChange={e => setVoteEnd(e.target.value)}
+                          onChange={e => { setVoteEnd(e.target.value); setVoteEndTouched(true); }}
                           className="input-light w-full px-3 py-2.5 font-inter text-xs outline-none"
                           style={{ colorScheme: 'light' }}
                         />
