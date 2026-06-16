@@ -1,6 +1,5 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import StarField from '@/components/StarField';
@@ -56,7 +55,6 @@ export default function PendingJourneyPage() {
   const [baseAvatarUrl, setBaseAvatarUrl] = useState<string | null>(null);
   const [charIndex,     setCharIndex]     = useState(0);
   const [typingLive,    setTypingLive]    = useState(false);
-  const [journeyId,     setJourneyId]     = useState<string | null>(null);
 
   // Resolve display identity from localStorage on mount.
   // studentId is not stored in localStorage — if no stored avatar exists,
@@ -87,28 +85,32 @@ export default function PendingJourneyPage() {
     return () => clearTimeout(t);
   }, [typingLive, charIndex]);
 
+  // This screen is now the true empty state — zero enrolled classes. Once
+  // the student has at least one class (even idle), /home takes over and
+  // renders it as a card. See
+  // docs/superpowers/specs/2026-06-16-student-multi-journey-home-design.md.
   const load = useCallback(async () => {
     try {
       // studentId comes from the server session — not passed in the URL.
-      const res = await fetch('/api/student/journey');
+      const res = await fetch('/api/student/home');
       // 401 = no session — send back to login.
       if (res.status === 401) { router.replace('/'); return; }
       const data = await res.json();
-      if (data.hasActiveJourney) { router.replace('/landscape'); return; }
-      if (data.hasActiveVote)   { router.replace('/vote'); return; }
-      if (data.journeyId) setJourneyId(data.journeyId);
-    } catch { /* swallow — hook will retry on next state change */ }
+      if (Array.isArray(data.journeys) && data.journeys.length > 0) {
+        router.replace('/home');
+      }
+    } catch { /* swallow — next poll will retry */ }
   }, [router]);
 
   useEffect(() => { load(); }, [load]);
 
-  useSupabaseRealtime({
-    journeyId,
-    onMissionStateChange: (mission) => {
-      if (mission.state === 'active') router.replace('/landscape');
-      else if (mission.state === 'voting') router.replace('/vote');
-    },
-  });
+  // No realtime channel here — zero enrollment means there's no class_id to
+  // scope a subscription to. Poll instead; this is a rare, short-lived edge
+  // case (a student with literally no class yet).
+  useEffect(() => {
+    const id = setInterval(load, 5000);
+    return () => clearInterval(id);
+  }, [load]);
 
   const avatarSrc = baseAvatarUrl;
 
