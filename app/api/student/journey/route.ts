@@ -1,13 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { requireAuth, resolveStudentId } from '@/lib/auth';
+import { resolveEnrolledClassIds } from '@/lib/student-enrollment';
 
 // GET /api/student/journey
 //
-// Returns current routing state for the authenticated student:
-//   hasActiveJourney — any mission is 'active' in an enrolled journey → /landscape
-//   hasActiveVote    — an open vote_session exists with ends_at in the future → /vote
-//   both false       → /pending-journey
+// Returns current routing state for the authenticated student, scoped to a
+// single class:
+//   hasActiveJourney — any mission is 'active' in the scoped class → /landscape
+//   hasActiveVote    — an open vote_session (ends_at in the future), or a
+//                       concluded one with a pending_start winner → /vote
+//   both false       — /home (or /pending-journey, with zero enrollments)
+//
+// ?classId= scopes every query to one enrolled class — /vote and /landscape
+// pass the classId from their own URL. If omitted, falls back to the
+// student's first enrolled class (legacy single-class behavior, kept so
+// nothing else breaks mid-rollout to multi-journey).
 //
 // The ?studentId= query param is intentionally ignored — identity comes from
 // the verified session cookie only.
@@ -21,77 +29,27 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Resolve enrolled classes for this student.
-    const { data: enrollments } = await supabaseAdmin
-      .from('student_journeys')
-      .select('class_id')
-      .eq('student_id', studentId);
-
-    let enrolledClassIds = (enrollments ?? []).map((e) => e.class_id).filter((id): id is string => Boolean(id));
-    console.log('[journey] studentId:', studentId, 'enrolledClasses:', enrolledClassIds);
-
-    // ── Fallback enrollment ────────────────────────────────────────────────────
-    // GC course-matching can silently produce zero enrollments when:
-    //   • the student isn't formally in the teacher's GC classroom
-    //   • the GC API returned an error or empty list at login time
-    //   • the class has no google_course_id (direct/manual setup)
-    //
-    // Self-healing: if the student has no enrollments at all, find any class
-    // that currently has an open vote and enroll them there. This is
-    // idempotent (upsert) and safe for the current single-teacher MVP.
+    const enrolledClassIds = await resolveEnrolledClassIds(studentId);
     if (enrolledClassIds.length === 0) {
-      const now = new Date().toISOString();
+      return NextResponse.json({ hasActiveJourney: false, hasActiveVote: false });
+    }
 
-      const { data: openVoteSession } = await supabaseAdmin
-        .from('vote_sessions')
-        .select('class_id')
-        .eq('status', 'open')
-        .gt('ends_at', now)
-        .not('class_id', 'is', null)
-        .limit(1)
-        .maybeSingle();
+    const requestedClassId = req.nextUrl.searchParams.get('classId');
+    const classIds = requestedClassId
+      ? (enrolledClassIds.includes(requestedClassId) ? [requestedClassId] : [])
+      : enrolledClassIds;
 
-      const fallbackClassId = openVoteSession?.class_id ?? null;
-
-      if (fallbackClassId) {
-        const { data: fallbackClass } = await supabaseAdmin
-          .from('classes')
-          .select('id, journey_id')
-          .eq('id', fallbackClassId)
-          .maybeSingle();
-
-        if (fallbackClass) {
-          const { error: enrollErr } = await supabaseAdmin
-            .from('student_journeys')
-            .upsert(
-              {
-                student_id:          studentId,
-                journey_id:          fallbackClass.journey_id,
-                class_id:            fallbackClass.id,
-                template_journey_id: fallbackClass.journey_id,
-              },
-              { onConflict: 'student_id,journey_id', ignoreDuplicates: true },
-            );
-          if (enrollErr) {
-            console.error('[GET /api/student/journey] fallback enroll failed:', enrollErr);
-          } else {
-            console.log(`[GET /api/student/journey] fallback-enrolled student ${studentId} in class ${fallbackClass.id}`);
-            enrolledClassIds = [fallbackClass.id];
-          }
-        }
-      }
-
-      if (enrolledClassIds.length === 0) {
-        return NextResponse.json({ hasActiveJourney: false, hasActiveVote: false });
-      }
+    if (classIds.length === 0) {
+      // Requested a class the student isn't enrolled in.
+      return NextResponse.json({ hasActiveJourney: false, hasActiveVote: false });
     }
 
     const { data: enrolledClasses } = await supabaseAdmin
       .from('classes')
       .select('id, journey_id')
-      .in('id', enrolledClassIds);
+      .in('id', classIds);
 
-    const journeyIdByClassId = new Map((enrolledClasses ?? []).map(c => [c.id, c.journey_id]));
+    const journeyIdByClassId = new Map((enrolledClasses ?? []).map((c: any) => [c.id, c.journey_id]));
 
     // 1. Active mission check — only 'active' state counts as a launched mission.
     //    'pending_start' means vote is concluded but teacher hasn't activated yet;
@@ -100,7 +58,7 @@ export async function GET(req: NextRequest) {
       .from('class_mission_state')
       .select('mission_id')
       .eq('state', 'active')
-      .in('class_id', enrolledClassIds)
+      .in('class_id', classIds)
       .limit(1)
       .maybeSingle();
 
@@ -109,13 +67,13 @@ export async function GET(req: NextRequest) {
         .from('mission_started_by_student')
         .select('status')
         .eq('student_id', studentId)
-        .eq('mission_id', activeStateRow.mission_id)
+        .eq('mission_id', (activeStateRow as any).mission_id)
         .maybeSingle();
       const missionStatus = (ms as any)?.status ?? null;
       return NextResponse.json({
         hasActiveJourney: true,
         hasActiveVote:    false,
-        activeMissionId:  activeStateRow.mission_id,
+        activeMissionId:  (activeStateRow as any).mission_id,
         missionStatus,
       });
     }
@@ -127,22 +85,21 @@ export async function GET(req: NextRequest) {
       .select('id, ends_at, class_id')
       .eq('status', 'open')
       .gt('ends_at', now)
-      .in('class_id', enrolledClassIds)
+      .in('class_id', classIds)
       .limit(1)
       .maybeSingle();
 
     if (sessionErr) console.error('[journey] vote session query error:', sessionErr);
-    console.log('[journey] vote session check — found:', session ? `id=${session.id} ends_at=${session.ends_at}` : 'none', 'classIds:', enrolledClassIds, 'now:', now);
+
     if (session) {
-      const sessionJourneyId = journeyIdByClassId.get(session.class_id!);
       const { data: stateRows } = await supabaseAdmin
         .from('class_mission_state')
         .select('mission_id, state')
-        .eq('class_id', session.class_id!)
+        .eq('class_id', (session as any).class_id)
         .in('state', ['voting', 'locked']);
 
-      const missionIds = (stateRows ?? []).map(r => r.mission_id);
-      const stateByMission = new Map((stateRows ?? []).map(r => [r.mission_id, r.state]));
+      const missionIds = (stateRows ?? []).map((r: any) => r.mission_id);
+      const stateByMission = new Map((stateRows ?? []).map((r: any) => [r.mission_id, r.state]));
 
       const { data: missionData } = await supabaseAdmin
         .from('missions')
@@ -155,16 +112,16 @@ export async function GET(req: NextRequest) {
         question:           m.question,
         projectTitle:       m.project_title,
         projectDescription: m.project_description,
-        order:              (m as any).order,
+        order:              m.order,
         state:              stateByMission.get(m.id),
       }));
 
       return NextResponse.json({
         hasActiveJourney: false,
         hasActiveVote:    true,
-        voteSessionId:    session.id,
-        voteJourneyId:    session.class_id,
-        voteEndsAt:       session.ends_at,
+        voteSessionId:    (session as any).id,
+        voteJourneyId:    (session as any).class_id,
+        voteEndsAt:       (session as any).ends_at,
         voteMissions,
       });
     }
@@ -175,20 +132,20 @@ export async function GET(req: NextRequest) {
       .from('class_mission_state')
       .select('class_id, mission_id')
       .eq('state', 'pending_start')
-      .in('class_id', enrolledClassIds)
+      .in('class_id', classIds)
       .limit(1)
       .maybeSingle();
 
     if (pendingStateRow) {
-      const pendingClassId = pendingStateRow.class_id;
+      const pendingClassId = (pendingStateRow as any).class_id;
       const { data: allStateRows } = await supabaseAdmin
         .from('class_mission_state')
         .select('mission_id, state')
         .eq('class_id', pendingClassId)
         .in('state', ['pending_start', 'skipped']);
 
-      const missionIds = (allStateRows ?? []).map(r => r.mission_id);
-      const stateByMission = new Map((allStateRows ?? []).map(r => [r.mission_id, r.state]));
+      const missionIds = (allStateRows ?? []).map((r: any) => r.mission_id);
+      const stateByMission = new Map((allStateRows ?? []).map((r: any) => [r.mission_id, r.state]));
 
       const { data: allMissionData } = await supabaseAdmin
         .from('missions')
@@ -196,7 +153,6 @@ export async function GET(req: NextRequest) {
         .in('id', missionIds)
         .order('"order"');
 
-      // Also retrieve the concluded session so vote counts can still be displayed.
       const { data: concludedSession } = await supabaseAdmin
         .from('vote_sessions')
         .select('id')
@@ -211,7 +167,7 @@ export async function GET(req: NextRequest) {
         question:           m.question,
         projectTitle:       m.project_title,
         projectDescription: m.project_description,
-        order:              (m as any).order,
+        order:              m.order,
         state:              stateByMission.get(m.id),
       }));
 
@@ -219,7 +175,7 @@ export async function GET(req: NextRequest) {
         hasActiveJourney:   false,
         hasActiveVote:      true,
         awaitingActivation: true,
-        voteSessionId:      concludedSession?.id ?? null,
+        voteSessionId:      (concludedSession as any)?.id ?? null,
         voteJourneyId:      pendingClassId,
         voteEndsAt:         null,
         voteMissions,
@@ -229,7 +185,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       hasActiveJourney: false,
       hasActiveVote:    false,
-      journeyId:        enrolledClassIds[0] ?? null,
+      journeyId:        classIds[0] ?? null,
     });
   } catch (err) {
     console.error('[GET /api/student/journey]', err);
