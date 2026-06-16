@@ -37,6 +37,7 @@ function LandscapeContent() {
   const searchParams  = useSearchParams();
   const previewId     = searchParams.get('preview'); // teacher preview mode
   const isPreview     = Boolean(previewId);
+  const classId       = searchParams.get('classId');
 
   const [orinOpen, setOrinOpen] = useState(true);
   const [botName, setBotName]   = useState('');
@@ -68,11 +69,22 @@ function LandscapeContent() {
   // Student normal mode — fetch via student session.
   useEffect(() => {
     if (isPreview) return;
-    fetch('/api/student/journey')
+    fetch(`/api/student/journey${classId ? `?classId=${classId}` : ''}`)
       .then(r => r.json())
       .then(({ hasActiveJourney, hasActiveVote, activeMissionId, missionStatus }) => {
         if (!hasActiveJourney) {
-          router.replace(hasActiveVote ? '/vote' : '/pending-journey');
+          if (hasActiveVote) {
+            // No classId means this came from a caller that never had one
+            // (onboarding, pip-guide) — preserve the old direct-to-vote hop
+            // for that case; otherwise this is a real mismatch on a known
+            // class (e.g. mission was reset), so keep the classId scoping.
+            router.replace(classId ? `/vote?classId=${classId}` : '/vote');
+          } else {
+            // No active vote either — bounce to the hub rather than the old
+            // single-journey /pending-journey, since other journeys may
+            // still need attention.
+            router.replace('/home');
+          }
           return;
         }
         if (activeMissionId) {
@@ -91,7 +103,7 @@ function LandscapeContent() {
         }
       })
       .catch(() => {});
-  }, [isPreview, router]);
+  }, [isPreview, router, classId]);
 
   const handleAcceptMission = () => {
     setShowOverlay(false);

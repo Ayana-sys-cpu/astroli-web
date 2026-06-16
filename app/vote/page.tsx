@@ -1,7 +1,7 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { Suspense, useState, useEffect, useCallback } from 'react';
 import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
 import TopBar from '@/components/TopBar';
@@ -46,8 +46,10 @@ const PLANET_COLORS = [
   { glow: '#FFD600', border: 'rgba(255,214,0,0.5)',  bg: 'rgba(255,214,0,0.08)',  dot: '#FFD600' },
 ];
 
-export default function VotePage() {
+function VotePageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const classId = searchParams.get('classId');
   const [state, setState] = useState<JourneyState | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -59,10 +61,16 @@ export default function VotePage() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch('/api/student/journey');
+      const res = await fetch(`/api/student/journey${classId ? `?classId=${classId}` : ''}`);
       const data: JourneyState & { voteMissions?: VoteMission[] } = await res.json();
-      if (data.hasActiveJourney) { router.replace('/landscape'); return; }
-      if (!data.hasActiveVote)   { router.replace('/pending-journey'); return; }
+      if (data.hasActiveJourney) {
+        router.replace(classId ? `/landscape?classId=${classId}` : '/landscape');
+        return;
+      }
+      // Mismatch (e.g. a stale link, or the vote was cancelled) — bounce to
+      // the hub rather than the old global pending-journey screen, since
+      // other journeys may still need attention.
+      if (!data.hasActiveVote) { router.replace('/home'); return; }
       setState({
         hasActiveJourney:   false,
         hasActiveVote:      true,
@@ -75,7 +83,7 @@ export default function VotePage() {
     } catch {
       // stay — next poll will retry
     }
-  }, [router]);
+  }, [router, classId]);
 
   // Initial load
   useEffect(() => { load(); }, [load]);
@@ -118,10 +126,10 @@ export default function VotePage() {
   }, [state?.voteSessionId, loadCounts]);
 
   useSupabaseRealtime({
-    journeyId: state?.voteJourneyId ?? null,
+    classId: state?.voteJourneyId ?? null,
     onMissionStateChange: (mission) => {
       if (mission.state === 'active') {
-        router.replace('/landscape');
+        router.replace(classId ? `/landscape?classId=${classId}` : '/landscape');
       } else if (mission.state === 'pending_start') {
         // Vote concluded — re-fetch to show awaiting-activation state without page refresh.
         load();
@@ -525,5 +533,13 @@ export default function VotePage() {
         </motion.div>
       </div>
     </motion.div>
+  );
+}
+
+export default function VotePage() {
+  return (
+    <Suspense>
+      <VotePageContent />
+    </Suspense>
   );
 }

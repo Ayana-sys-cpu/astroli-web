@@ -7,15 +7,16 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 // ---------------------------------------------------------------------------
 // useSupabaseRealtime
 //
-// Subscribes to Postgres Changes on missions and votes for a given journey.
-// Replaces all polling (setInterval calls) in the teacher dashboard and the
-// student vote/landscape pages.
+// Subscribes to Postgres Changes on class_mission_state and votes for a given
+// class. Replaces all polling (setInterval calls) in the teacher dashboard
+// and the student vote/landscape pages.
 //
 // HOW IT WORKS:
 //   Supabase broadcasts a WebSocket event every time a row changes in Postgres.
-//   The hook listens on a single channel keyed by journeyId, handling two events:
+//   The hook listens on a single channel keyed by classId, handling two events:
 //
-//   1. missions UPDATE  → fires when a teacher changes mission state
+//   1. class_mission_state INSERT/UPDATE → fires when a teacher changes a
+//      mission's state for this class
 //      Teacher side:  refreshes mission cards (locked → voting → active)
 //      Student side:  drives routing (voting state → show vote screen;
 //                     active state → show landscape)
@@ -26,21 +27,21 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 //
 // USAGE (teacher dashboard):
 //   useSupabaseRealtime({
-//     journeyId: journey.id,
+//     classId: journey.id,
 //     onMissionStateChange: (mission) => {
 //       setFullMissions(prev => ({
 //         ...prev,
-//         [mission.journey_id]: prev[mission.journey_id]?.map(m =>
-//           m.id === mission.id ? { ...m, state: mission.state } : m
+//         [mission.class_id]: prev[mission.class_id]?.map(m =>
+//           m.id === mission.mission_id ? { ...m, state: mission.state } : m
 //         ) ?? [],
 //       }));
 //     },
 //     onVoteCast: (vote) => {
 //       setVoteCounts(prev => ({
 //         ...prev,
-//         [vote.journey_id]: {
-//           ...(prev[vote.journey_id] ?? {}),
-//           [vote.big_idea_id]: (prev[vote.journey_id]?.[vote.big_idea_id] ?? 0) + 1,
+//         [vote.class_id]: {
+//           ...(prev[vote.class_id] ?? {}),
+//           [vote.big_idea_id]: (prev[vote.class_id]?.[vote.big_idea_id] ?? 0) + 1,
 //         },
 //       }));
 //     },
@@ -48,7 +49,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 //
 // USAGE (student vote page):
 //   useSupabaseRealtime({
-//     journeyId: state.voteJourneyId,
+//     classId: state.voteJourneyId,
 //     onMissionStateChange: (mission) => {
 //       // Redirect when teacher activates a mission
 //       if (mission.state === 'active') router.replace('/landscape');
@@ -65,32 +66,29 @@ export type MissionState =
   | 'skipped';
 
 export interface RealtimeMission {
-  id:            string;
-  journey_id:    string;
-  question:      string;
-  project_title: string;
-  state:         MissionState;
-  mission_order: number;
+  class_id:   string;
+  mission_id: string;
+  state:      MissionState;
 }
 
 export interface RealtimeVote {
   id:          string;
-  journey_id:  string;
+  class_id:    string;
   student_id:  string;
   big_idea_id: string;
 }
 
 interface UseSupabaseRealtimeOptions {
-  /** The journey to watch. Pass null to skip subscription (e.g. before data loads). */
-  journeyId: string | null;
-  /** Called when any mission in the journey changes state. */
+  /** The class to watch. Pass null to skip subscription (e.g. before data loads). */
+  classId: string | null;
+  /** Called when any mission in the class changes state. */
   onMissionStateChange?: (mission: RealtimeMission) => void;
   /** Called when any student casts or changes their vote. */
   onVoteCast?: (vote: RealtimeVote) => void;
 }
 
 export function useSupabaseRealtime({
-  journeyId,
+  classId,
   onMissionStateChange,
   onVoteCast,
 }: UseSupabaseRealtimeOptions): void {
@@ -111,54 +109,60 @@ export function useSupabaseRealtime({
   }, []);
 
   useEffect(() => {
-    if (!journeyId) return;
+    if (!classId) return;
 
     const supabase = getBrowserClient();
 
-    // One channel per journey — both missions and votes ride the same WebSocket.
+    // One channel per class — both mission-state and vote rows ride the same WebSocket.
     const channel = supabase
-      .channel(`journey-sync:${journeyId}`)
+      .channel(`class-sync:${classId}`)
 
       // ── Mission state changes ────────────────────────────────────────────
-      // Fires when a teacher transitions a mission (e.g. locked→voting or
-      // voting→active). Both the teacher dashboard and student clients listen
-      // to this to update their UI without polling.
+      // Fires when a teacher transitions a mission for this class (e.g.
+      // locked→voting or voting→active). State lives in class_mission_state,
+      // not on the (shared, template-owned) missions row.
       .on(
         'postgres_changes',
         {
           event:  'UPDATE',
           schema: 'public',
-          table:  'missions',
-          filter: `journey_id=eq.${journeyId}`,
+          table:  'class_mission_state',
+          filter: `class_id=eq.${classId}`,
+        },
+        handleMissionChange,
+      )
+      .on(
+        'postgres_changes',
+        {
+          event:  'INSERT',
+          schema: 'public',
+          table:  'class_mission_state',
+          filter: `class_id=eq.${classId}`,
         },
         handleMissionChange,
       )
 
       // ── New vote ─────────────────────────────────────────────────────────
-      // Fires when a student submits their first vote.
       .on(
         'postgres_changes',
         {
           event:  'INSERT',
           schema: 'public',
           table:  'votes',
-          filter: `journey_id=eq.${journeyId}`,
+          filter: `class_id=eq.${classId}`,
         },
         handleVoteChange,
       )
 
       // ── Vote change ───────────────────────────────────────────────────────
       // Fires when a student changes their vote (upsert on existing row).
-      // The teacher dashboard needs to handle this as a count correction:
-      // decrement the old big_idea_id and increment the new one.
-      // The old value is available in payload.old — see extended example below.
       .on(
         'postgres_changes',
         {
           event:  'UPDATE',
           schema: 'public',
           table:  'votes',
-          filter: `journey_id=eq.${journeyId}`,
+          filter: `class_id=eq.${classId}`,
         },
         handleVoteChange,
       )
@@ -171,7 +175,7 @@ export function useSupabaseRealtime({
       supabase.removeChannel(channel);
       channelRef.current = null;
     };
-  }, [journeyId, handleMissionChange, handleVoteChange]);
+  }, [classId, handleMissionChange, handleVoteChange]);
 }
 
 
@@ -185,18 +189,18 @@ export function useSupabaseRealtime({
 // ---------------------------------------------------------------------------
 
 export interface VoteChangeEvent {
-  journeyId:      string;
+  classId:        string;
   newBigIdeaId:   string;
   prevBigIdeaId:  string | null; // null on first vote; non-null on change
 }
 
 interface UseVoteSyncOptions {
-  journeyId: string | null;
+  classId: string | null;
   onVoteChange: (event: VoteChangeEvent) => void;
 }
 
 export function useSupabaseVoteSync({
-  journeyId,
+  classId,
   onVoteChange,
 }: UseVoteSyncOptions): void {
   const onVoteRef    = useRef(onVoteChange);
@@ -204,24 +208,24 @@ export function useSupabaseVoteSync({
   const channelRef   = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
-    if (!journeyId) return;
+    if (!classId) return;
 
     const supabase = getBrowserClient();
 
     const channel = supabase
-      .channel(`vote-sync:${journeyId}`)
+      .channel(`vote-sync:${classId}`)
       .on(
         'postgres_changes',
         {
           event:  'INSERT',
           schema: 'public',
           table:  'votes',
-          filter: `journey_id=eq.${journeyId}`,
+          filter: `class_id=eq.${classId}`,
         },
         (payload) => {
           const row = payload.new as RealtimeVote;
           onVoteRef.current({
-            journeyId:     row.journey_id,
+            classId:       row.class_id,
             newBigIdeaId:  row.big_idea_id,
             prevBigIdeaId: null,
           });
@@ -233,13 +237,13 @@ export function useSupabaseVoteSync({
           event:  'UPDATE',
           schema: 'public',
           table:  'votes',
-          filter: `journey_id=eq.${journeyId}`,
+          filter: `class_id=eq.${classId}`,
         },
         (payload) => {
           const newRow  = payload.new as RealtimeVote;
           const prevRow = payload.old as Partial<RealtimeVote>;
           onVoteRef.current({
-            journeyId:     newRow.journey_id,
+            classId:       newRow.class_id,
             newBigIdeaId:  newRow.big_idea_id,
             prevBigIdeaId: prevRow.big_idea_id ?? null,
           });
@@ -253,5 +257,5 @@ export function useSupabaseVoteSync({
       supabase.removeChannel(channel);
       channelRef.current = null;
     };
-  }, [journeyId]);
+  }, [classId]);
 }

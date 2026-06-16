@@ -49,15 +49,15 @@ const STATUS_STYLES: Record<MissionState, { label: string; color: string; bg: st
 
 
 function JourneySync({
-  journeyId,
+  classId,
   onMissionStateChange,
   onVoteCast,
 }: {
-  journeyId: string;
+  classId: string;
   onMissionStateChange: (m: RealtimeMission) => void;
   onVoteCast: (v: RealtimeVote) => void;
 }) {
-  useSupabaseRealtime({ journeyId, onMissionStateChange, onVoteCast });
+  useSupabaseRealtime({ classId, onMissionStateChange, onVoteCast });
   return null;
 }
 
@@ -418,21 +418,21 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
             return (
               <Fragment key={journey.id}>
                 <JourneySync
-                  journeyId={journey.id}
+                  classId={journey.id}
                   onMissionStateChange={(mission) => {
                     setFullMissions(prev => ({
                       ...prev,
-                      [mission.journey_id]: prev[mission.journey_id]?.map(m =>
-                        m.id === mission.id ? { ...m, state: mission.state } : m
+                      [mission.class_id]: prev[mission.class_id]?.map(m =>
+                        m.id === mission.mission_id ? { ...m, state: mission.state } : m
                       ) ?? [],
                     }));
                   }}
                   onVoteCast={(vote) => {
                     setVoteCounts(prev => ({
                       ...prev,
-                      [vote.journey_id]: {
-                        ...(prev[vote.journey_id] ?? {}),
-                        [vote.big_idea_id]: (prev[vote.journey_id]?.[vote.big_idea_id] ?? 0) + 1,
+                      [vote.class_id]: {
+                        ...(prev[vote.class_id] ?? {}),
+                        [vote.big_idea_id]: (prev[vote.class_id]?.[vote.big_idea_id] ?? 0) + 1,
                       },
                     }));
                   }}
