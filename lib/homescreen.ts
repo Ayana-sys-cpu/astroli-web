@@ -42,31 +42,41 @@ function insightLine(signalType: SignalType): string {
 }
 
 export async function getHomescreenData(teacherId: string): Promise<HomescreenData> {
-  const journeys = await prisma.journey.findMany({
+  // journeys here are actually classes (teacher instances) — missions come
+  // from the template via the journey relation, never duplicated. See
+  // docs/architecture/2026-06-16-journeys-classes-redesign.md.
+  const classes = await prisma.class.findMany({
     where: { teacherId },
-    select: { id: true, title: true },
+    select: {
+      id: true,
+      title: true,
+      journey: { select: { missions: { select: { id: true } } } },
+    },
     orderBy: { title: 'asc' },
   });
 
-  if (journeys.length === 0) {
+  const journeys = classes.map(c => ({ id: c.id, title: c.title }));
+
+  if (classes.length === 0) {
     return { journeys: [], spotlight: [], classPicture: [] };
   }
 
-  const primaryJourney = journeys[0];
+  const primaryClass = classes[0];
+  const missionIds = primaryClass.journey.missions.map(m => m.id);
 
   // lastSession and acked are independent — fire both, then chain generateSignals
   // off lastSession without waiting for acked to settle first.
   const lastSessionPromise = prisma.classSession.findFirst({
-    where: { journeyId: primaryJourney.id, teacherId },
+    where: { classId: primaryClass.id, teacherId },
     orderBy: { startedAt: 'desc' },
   });
   const ackedPromise = prisma.teacherSignalAcknowledgement.findMany({
-    where: { teacherId, journeyId: primaryJourney.id },
+    where: { teacherId, classId: primaryClass.id },
     select: { studentId: true, signalType: true },
   });
 
   const lastSession = await lastSessionPromise;
-  const rawSignals  = await generateSignals(primaryJourney.id, lastSession?.startedAt ?? null);
+  const rawSignals  = await generateSignals(primaryClass.id, lastSession?.startedAt ?? null, missionIds);
   const acked       = await ackedPromise;
 
   const TEN_DAYS_AGO = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);

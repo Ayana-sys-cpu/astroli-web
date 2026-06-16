@@ -1,4 +1,4 @@
-import { PrismaClient, MissionState, ContentSource } from '@prisma/client'
+import { PrismaClient, ContentSource } from '@prisma/client'
 
 // Seed script — Phase 1 Medieval History Journey
 // All content is tagged source: HARDCODED.
@@ -29,14 +29,14 @@ async function main() {
     },
   })
 
-  // ── Journey ───────────────────────────────────────────────────────────────
+  // ── Journey (curriculum template — owns no teacher/class, see
+  // docs/architecture/2026-06-16-journeys-classes-redesign.md) ───────────────
   const journey = await prisma.journey.upsert({
-    where: { googleCourseId: 'PLACEHOLDER_GC_COURSE_ID' },
+    where: { id: 'seed-journey-medieval-history' },
     update: {},
     create: {
-      googleCourseId: 'PLACEHOLDER_GC_COURSE_ID',
+      id: 'seed-journey-medieval-history',
       title: 'History',
-      teacherId: teacher.id,
       // lastMaterialSyncAt: null — no GC sync has run yet (Phase 2 feature)
     },
   })
@@ -53,7 +53,6 @@ async function main() {
       id: 'seed-mission-1',
       journeyId: journey.id,
       mission_order: 1,
-      state: MissionState.locked,
       source: ContentSource.HARDCODED,
       // generationJobId: null — hardcoded content has no generation job
       createdBy: teacher.id,
@@ -293,7 +292,6 @@ Think about this: The Geonim created a system of authority that worked without a
       id: 'seed-mission-2',
       journeyId: journey.id,
       mission_order:2,
-      state: MissionState.locked,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,
 
@@ -541,7 +539,6 @@ Think about this: Cities offered a different kind of bargain from the feudal one
       id: 'seed-mission-3',
       journeyId: journey.id,
       mission_order:3,
-      state: MissionState.locked,
       source: ContentSource.HARDCODED,
       createdBy: teacher.id,
 

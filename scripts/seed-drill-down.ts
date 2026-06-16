@@ -22,15 +22,19 @@ async function seedStudent(student: { id: string; full_name: string | null; firs
   const enrollments = await prisma.student_journeys.findMany({
     where: { student_id: student.id },
     select: {
-      journeys: {
+      class: {
         select: {
-          id: true,
-          missions: {
-            orderBy: { mission_order: 'asc' },
+          journey: {
             select: {
               id: true,
-              planets: {
-                select: { id: true, title: true },
+              missions: {
+                orderBy: { mission_order: 'asc' },
+                select: {
+                  id: true,
+                  planets: {
+                    select: { id: true, title: true },
+                  },
+                },
               },
             },
           },
@@ -40,7 +44,7 @@ async function seedStudent(student: { id: string; full_name: string | null; firs
   });
 
   const planets = enrollments.flatMap((e) =>
-    e.journeys.missions.flatMap((m) => m.planets),
+    e.class.journey.missions.flatMap((m) => m.planets),
   );
 
   if (planets.length === 0) {
