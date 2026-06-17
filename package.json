@@ -6,8 +6,9 @@
     "dev": "next dev --port 3001",
     "build": "prisma migrate deploy && prisma generate && next build",
     "start": "next start --port 3001",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "vitest run --config vitest.config.lib.ts",
+    "test:watch": "vitest --config vitest.config.lib.ts",
+    "test:full": "vitest run"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

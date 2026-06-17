@@ -1,5 +1,6 @@
 // src/astroli-web/__tests__/api/students.test.ts
 import { describe, it, expect, vi } from 'vitest';
+import { NextRequest } from 'next/server';
 
 vi.mock('@/lib/auth', () => ({
   requireAuth: vi.fn().mockResolvedValue({
@@ -51,7 +52,7 @@ vi.mock('@/lib/supabase-server', () => ({
 describe('GET /api/teacher/students', () => {
   it('returns students array and journeys array', async () => {
     const { GET } = await import('@/app/api/teacher/students/route');
-    const req = new Request('http://localhost/api/teacher/students');
+    const req = new NextRequest('http://localhost/api/teacher/students');
     const res = await GET(req as any);
     const body = await res.json();
 
@@ -64,7 +65,7 @@ describe('GET /api/teacher/students', () => {
 
   it('each student has required fields', async () => {
     const { GET } = await import('@/app/api/teacher/students/route');
-    const req = new Request('http://localhost/api/teacher/students');
+    const req = new NextRequest('http://localhost/api/teacher/students');
     const res = await GET(req as any);
     const body = await res.json();
 
