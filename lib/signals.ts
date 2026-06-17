@@ -19,15 +19,15 @@ export interface StudentSignal {
 /**
  * Generates support signals for all students enrolled in a given journey.
  *
- * TODO (Phase 2): Replace this implementation with queries against
- * planet_summaries and planet_summary_goals once the planet completion
- * pipeline is live. The current implementation derives signals from
- * message activity as a Phase 1 approximation.
+ * Phase 1 approximation: signals are derived from message activity because
+ * planet_summaries and planet_summary_goals are not yet populated by the
+ * planet completion pipeline. When that pipeline is live, replace these
+ * queries with reads against those tables.
  *
  * Signal logic:
  * - If a message with "[SIGNAL:xxx]" content exists → use that override (test data only)
  * - If no messages since lastSessionAt → non_engagement
- * - No other signals detected yet (grace, stuck, breakthrough require planet data)
+ * - breakthrough, stuck, grace_completion require planet data (not yet available)
  */
 // knownMissionIds: callers that already fetched missions (e.g. journeys-overview) pass
 // them directly to skip the redundant Supabase round-trip.
