@@ -1,7 +1,7 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { MOCK_USER } from '@/lib/mock-data';
+import { MOCK_STUDENT_USER } from '@/lib/dev/mock-student-user';
 import { clearSession } from '@/lib/student-store';
 import { supabaseSignOut } from '@/lib/session';
 
@@ -47,13 +47,13 @@ export default function TopBar({ left, center, showUser = true }: TopBarProps) {
 
       {showUser && (
         <div className="relative flex items-center gap-2" ref={menuRef}>
-          <span className="text-[11px] text-white/40 font-space">{MOCK_USER.displayName}</span>
+          <span className="text-[11px] text-white/40 font-space">{MOCK_STUDENT_USER.displayName}</span>
           <button
             onClick={() => setMenuOpen(prev => !prev)}
             className="w-6 h-6 rounded-full border border-[#00C4CC]/50 flex items-center justify-center bg-[#001820] cursor-pointer hover:border-[#00C4CC] transition-colors"
           >
             <span className="text-[9px] text-[#00C4CC] font-space font-bold">
-              {MOCK_USER.firstName[0]}
+              {MOCK_STUDENT_USER.firstName[0]}
             </span>
           </button>
 

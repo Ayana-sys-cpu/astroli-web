@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CORE_CONFLICTS } from '@/lib/mock-data';
+import { CORE_CONFLICTS } from '@/lib/content/mission-display-conflicts';
 
 interface ConflictOverlayProps {
   isOpen: boolean;
