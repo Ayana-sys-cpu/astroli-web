@@ -2,13 +2,13 @@
 // GET /api/mission?missionId=X  (preferred — exact match by ID)
 // GET /api/mission?order=N      (legacy fallback — avoid; ambiguous across journeys)
 //
-// Returns a PipMission object. Always use missionId when available.
+// Returns a OrinMission object. Always use missionId when available.
 // No auth required — content is educational material, not sensitive.
 // =============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
-import type { PipMission, PipPlanet, WorldBriefItem } from '@/lib/pip-mission-types';
+import type { OrinMission, OrinPlanet, WorldBriefItem } from '@/lib/orin-guide-types';
 
 export async function GET(req: NextRequest) {
   const missionId  = req.nextUrl.searchParams.get('missionId');
@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
     : firstPara;
 
   // ── Build response ─────────────────────────────────────────────────────────
-  const pipMission: PipMission = {
+  const pipMission: OrinMission = {
     order:             (mission as any).order as number,
     question:          q,
     worldBrief:        mission.question_description as string,
@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
     openingMessage2:   (mission.opening_message_2 as string | null) ?? '',
     missionBrief,
     chapter:           (mission.chapter as string | null) ?? `Ch.${(mission as any).order}`,
-    planets: (planets ?? []).map((p): PipPlanet => ({
+    planets: (planets ?? []).map((p): OrinPlanet => ({
       icon: (p.icon as string | null) ?? '🌍',
       name: p.label as string,
       hint: (p.hint as string | null) ?? (p.title as string).slice(0, 45),

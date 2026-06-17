@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
-import type { PipMission, PipPlanet } from '@/lib/pip-mission-types';
+import type { OrinMission, OrinPlanet } from '@/lib/orin-guide-types';
 import { getSessionStudentId } from '@/lib/session';
 
 const BOT_URL    = 'https://astorli-bot.vercel.app/api/bot';
@@ -40,7 +40,7 @@ type ChatMsg =
   | { id: string; role: 'user';          type: 'chip';    icon: string; text: string }
   | { id: string; role: 'pip';           type: 'brief';   content: string }
   | { id: string; role: 'pip';           type: 'mission'; chapter: string; title: string; objective: string }
-  | { id: string; role: 'pip';           type: 'howto';   planets: PipPlanet[] }
+  | { id: string; role: 'pip';           type: 'howto';   planets: OrinPlanet[] }
   | { id: string; role: 'pip';           type: 'typing' };
 
 let _idCounter = 0;
@@ -179,7 +179,7 @@ function MissionCard({ chapter, title, objective }: { chapter: string; title: st
 // How-To Card — lists the knowledge planets with chips
 // =============================================================================
 
-function HowToCard({ planets }: { planets: PipPlanet[] }) {
+function HowToCard({ planets }: { planets: OrinPlanet[] }) {
   return (
     <div style={{
       background: T.s2, border: `1px solid ${T.b1}`,
@@ -465,7 +465,7 @@ function PipGuideChatInner() {
   const router  = useRouter();
   const params  = useSearchParams();
   const mOrder  = parseInt(params.get('m') ?? '1', 10);
-  const [mission, setMission] = useState<PipMission | null>(null);
+  const [mission, setMission] = useState<OrinMission | null>(null);
 
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [dock,     setDock]     = useState<DockState>('lock');

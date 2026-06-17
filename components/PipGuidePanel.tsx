@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { PipMission, PipPlanet, WorldBriefItem } from '@/lib/pip-mission-types';
+import type { OrinMission, OrinPlanet, WorldBriefItem } from '@/lib/orin-guide-types';
 
 // =============================================================================
 // Design tokens — matches pip-guide/page.tsx exactly
@@ -35,7 +35,7 @@ type ChatMsg =
   | { id: string; role: 'user';          type: 'chip';    icon: string; text: string }
   | { id: string; role: 'pip';           type: 'brief';   items: WorldBriefItem[]; summary: string }
   | { id: string; role: 'pip';           type: 'mission'; chapter: string; title: string; objective: string }
-  | { id: string; role: 'pip';           type: 'howto';   planets: PipPlanet[] }
+  | { id: string; role: 'pip';           type: 'howto';   planets: OrinPlanet[] }
   | { id: string; role: 'pip';           type: 'typing' };
 
 let _idCounter = 0;
@@ -217,7 +217,7 @@ function MissionCard({ chapter, title, objective }: { chapter: string; title: st
 // How-To Card — CHANGE 5: elaborate text, single planet suggestion
 // =============================================================================
 
-function HowToCard({ planets, firstPlanet }: { planets: PipPlanet[]; firstPlanet?: { id: string; label: string } }) {
+function HowToCard({ planets, firstPlanet }: { planets: OrinPlanet[]; firstPlanet?: { id: string; label: string } }) {
   const router = useRouter();
   const suggested = planets[0];
 
@@ -572,7 +572,7 @@ function DoneDock() {
 // =============================================================================
 
 export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, onLaunch }: PipGuidePanelProps) {
-  const [mission, setMission] = useState<PipMission | null>(null);
+  const [mission, setMission] = useState<OrinMission | null>(null);
 
   const [messages,      setMessages]      = useState<ChatMsg[]>([]);
   const [dock,          setDock]          = useState<DockState>('lock');
