@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { type PlanetCharacter, type PlanetVoiceMessage } from '@/lib/usePlanetVoice';
+import { type PlanetCharacter, type PlanetVoiceMessage } from '@/hooks/usePlanetVoice';
 
 // Design tokens — matches PipGuidePanel exactly
 const T = {

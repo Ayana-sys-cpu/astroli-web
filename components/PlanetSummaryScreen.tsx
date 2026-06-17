@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { type SummaryInsight } from '@/lib/usePlanetVoice';
+import { type SummaryInsight } from '@/hooks/usePlanetVoice';
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? 'https://astorli-bot.vercel.app';
 

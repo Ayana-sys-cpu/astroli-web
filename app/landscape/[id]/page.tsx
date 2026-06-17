@@ -6,9 +6,9 @@ import StarField from '@/components/StarField';
 import OrinOrb from '@/components/OrinOrb';
 import { getPlanetMeta } from '@/lib/planet-meta';
 import { PLANET_EXPERIENCE } from '@/lib/planet-experience';
-import { useOrinChat } from '@/lib/useOrinChat';
+import { useOrinChat } from '@/hooks/useOrinChat';
 import { getFirstName } from '@/lib/student-store';
-import { usePlanetVoice } from '@/lib/usePlanetVoice';
+import { usePlanetVoice } from '@/hooks/usePlanetVoice';
 import PlanetVoicePanel from '@/components/PlanetVoicePanel';
 import PlanetSummaryScreen from '@/components/PlanetSummaryScreen';
 
