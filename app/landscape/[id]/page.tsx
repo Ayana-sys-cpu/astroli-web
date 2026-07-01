@@ -140,43 +140,22 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
     });
   }, [planetVoice.coinAward, planetVoice.completionReady, triggerReward]);
 
-  // Grace exits skip the summary screen, so the bot awards planet/mission coins
-  // directly in the planet-voice response — show the mission-complete popup
-  // here if the just-finished planet turned out to be the last one in its mission.
-  useEffect(() => {
-    const award = planetVoice.missionCoinAward;
-    if (!award?.awarded) return;
-    triggerReward({
-      awarded:    true,
-      amount:     award.amount,
-      newBalance: award.newBalance,
-      eventType:  'mission_complete',
-    });
-  }, [planetVoice.missionCoinAward, triggerReward]);
-
-  // Show the planet_complete / mission_complete rewards the bot's complete
-  // endpoint already awarded when the student locked in their summary.
+  // Show the reward the bot's complete endpoint already awarded when the
+  // student locked in their summary. The bot pre-merges planet + mission
+  // completion into one reward when both fire on the same lock-in, so this
+  // is always a single popup — never two back to back.
   function handleMissionLockIn(
-    coinAward?:        { awarded: boolean; amount: number; newBalance: number; eventType: string } | null,
-    missionCoinAward?: { awarded: boolean; amount: number; newBalance: number; eventType: string } | null,
+    reward?: { awarded: boolean; amount: number; newBalance: number; eventType: string } | null,
   ) {
     planetVoice.setShowSummary(false);
     setIsPlanetLocked(true);
 
-    if (coinAward?.awarded) {
+    if (reward?.awarded) {
       triggerReward({
         awarded:    true,
-        amount:     coinAward.amount,
-        newBalance: coinAward.newBalance,
-        eventType:  'planet_complete',
-      });
-    }
-    if (missionCoinAward?.awarded) {
-      triggerReward({
-        awarded:    true,
-        amount:     missionCoinAward.amount,
-        newBalance: missionCoinAward.newBalance,
-        eventType:  'mission_complete',
+        amount:     reward.amount,
+        newBalance: reward.newBalance,
+        eventType:  reward.eventType as 'planet_complete' | 'mission_complete',
       });
     }
     // Stay on planet page — the discovery button is now visible

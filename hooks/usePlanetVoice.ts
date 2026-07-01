@@ -59,7 +59,6 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
   const [totalGoals,         setTotalGoals]         = useState<number | null>(null);
   const [goalJustCompleted,  setGoalJustCompleted]  = useState<{ slug: string } | null>(null);
   const [coinAward,          setCoinAward]          = useState<CoinAward | null>(null);
-  const [missionCoinAward,   setMissionCoinAward]   = useState<CoinAward | null>(null);
   const [showSummary,     setShowSummary]     = useState(false);
   const msgIdRef     = useRef(0);
   const isMounted    = useRef(true);
@@ -142,8 +141,7 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
           content: data.figureMessage,
         }]);
         if (data.goalJustCompleted) setGoalJustCompleted(data.goalJustCompleted);
-        if (data.coinAward) setCoinAward(data.coinAward);
-        if (data.missionCoinAward) setMissionCoinAward(data.missionCoinAward);
+        if (data.reward) setCoinAward(data.reward);
         if (data.completionReady && !completionReady) {
           setCompletionReady(true);
           setCompletionType(data.completionType ?? null);
@@ -200,8 +198,7 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
           content: data.figureMessage,
         }]);
         if (data.goalJustCompleted) setGoalJustCompleted(data.goalJustCompleted);
-        if (data.coinAward) setCoinAward(data.coinAward);
-        if (data.missionCoinAward) setMissionCoinAward(data.missionCoinAward);
+        if (data.reward) setCoinAward(data.reward);
         if (data.completionReady && !completionReady) {
           setCompletionReady(true);
           setCompletionType(data.completionType ?? null);
@@ -238,7 +235,6 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
     // completion flow
     goalJustCompleted,
     coinAward,
-    missionCoinAward,
     completionReady,
     completionType,
     summaryInsights,

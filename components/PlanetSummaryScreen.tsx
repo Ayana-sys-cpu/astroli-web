@@ -35,7 +35,7 @@ interface Props {
   planetId:         string;
   insights:         SummaryInsight[];
   completionType:   'standard' | 'grace';
-  onLocked:         (coinAward?: CoinAward | null, missionCoinAward?: CoinAward | null) => void;
+  onLocked:         (reward?: CoinAward | null) => void;
   onDismiss:        () => void;
   language?:        Lang;
   mode?:            'lock' | 'review';
@@ -88,7 +88,7 @@ export default function PlanetSummaryScreen({
       });
       if (!res.ok) throw new Error('save failed');
       const data = await res.json().catch(() => null);
-      onLocked(data?.coinAward ?? null, data?.missionCoinAward ?? null);
+      onLocked(data?.reward ?? null);
     } catch {
       setLockError(true);
       setLocking(false);
