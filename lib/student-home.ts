@@ -5,6 +5,7 @@ export interface HomeJourney {
   className:               string;
   teacherName:             string | null;
   status:                  JourneyStatus;
+  language?:               'en' | 'he';
   activeMissionId?:        string;
   missionTitle?:           string;
   planetsExplored?:        number;
@@ -34,6 +35,7 @@ export interface BuildHomeJourneyInput {
   classId:                 string;
   className:               string;
   teacherName:             string | null;
+  language?:               'en' | 'he';
   missionStates:           MissionStateLike[];
   openVoteSession:         OpenVoteSessionInfo | null;
   activeMission:           ActiveMissionInfo | null;
@@ -52,6 +54,7 @@ export function buildHomeJourney(input: BuildHomeJourneyInput): HomeJourney {
     classId:     input.classId,
     className:   input.className,
     teacherName: input.teacherName,
+    language:    input.language,
     status,
   };
 

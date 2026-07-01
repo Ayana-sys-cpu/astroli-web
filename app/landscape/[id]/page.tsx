@@ -52,6 +52,23 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
   const [savedIntroducedTerms, setSavedIntroducedTerms] = useState<string[]>([]);
   const [showSummaryReview, setShowSummaryReview] = useState(false);
   const [isPlanetLocked, setIsPlanetLocked]       = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [menuOpen]);
+
+  const handleSignOut = () => {
+    clearSession();
+    supabaseSignOut().catch(() => {});
+    router.push('/');
+  };
 
   function extractIntroducedTerms(msgs: PlanetVoiceMessage[]): string[] {
     const seen = new Set<string>();
@@ -274,22 +291,34 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
             {figureDisplayName} {t('isPresenting', missionLang)}
           </span>
         )}
-        <button
-          className="flex items-center gap-2 group"
-          title="Log out"
-          onClick={() => {
-            clearSession();
-            supabaseSignOut().catch(() => {});
-            router.push('/login');
-          }}
-        >
-          <span className="text-[11px] text-white/40 font-space group-hover:text-white/70 transition-colors">{displayName}</span>
-          <div className="w-6 h-6 rounded-full border border-[#00C4CC]/50 flex items-center justify-center bg-[#001820] group-hover:border-[#00C4CC] transition-colors">
-            <span className="text-[9px] text-[#00C4CC] font-space font-bold">
-              {firstName[0]?.toUpperCase() ?? 'A'}
-            </span>
-          </div>
-        </button>
+        <div className="relative" ref={menuRef}>
+          <button
+            className="flex items-center gap-2 group"
+            title="Account"
+            onClick={() => setMenuOpen((prev) => !prev)}
+          >
+            <span className="text-[11px] text-white/40 font-space group-hover:text-white/70 transition-colors">{displayName}</span>
+            <div className="w-6 h-6 rounded-full border border-[#00C4CC]/50 flex items-center justify-center bg-[#001820] group-hover:border-[#00C4CC] transition-colors">
+              <span className="text-[9px] text-[#00C4CC] font-space font-bold">
+                {firstName[0]?.toUpperCase() ?? 'A'}
+              </span>
+            </div>
+          </button>
+
+          {menuOpen && (
+            <div
+              className="absolute top-9 right-0 w-36 rounded-lg overflow-hidden z-50"
+              style={{ background: 'rgba(0,10,18,0.95)', border: '1px solid rgba(0,196,204,0.2)', boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}
+            >
+              <button
+                onClick={handleSignOut}
+                className="w-full px-4 py-3 text-left text-[11px] tracking-[0.15em] font-space text-white/60 hover:text-white hover:bg-white/5 transition-colors uppercase"
+              >
+                Sign Out
+              </button>
+            </div>
+          )}
+        </div>
       </header>
 
       {/* Main content row */}

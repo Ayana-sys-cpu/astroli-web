@@ -4,13 +4,20 @@ export interface OrinPlanet {
   hint: string;
 }
 
+export interface MissionTerm {
+  label:      string;
+  definition: string;
+}
+
 export interface WorldBriefItem {
   title: string;
   body:  string;
 }
 
 export interface OrinMission {
+  id:                string;
   order:             number;
+  language:          'en' | 'he';
   question:          string;
   worldBrief:        string;
   worldBriefSummary: string;
@@ -22,6 +29,7 @@ export interface OrinMission {
   missionBrief:      string;
   chapter:           string;
   planets:           OrinPlanet[];
+  allTerms:          MissionTerm[];
   qaAnswers:         string[];
   missionQaAnswers:  string[];
 }

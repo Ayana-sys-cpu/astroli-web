@@ -30,6 +30,12 @@ export async function getSessionStudentId(): Promise<string | null> {
   return (meta.student_id as string | undefined) ?? null;
 }
 
+// NOTE: There is intentionally no getSessionFirstName() here. The students'
+// first name is DISPLAY-layer data, not identity — read it synchronously from
+// the display store via getFirstName() in lib/student-store.ts (set at login).
+// A browser-client read of the `users` table is blocked by RLS and silently
+// returns null, which previously surfaced as the fallback name "Traveler".
+
 /** Returns the authenticated teacher's DB user_id, or null if not a teacher session. */
 export async function getSessionTeacherId(): Promise<string | null> {
   const meta = await getSessionMetadata();

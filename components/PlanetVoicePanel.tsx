@@ -3,6 +3,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { type PlanetCharacter, type PlanetVoiceMessage } from '@/hooks/usePlanetVoice';
+import { t, type Lang } from '@/lib/i18n';
+import GalaxyChip from '@/components/GalaxyChip';
+import { parseKeywordChips } from '@/lib/parseKeywordChips';
 
 // Design tokens — matches PipGuidePanel exactly
 const T = {
@@ -29,16 +32,20 @@ interface Props {
   setInput: (v: string) => void;
   send: () => void;
   sendText: (text: string) => void;
-  askOrin: () => void;
   loading: boolean;
   thinking: boolean;
   studentFirstName?: string;
   missionTitle?: string;
   openingGreeting?: string;
   studentRevealMessage?: string;
-  // Completion flow
-  completionReady?: boolean;
-  onCompleteLearning?: () => void;
+  missionLang?: Lang;
+  // Goal progress strip
+  totalGoals?: number | null;
+  goalsDiscovered?: number;
+  characterFirstName?: string;
+  // Discovery review (after lock)
+  isLocked?: boolean;
+  onViewDiscovery?: () => void;
 }
 
 function FigureOrb({ size = 24 }: { size?: number }) {
@@ -87,14 +94,18 @@ function TypingBubble() {
 }
 
 export default function PlanetVoicePanel({
-  character, messages, input, setInput, send, sendText, askOrin, loading, thinking,
+  character, messages, input, setInput, send, sendText, loading, thinking,
   studentFirstName, missionTitle, openingGreeting, studentRevealMessage,
-  completionReady = false, onCompleteLearning,
+  missionLang = 'en',
+  totalGoals, goalsDiscovered = 0, characterFirstName,
+  isLocked = false, onViewDiscovery,
 }: Props) {
+  const lang  = missionLang;
+  const isRtl = lang === 'he';
   const bottomRef  = useRef<HTMLDivElement>(null);
   const inputRef   = useRef<HTMLInputElement>(null);
   const [inputFocused, setInputFocused] = useState(false);
-  const [orinFlash, setOrinFlash] = useState(false);
+  const [hintOpen, setHintOpen] = useState(false);
   // Greeting starts ready if history already exists (returning user), otherwise animate in
   const [greetingReady, setGreetingReady] = useState(() => messages.length > 0);
 
@@ -117,15 +128,6 @@ export default function PlanetVoicePanel({
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [loading, thinking]);
-
-  // Flash the input dock border when an Orin message arrives
-  const lastOrinId = messages.filter(m => m.speaker === 'orin').at(-1)?.id;
-  useEffect(() => {
-    if (!lastOrinId) return;
-    setOrinFlash(true);
-    const t = setTimeout(() => setOrinFlash(false), 1500);
-    return () => clearTimeout(t);
-  }, [lastOrinId]);
 
   const figureName = character.name.split(' ')[0].toUpperCase();
 
@@ -158,8 +160,12 @@ export default function PlanetVoicePanel({
               }}>
                 {figureName}
               </div>
-              <p style={{ fontSize: 13, lineHeight: 1.68, color: T.ts, margin: 0 }}>
-                {openingGreeting}
+              <p style={{ fontSize: 13, lineHeight: 1.68, color: T.ts, margin: 0, ...(isRtl && { direction: 'rtl', textAlign: 'right' }) }}>
+                {parseKeywordChips(openingGreeting ?? '').map((seg, i) =>
+                  seg.type === 'keyword'
+                    ? <GalaxyChip key={i} term={seg.value} />
+                    : <span key={i}>{seg.value}</span>
+                )}
               </p>
             </div>
           </motion.div>
@@ -185,7 +191,7 @@ export default function PlanetVoicePanel({
                     borderRadius: '14px 4px 14px 14px',
                     padding: '10px 14px', maxWidth: '85%',
                   }}>
-                    <p style={{ fontSize: 13, color: T.fig, margin: 0, lineHeight: 1.6 }}>
+                    <p style={{ fontSize: 13, color: T.fig, margin: 0, lineHeight: 1.6, ...(isRtl && { direction: 'rtl', textAlign: 'right' }) }}>
                       {msg.content}
                     </p>
                   </div>
@@ -219,7 +225,7 @@ export default function PlanetVoicePanel({
                     }}>
                       ORIN · GUIDE
                     </div>
-                    <p style={{ fontSize: 13, lineHeight: 1.68, color: T.ts, margin: 0 }}>
+                    <p style={{ fontSize: 13, lineHeight: 1.68, color: T.ts, margin: 0, ...(isRtl && { direction: 'rtl', textAlign: 'right' }) }}>
                       {msg.content}
                     </p>
                   </div>
@@ -250,8 +256,12 @@ export default function PlanetVoicePanel({
                   }}>
                     {figureName}
                   </div>
-                  <p style={{ fontSize: 13, lineHeight: 1.68, color: T.ts, margin: 0 }}>
-                    {msg.content}
+                  <p style={{ fontSize: 13, lineHeight: 1.68, color: T.ts, margin: 0, ...(isRtl && { direction: 'rtl', textAlign: 'right' }) }}>
+                    {parseKeywordChips(msg.content).map((seg, i) =>
+                      seg.type === 'keyword'
+                        ? <GalaxyChip key={i} term={seg.value} />
+                        : <span key={i}>{seg.value}</span>
+                    )}
                   </p>
                 </div>
               </motion.div>
@@ -281,16 +291,15 @@ export default function PlanetVoicePanel({
       {messages.length === 0 && (() => {
         const name    = studentFirstName ?? 'Explorer';
         const mission = missionTitle ?? 'this mission';
-        const firstName = figureName.charAt(0) + figureName.slice(1).toLowerCase();
         const prefill = studentRevealMessage
-          ?? `Hello, I'm ${name}. I'm on a mission to uncover "${mission}" and I'd love your help. Tell me a little about yourself and how you connect to it.`;
+          ?? t('prefillIntro', lang).replace('{name}', name).replace('{mission}', mission);
         return (
           <div style={{ padding: '0 12px 8px', flexShrink: 0 }}>
             <button
               onClick={() => sendText(prefill)}
               style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: 14,
-                padding: '14px 18px', borderRadius: 14, textAlign: 'left', cursor: 'pointer',
+                padding: '14px 18px', borderRadius: 14, textAlign: isRtl ? 'right' : 'left', cursor: 'pointer',
                 background: 'rgba(119,85,187,0.08)',
                 border: '1px solid rgba(160,144,212,0.18)',
                 outline: '1.5px solid rgba(160,144,212,0.35)',
@@ -312,10 +321,10 @@ export default function PlanetVoicePanel({
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 800, color: '#a78bfa', marginBottom: 3 }}>
-                  Start Uncovering →
+                  {t('startUncovering', lang)}
                 </div>
                 <div style={{ fontSize: 12, color: T.ts }}>
-                  Introduce yourself to {firstName} and begin the discovery
+                  {t('introduceYourself', lang)}
                 </div>
               </div>
               <span style={{
@@ -329,88 +338,96 @@ export default function PlanetVoicePanel({
         );
       })()}
 
-      {/* ── Ask Orin button — only after at least one exchange ── */}
-      {messages.length >= 2 && (
-        <div style={{ padding: '0 12px 8px', flexShrink: 0 }}>
-          <button
-            onClick={askOrin}
-            disabled={loading}
-            style={{
-              width: '100%', padding: '9px 14px', borderRadius: 10,
-              background: 'rgba(6,214,160,0.07)', border: '1px solid rgba(6,214,160,0.2)',
-              color: loading ? 'rgba(6,214,160,0.3)' : 'rgba(6,214,160,0.75)',
-              fontSize: 11, fontWeight: 700, cursor: loading ? 'default' : 'pointer',
-              letterSpacing: '0.1em', textTransform: 'uppercase',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => { if (!loading) (e.currentTarget as HTMLElement).style.background = 'rgba(6,214,160,0.13)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(6,214,160,0.07)'; }}
-          >
-            ✦ Ask Orin for a hint
-          </button>
+
+      {/* ── Goal progress strip — visible whenever totalGoals is known and > 0 ── */}
+      {typeof totalGoals === 'number' && totalGoals > 0 && (
+        <div style={{ borderTop: '1px solid rgba(0,212,212,0.12)', padding: '6px 13px', background: 'rgba(0,212,212,0.04)', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              {Array.from({ length: totalGoals }).map((_, i) => (
+                <span key={i} style={{
+                  width: 7, height: 7, borderRadius: '50%', display: 'inline-block', flexShrink: 0,
+                  background: i < goalsDiscovered ? '#00C4CC' : 'rgba(255,255,255,0.15)',
+                  border: i < goalsDiscovered ? 'none' : '0.5px solid rgba(255,255,255,0.25)',
+                }} />
+              ))}
+              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.38)', fontFamily: 'monospace', marginLeft: 4, ...(isRtl && { direction: 'rtl' }) }}>
+                {goalsDiscovered >= (totalGoals ?? 0)
+                  ? t('goalStripAll', lang)
+                  : `${goalsDiscovered} ${t('ofWord', lang)} ${totalGoals} ${t('goalStripLabel', lang)}`}
+              </span>
+            </div>
+            {goalsDiscovered < (totalGoals ?? 0) && (
+              <button
+                onClick={() => setHintOpen(h => !h)}
+                style={{ fontSize: 10, color: 'rgba(0,196,204,0.55)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'monospace', textDecoration: 'underline dotted', padding: 0, flexShrink: 0 }}
+              >
+                {t('goalHintLabel', lang)}
+              </button>
+            )}
+          </div>
+          {hintOpen && goalsDiscovered < (totalGoals ?? 0) && (
+            <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.38)', lineHeight: 1.55, fontStyle: 'italic', margin: '5px 0 0', ...(isRtl && { direction: 'rtl', textAlign: 'right' }) }}>
+              {characterFirstName
+                ? `${t('tryAsking', lang)} ${characterFirstName}: "${t('goalHintPhrase', lang)}"`
+                : `${t('tryAskingNoName', lang)}: "${t('goalHintPhrase', lang)}"`}
+            </p>
+          )}
         </div>
       )}
 
-      {/* ── Complete Learning CTA — appears when all goals are met ── */}
-      <AnimatePresence>
-        {completionReady && onCompleteLearning && (
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 40 }}
-            transition={{ type: 'spring', stiffness: 180, damping: 22 }}
-            style={{ padding: '0 12px 8px', flexShrink: 0 }}
+      {/* ── Discovery review button — always visible ── */}
+      {onViewDiscovery && (
+        <div style={{ padding: '0 12px 8px', flexShrink: 0 }}>
+          <button
+            onClick={onViewDiscovery}
+            style={{
+              width: '100%', padding: '11px 14px', borderRadius: 12,
+              background: 'rgba(155,92,255,0.10)',
+              border: '1.5px solid rgba(155,92,255,0.4)',
+              cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              transition: 'background 0.15s, border-color 0.15s',
+            }}
+            onMouseEnter={e => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.background = 'rgba(155,92,255,0.18)';
+              el.style.borderColor = 'rgba(155,92,255,0.7)';
+            }}
+            onMouseLeave={e => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.background = 'rgba(155,92,255,0.10)';
+              el.style.borderColor = 'rgba(155,92,255,0.4)';
+            }}
           >
-            <button
-              onClick={onCompleteLearning}
-              style={{
-                width: '100%', padding: '13px 18px', borderRadius: 14,
-                background: 'rgba(0,212,212,0.12)',
-                border: '1.5px solid rgba(0,212,212,0.5)',
-                cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                transition: 'background 0.15s, border-color 0.15s',
-              }}
-              onMouseEnter={e => {
-                const el = e.currentTarget as HTMLElement;
-                el.style.background = 'rgba(0,212,212,0.20)';
-                el.style.borderColor = 'rgba(0,212,212,0.8)';
-              }}
-              onMouseLeave={e => {
-                const el = e.currentTarget as HTMLElement;
-                el.style.background = 'rgba(0,212,212,0.12)';
-                el.style.borderColor = 'rgba(0,212,212,0.5)';
-              }}
-            >
-              <div style={{ textAlign: 'left' }}>
-                <div style={{ fontSize: 13, fontWeight: 800, color: T.ac }}>
-                  Complete Learning →
-                </div>
-                <div style={{ fontSize: 11, color: T.ts, marginTop: 2 }}>
-                  Review what you discovered and lock it in
-                </div>
+            <div style={{ textAlign: isRtl ? 'right' : 'left' }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: 'rgba(200,160,255,0.95)' }}>
+                {t('whatIDiscoveredHere', lang)}
               </div>
-              <div style={{
-                width: 28, height: 28, borderRadius: '50%',
-                background: T.ac,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 14, color: '#000', fontWeight: 800,
-                flexShrink: 0,
-              }}>
-                ✓
+              <div style={{ fontSize: 11, color: T.ts, marginTop: 2 }}>
+                {t('discoveryButtonSubtitle', lang)}
               </div>
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </div>
+            <div style={{
+              width: 28, height: 28, borderRadius: '50%',
+              background: 'rgba(155,92,255,0.6)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 14, color: '#fff', fontWeight: 800,
+              flexShrink: 0,
+            }}>
+              ✦
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* ── Input dock — hidden while CTA is shown, visible once conversation starts ── */}
       {messages.length > 0 && <div style={{ borderTop: `1px solid ${T.b1}`, padding: '12px', flexShrink: 0 }}>
         <div style={{
           display: 'flex', gap: 8, alignItems: 'center',
           background: T.s2,
-          border: `1px solid ${orinFlash ? 'rgba(0,255,209,0.5)' : inputFocused ? 'rgba(155,92,255,0.5)' : T.b1}`,
-          boxShadow: orinFlash ? '0 0 16px rgba(0,255,209,0.18)' : inputFocused ? '0 0 16px rgba(155,92,255,0.12)' : 'none',
+          border: `1px solid ${inputFocused ? 'rgba(155,92,255,0.5)' : T.b1}`,
+          boxShadow: inputFocused ? '0 0 16px rgba(155,92,255,0.12)' : 'none',
           borderRadius: 12, padding: '4px 4px 4px 14px',
           transition: 'border-color 0.2s, box-shadow 0.2s',
         }}>
@@ -423,14 +440,15 @@ export default function PlanetVoicePanel({
             onFocus={() => setInputFocused(true)}
             onBlur={() => setInputFocused(false)}
             placeholder={loading
-              ? `${character.name.split(' ')[0]} is thinking…`
-              : `Ask me anything about this era.`}
+              ? t('figurePlaceholderThinking', lang).replace('{name}', character.name.split(' ')[0])
+              : t('askAnythingShort', lang)}
             style={{
               flex: 1, background: 'none', border: 'none', outline: 'none',
               fontSize: 13, color: T.tp,
               // @ts-ignore
               caretColor: T.ac,
               opacity: loading ? 0.4 : 1,
+              direction: isRtl ? 'rtl' : undefined,
             }}
           />
           <button
@@ -439,12 +457,12 @@ export default function PlanetVoicePanel({
             style={{
               padding: '9px 14px', borderRadius: 8, border: 'none', flexShrink: 0,
               cursor: (!loading && input.trim()) ? 'pointer' : 'default',
-              background: (!loading && input.trim()) ? T.ac : T.b2,
-              color: (!loading && input.trim()) ? '#000' : T.tm,
+              background: (!loading && input.trim()) ? T.fig : T.b2,
+              color: (!loading && input.trim()) ? '#fff' : T.tm,
               fontSize: 13, fontWeight: 800, transition: 'all 0.15s',
             }}
           >
-            →
+            {isRtl ? '←' : '→'}
           </button>
         </div>
       </div>}

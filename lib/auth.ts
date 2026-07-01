@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import type { User } from '@supabase/supabase-js';
 import { createSSRServerClient, supabaseAdmin } from './supabase-server';
 
@@ -73,6 +73,36 @@ export async function resolveStudentId(user: User): Promise<string | null> {
   }).catch((err) => console.error('[resolveStudentId] metadata backfill failed:', err));
 
   return data.id;
+}
+
+/**
+ * Resolves a student_id from either a Supabase cookie session (web) or an
+ * `x-student-id` request header (mobile). Returns null if neither is valid.
+ *
+ * Mobile clients cannot establish cookie sessions, so they pass their known
+ * student_id via the `x-student-id` header. We verify it exists in the DB
+ * before trusting it.
+ */
+export async function resolveStudentIdFromRequest(req: NextRequest): Promise<string | null> {
+  // 1. Try cookie-based session (web frontend path).
+  const auth = await requireAuth();
+  if (auth.ok) {
+    return resolveStudentId(auth.user);
+  }
+
+  // 2. Fall back to mobile header (x-student-id).
+  const headerStudentId = req.headers.get('x-student-id');
+  if (!headerStudentId) return null;
+
+  // Validate the student actually exists in the DB before trusting the header.
+  const { data } = await supabaseAdmin
+    .from('users')
+    .select('id')
+    .eq('id', headerStudentId)
+    .eq('role', 'student')
+    .maybeSingle();
+
+  return data?.id ?? null;
 }
 
 /**

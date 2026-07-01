@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { t, type Lang } from '@/lib/i18n';
 import { type SummaryInsight } from '@/hooks/usePlanetVoice';
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? 'https://astorli-bot.vercel.app';
@@ -23,16 +24,20 @@ interface EditableInsight extends SummaryInsight {
 }
 
 interface Props {
-  studentId:      string;
-  planetId:       string;
-  insights:       SummaryInsight[];
-  completionType: 'standard' | 'grace';
-  onLocked:       () => void;
-  onDismiss:      () => void;
+  studentId:        string;
+  planetId:         string;
+  insights:         SummaryInsight[];
+  completionType:   'standard' | 'grace';
+  onLocked:         () => void;
+  onDismiss:        () => void;
+  language?:        Lang;
+  mode?:            'lock' | 'review';
+  introducedTerms?: string[];
 }
 
 export default function PlanetSummaryScreen({
-  studentId, planetId, insights, completionType, onLocked, onDismiss,
+  studentId, planetId, insights, completionType, onLocked, onDismiss, language = 'en', mode = 'lock',
+  introducedTerms = [],
 }: Props) {
   const [cards, setCards] = useState<EditableInsight[]>(
     insights.map(i => ({ ...i, studentAddition: '', editing: false, draftText: i.insightText })),
@@ -66,6 +71,7 @@ export default function PlanetSummaryScreen({
           completionType,
           confirmedInsights: cards.map(c => ({
             goalSlug:        c.goalSlug,
+            termName:        c.termName,
             insightText:     displayText(c),
             evidence:        c.evidence,
             studentAddition: c.studentAddition || undefined,
@@ -107,7 +113,7 @@ export default function PlanetSummaryScreen({
           border: `1px solid rgba(6,214,160,0.5)`,
         }} />
         <p style={{ fontSize: 15, fontWeight: 700, color: T.orin, margin: 0, lineHeight: 1.4 }}>
-          Here&apos;s what I caught. Real stuff.
+          {t('hereWhatICaught', language)}
         </p>
       </motion.div>
 
@@ -166,9 +172,16 @@ export default function PlanetSummaryScreen({
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                <p style={{ flex: 1, fontSize: 13, color: T.tp, lineHeight: 1.65, margin: 0 }}>
-                  {displayText(card)}
-                </p>
+                <div style={{ flex: 1 }}>
+                  {card.termName && (
+                    <p style={{ fontSize: 13, fontWeight: 700, color: T.ac, margin: '0 0 4px 0' }}>
+                      {card.termName}
+                    </p>
+                  )}
+                  <p style={{ fontSize: 13, color: T.tp, lineHeight: 1.65, margin: 0 }}>
+                    {displayText(card)}
+                  </p>
+                </div>
                 <button
                   onClick={() => startEdit(idx)}
                   title="Edit this insight"
@@ -256,12 +269,42 @@ export default function PlanetSummaryScreen({
                 whileHover={{ borderColor: 'rgba(255,255,255,0.25)' }}
               >
                 <span style={{ fontSize: 16 }}>+</span>
-                Add something I missed
+                {t('addSomethingMissed', language)}
               </motion.button>
             )}
           </AnimatePresence>
         </motion.div>
       </div>
+
+      {/* Introduced terms */}
+      {introducedTerms.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 + cards.length * 0.15, duration: 0.3 }}
+          style={{ padding: '16px 20px 0' }}
+        >
+          <p style={{
+            fontSize: 10, fontWeight: 700, color: T.ts,
+            textTransform: 'uppercase', letterSpacing: '0.14em',
+            margin: '0 0 10px 0',
+          }}>
+            {t('termsEncountered', language)}
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {introducedTerms.map(term => (
+              <span key={term} style={{
+                fontSize: 12, color: T.ac,
+                background: 'rgba(0,212,212,0.08)',
+                border: `1px solid rgba(0,212,212,0.2)`,
+                borderRadius: 20, padding: '4px 12px',
+              }}>
+                {term}
+              </span>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {/* Bottom actions */}
       <motion.div
@@ -276,31 +319,46 @@ export default function PlanetSummaryScreen({
           </p>
         )}
 
-        <button
-          onClick={handleLockIn}
-          disabled={locking}
-          style={{
-            width: '100%', padding: '15px 20px', borderRadius: 14,
-            background: locking ? 'rgba(0,212,212,0.3)' : T.ac,
-            border: 'none', cursor: locking ? 'default' : 'pointer',
-            color: '#000', fontSize: 15, fontWeight: 800,
-            transition: 'background 0.2s',
-          }}
-        >
-          {locking ? 'Saving…' : 'Lock it in'}
-        </button>
+        {mode === 'review' ? (
+          <button
+            onClick={onDismiss}
+            style={{
+              width: '100%', padding: '15px 20px', borderRadius: 14,
+              background: T.ac, border: 'none', cursor: 'pointer',
+              color: '#000', fontSize: 15, fontWeight: 800,
+            }}
+          >
+            {t('closeReview', language)}
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={handleLockIn}
+              disabled={locking}
+              style={{
+                width: '100%', padding: '15px 20px', borderRadius: 14,
+                background: locking ? 'rgba(0,212,212,0.3)' : T.ac,
+                border: 'none', cursor: locking ? 'default' : 'pointer',
+                color: '#000', fontSize: 15, fontWeight: 800,
+                transition: 'background 0.2s',
+              }}
+            >
+              {locking ? t('savingLabel', language) : t('lockItIn', language)}
+            </button>
 
-        <button
-          onClick={onDismiss}
-          disabled={locking}
-          style={{
-            width: '100%', padding: '11px 20px', borderRadius: 14,
-            background: 'none', border: '1px solid rgba(255,255,255,0.1)',
-            cursor: 'pointer', color: T.ts, fontSize: 13,
-          }}
-        >
-          Keep exploring
-        </button>
+            <button
+              onClick={onDismiss}
+              disabled={locking}
+              style={{
+                width: '100%', padding: '11px 20px', borderRadius: 14,
+                background: 'none', border: '1px solid rgba(255,255,255,0.1)',
+                cursor: 'pointer', color: T.ts, fontSize: 13,
+              }}
+            >
+              {t('keepExploring', language)}
+            </button>
+          </>
+        )}
       </motion.div>
     </motion.div>
   );

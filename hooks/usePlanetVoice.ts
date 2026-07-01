@@ -31,23 +31,34 @@ export interface PlanetVoiceMessage {
 
 export interface SummaryInsight {
   goalSlug: string;
+  termName?: string;
   insightText: string;
   evidence: string;
 }
 
+export interface CoinAward {
+  awarded:   boolean;
+  amount:    number;
+  newBalance: number;
+  eventType: string;
+}
+
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
-export function usePlanetVoice(planetId: string) {
+export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
   const [character,   setCharacter]   = useState<PlanetCharacter | null>(null);
   const [messages,    setMessages]    = useState<PlanetVoiceMessage[]>([]);
   const [input,       setInput]       = useState('');
   const [loading,     setLoading]     = useState(false);
   const [thinking,    setThinking]    = useState(false);
   const [charLoading,     setCharLoading]     = useState(true);
-  const [completionReady, setCompletionReady] = useState(false);
-  const [completionType,  setCompletionType]  = useState<'standard' | 'grace' | null>(null);
-  const [summaryInsights, setSummaryInsights] = useState<SummaryInsight[]>([]);
-  const [perkinsMap,      setPerkinsMap]      = useState<Record<string, number | null>>({});
+  const [completionReady,    setCompletionReady]    = useState(false);
+  const [completionType,     setCompletionType]     = useState<'standard' | 'grace' | null>(null);
+  const [summaryInsights,    setSummaryInsights]    = useState<SummaryInsight[]>([]);
+  const [perkinsMap,         setPerkinsMap]         = useState<Record<string, number | null>>({});
+  const [totalGoals,         setTotalGoals]         = useState<number | null>(null);
+  const [goalJustCompleted,  setGoalJustCompleted]  = useState<{ slug: string } | null>(null);
+  const [coinAward,          setCoinAward]          = useState<CoinAward | null>(null);
   const [showSummary,     setShowSummary]     = useState(false);
   const msgIdRef     = useRef(0);
   const isMounted    = useRef(true);
@@ -78,6 +89,10 @@ export function usePlanetVoice(planetId: string) {
     }).then(([charData, histData]) => {
       if (!isMounted.current) return;
       setCharacter(charData.character ?? null);
+      if (typeof histData.totalGoals === 'number') setTotalGoals(histData.totalGoals);
+      if (histData.initialPerkinsMap && Object.keys(histData.initialPerkinsMap).length > 0) {
+        setPerkinsMap(histData.initialPerkinsMap as Record<string, number | null>);
+      }
       if (Array.isArray(histData.messages) && histData.messages.length > 0) {
         const prior: PlanetVoiceMessage[] = histData.messages.map((m: { role: string; content: string; speaker: string | null }) => ({
           id: nextId(m.speaker ?? m.role),
@@ -112,27 +127,28 @@ export function usePlanetVoice(planetId: string) {
       const res = await fetch(`${BOT_URL}/api/planet-voice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId, planetId, message: text.trim() }),
+        body: JSON.stringify({ studentId, planetId, message: text.trim(), language }),
       });
 
       if (!isMounted.current) return;
       if (!res.ok) throw new Error(`API error ${res.status}`);
 
       const data = await res.json();
-      const newMessages: PlanetVoiceMessage[] = [
-        { id: nextId('figure'), speaker: 'figure', content: data.figureMessage },
-      ];
-      if (data.orinMessage) {
-        newMessages.push({ id: nextId('orin'), speaker: 'orin', content: data.orinMessage });
-      }
       if (isMounted.current) {
-        setMessages(prev => [...prev, ...newMessages]);
+        setMessages(prev => [...prev, {
+          id: nextId('figure'),
+          speaker: 'figure',
+          content: data.figureMessage,
+        }]);
+        if (data.goalJustCompleted) setGoalJustCompleted(data.goalJustCompleted);
+        if (data.coinAward) setCoinAward(data.coinAward);
         if (data.completionReady && !completionReady) {
           setCompletionReady(true);
           setCompletionType(data.completionType ?? null);
           setSummaryInsights(data.summaryInsights ?? []);
         }
         if (data.perkinsMap) setPerkinsMap(data.perkinsMap);
+        if (typeof data.totalGoals === 'number' && totalGoals === null) setTotalGoals(data.totalGoals);
       }
     } catch {
       if (!isMounted.current) return;
@@ -144,7 +160,7 @@ export function usePlanetVoice(planetId: string) {
     } finally {
       if (isMounted.current) { setThinking(false); setLoading(false); }
     }
-  }, [loading, character, planetId, completionReady]);
+  }, [loading, character, planetId, language, completionReady]);
 
   const send = useCallback(async () => {
     const text = input.trim();
@@ -167,30 +183,29 @@ export function usePlanetVoice(planetId: string) {
       const res = await fetch(`${BOT_URL}/api/planet-voice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId, planetId, message: text }),
+        body: JSON.stringify({ studentId, planetId, message: text, language }),
       });
 
       if (!isMounted.current) return;
-
       if (!res.ok) throw new Error(`API error ${res.status}`);
 
       const data = await res.json();
 
-      const newMessages: PlanetVoiceMessage[] = [
-        { id: nextId('figure'), speaker: 'figure', content: data.figureMessage },
-      ];
-      if (data.orinMessage) {
-        newMessages.push({ id: nextId('orin'), speaker: 'orin', content: data.orinMessage });
-      }
-
       if (isMounted.current) {
-        setMessages(prev => [...prev, ...newMessages]);
+        setMessages(prev => [...prev, {
+          id: nextId('figure'),
+          speaker: 'figure',
+          content: data.figureMessage,
+        }]);
+        if (data.goalJustCompleted) setGoalJustCompleted(data.goalJustCompleted);
+        if (data.coinAward) setCoinAward(data.coinAward);
         if (data.completionReady && !completionReady) {
           setCompletionReady(true);
           setCompletionType(data.completionType ?? null);
           setSummaryInsights(data.summaryInsights ?? []);
         }
         if (data.perkinsMap) setPerkinsMap(data.perkinsMap);
+        if (typeof data.totalGoals === 'number' && totalGoals === null) setTotalGoals(data.totalGoals);
       }
     } catch {
       if (!isMounted.current) return;
@@ -205,33 +220,7 @@ export function usePlanetVoice(planetId: string) {
         setLoading(false);
       }
     }
-  }, [input, loading, character, planetId, completionReady]);
-
-  const askOrin = useCallback(async () => {
-    if (loading) return;
-    const studentId = studentIdRef.current ?? '00000000-0000-0000-0000-000000000001';
-    setLoading(true);
-    try {
-      const res = await fetch(`${BOT_URL}/api/planet-voice/orin-help`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId, planetId }),
-      });
-      if (!isMounted.current) return;
-      const data = await res.json();
-      if (data.orinMessage) {
-        setMessages(prev => [...prev, {
-          id: nextId('orin'),
-          speaker: 'orin',
-          content: data.orinMessage,
-        }]);
-      }
-    } catch {
-      // silent — Orin help is optional
-    } finally {
-      if (isMounted.current) setLoading(false);
-    }
-  }, [loading, planetId]);
+  }, [input, loading, character, planetId, language, completionReady]);
 
   return {
     character,
@@ -241,14 +230,16 @@ export function usePlanetVoice(planetId: string) {
     setInput,
     send,
     sendText,
-    askOrin,
     loading,
     thinking,
     // completion flow
+    goalJustCompleted,
+    coinAward,
     completionReady,
     completionType,
     summaryInsights,
     perkinsMap,
+    totalGoals,
     showSummary,
     setShowSummary,
     studentId: studentIdRef.current,
