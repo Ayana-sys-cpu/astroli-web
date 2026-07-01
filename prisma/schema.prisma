@@ -59,6 +59,7 @@ model Mission {
   questionDescription        String                       @map("question_description")
   projectTitle               String?                      @map("project_title")
   projectDescription         String?                      @map("project_description")
+  bonusTaskType              String                       @default("ai_image") @map("bonus_task_type")
   source                     ContentSource                @default(HARDCODED)
   openingMessage             String?                      @map("opening_message")
   openingQuickReplies        Json?                        @map("opening_quick_replies")
@@ -69,6 +70,8 @@ model Mission {
   createdBy                  String                       @map("created_by")
   createdAt                  DateTime                     @default(now()) @map("created_at")
   updatedAt                  DateTime                     @default(now()) @updatedAt @map("updated_at")
+  language                   String                       @default("en")
+  translations               Json                         @default("{}")
   chapter                    String?
   mission_brief              String?
   opening_message_2          String?
@@ -110,6 +113,7 @@ model Planet {
   characterYear        String?         @map("character_year")
   characterLocation    String?         @map("character_location")
   studentRevealMessage String?         @map("student_reveal_message")
+  translations         Json            @default("{}")
   sourceMaterials      PlanetSource[]
   planetSummaries      PlanetSummary[]
   creator              User            @relation(fields: [createdBy], references: [id])
@@ -329,6 +333,7 @@ model Class {
   teacherId                   String                        @map("teacher_id")
   googleCourseId              String?                       @unique @map("google_course_id")
   title                       String
+  language                    String                        @default("en") @map("language")
   createdAt                   DateTime                      @default(now()) @map("created_at")
   updatedAt                   DateTime                      @default(now()) @updatedAt @map("updated_at")
   journey                     Journey                       @relation(fields: [journeyId], references: [id], onDelete: Cascade)

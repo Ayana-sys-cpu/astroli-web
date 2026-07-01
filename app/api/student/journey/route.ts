@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
-import { requireAuth, resolveStudentId } from '@/lib/auth';
+import { resolveStudentIdFromRequest } from '@/lib/auth';
 import { resolveEnrolledClassIds } from '@/lib/student-enrollment';
 
 // GET /api/student/journey
@@ -20,12 +20,9 @@ import { resolveEnrolledClassIds } from '@/lib/student-enrollment';
 // The ?studentId= query param is intentionally ignored — identity comes from
 // the verified session cookie only.
 export async function GET(req: NextRequest) {
-  const auth = await requireAuth();
-  if (!auth.ok) return auth.response;
-
-  const studentId = await resolveStudentId(auth.user);
+  const studentId = await resolveStudentIdFromRequest(req);
   if (!studentId) {
-    return NextResponse.json({ error: 'Forbidden: student session required' }, { status: 403 });
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
@@ -192,12 +189,9 @@ export async function GET(req: NextRequest) {
 // The body's studentId field is intentionally ignored — identity comes from
 // the verified session cookie only.
 export async function PATCH(req: NextRequest) {
-  const auth = await requireAuth();
-  if (!auth.ok) return auth.response;
-
-  const studentId = await resolveStudentId(auth.user);
+  const studentId = await resolveStudentIdFromRequest(req);
   if (!studentId) {
-    return NextResponse.json({ error: 'Forbidden: student session required' }, { status: 403 });
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {

@@ -13,6 +13,7 @@ const wordVariant = {
 };
 
 export default function KineticText({ text, className, delay = 0 }: KineticTextProps) {
+  if (!text) return null;
   const words = text.split(' ');
   return (
     <motion.span

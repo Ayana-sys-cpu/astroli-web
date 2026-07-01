@@ -1,5 +1,6 @@
 'use client';
 import type { HomeJourney } from '@/lib/student-home';
+import { t, type Lang } from '@/lib/i18n';
 
 interface JourneyCardProps {
   journey: HomeJourney;
@@ -24,43 +25,42 @@ const ACCENT: Record<HomeJourney['status'], Accent> = {
   idle:    { text: 'rgba(255,255,255,0.3)',  border: 'rgba(255,255,255,0.06)', glow: 'rgba(255,255,255,0)', glowSoft: 'rgba(255,255,255,0)', badgeBg: 'rgba(255,255,255,0.04)', ctaBg: 'transparent', ctaFg: 'rgba(255,255,255,0.3)' },
 };
 
-const BADGE_LABEL: Record<HomeJourney['status'], string> = {
-  live:    'ACTIVE',
-  voting:  'VOTING',
-  pending: 'AWAITING LAUNCH',
-  done:    '✦ COMPLETE',
-  idle:    'NOT STARTED',
-};
+function badgeLabel(status: HomeJourney['status'], lang: Lang): string {
+  const key = { live: 'badgeLive', voting: 'badgeVoting', pending: 'badgePending', done: 'badgeDone', idle: 'badgeIdle' } as const;
+  return t(key[status], lang);
+}
 
-const CTA_LABEL: Record<HomeJourney['status'], string> = {
-  live:    'CONTINUE MISSION →',
-  voting:  'VOTE NOW →',
-  pending: 'VIEW RESULTS →',
-  done:    'REVISIT JOURNEY →',
-  idle:    '',
-};
+function ctaLabel(status: HomeJourney['status'], lang: Lang): string {
+  switch (status) {
+    case 'live':    return t('ctaContinueMission', lang);
+    case 'voting':  return t('ctaVoteNow', lang);
+    case 'pending': return t('ctaViewResults', lang);
+    case 'done':    return t('ctaRevisitJourney', lang);
+    default:        return '';
+  }
+}
 
-function bodyText(journey: HomeJourney): string {
+function bodyText(journey: HomeJourney, lang: Lang): string {
   switch (journey.status) {
     case 'live':
       return journey.missionTitle
-        ? `${journey.planetsExplored ?? 0} of ${journey.planetsTotal ?? 0} planets explored on ${journey.missionTitle}.`
-        : 'Your mission is underway.';
-    case 'voting':
-      return 'Your class is choosing the next mission. Cast your vote.';
-    case 'pending':
-      return 'Your class chose this mission. Your teacher is about to launch it.';
-    case 'done':
-      return `All ${journey.completedMissionsCount ?? 0} missions complete. Nice work, Traveller.`;
+        ? t('bodyLive', lang)
+            .replace('{n}', String(journey.planetsExplored ?? 0))
+            .replace('{total}', String(journey.planetsTotal ?? 0))
+            .replace('{title}', journey.missionTitle)
+        : t('bodyLiveFallback', lang);
+    case 'voting':  return t('bodyVoting', lang);
+    case 'pending': return t('bodyPending', lang);
+    case 'done':    return t('bodyDone', lang).replace('{n}', String(journey.completedMissionsCount ?? 0));
     case 'idle':
-    default:
-      return 'Your teacher is preparing this journey.';
+    default:        return t('bodyIdle', lang);
   }
 }
 
 export default function JourneyCard({ journey, onClick }: JourneyCardProps) {
-  const accent    = ACCENT[journey.status];
-  const clickable = journey.status !== 'idle';
+  const lang: Lang  = journey.language ?? 'en';
+  const accent      = ACCENT[journey.status];
+  const clickable   = journey.status !== 'idle';
 
   return (
     <button
@@ -89,14 +89,14 @@ export default function JourneyCard({ journey, onClick }: JourneyCardProps) {
           className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold tracking-[0.16em] uppercase whitespace-nowrap"
           style={{ color: accent.text, background: accent.badgeBg, border: `1px solid ${accent.border}` }}
         >
-          {BADGE_LABEL[journey.status]}
+          {badgeLabel(journey.status, lang)}
         </div>
       </div>
 
       {journey.status === 'live' && (
         <div className="mb-4">
           <div className="flex justify-between items-baseline mb-2">
-            <span className="text-[9.5px] font-bold tracking-[0.14em] uppercase" style={{ color: '#b8aee0' }}>PLANETS EXPLORED</span>
+            <span className="text-[9.5px] font-bold tracking-[0.14em] uppercase" style={{ color: '#b8aee0' }}>{t('planetsExploredLabel', lang)}</span>
             <span className="text-[13px] font-bold" style={{ color: accent.text }}>
               {journey.planetsExplored ?? 0} / {journey.planetsTotal ?? 0}
             </span>
@@ -113,10 +113,6 @@ export default function JourneyCard({ journey, onClick }: JourneyCardProps) {
         </div>
       )}
 
-      <p className="text-[12.5px] leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.5)' }}>
-        {bodyText(journey)}
-      </p>
-
       {clickable && (
         <div
           className="flex items-center justify-center gap-2 py-2.5 rounded-[10px] text-[11px] font-bold tracking-[0.12em] uppercase"
@@ -126,7 +122,7 @@ export default function JourneyCard({ journey, onClick }: JourneyCardProps) {
             border:     accent.ctaBg === 'transparent' ? `1px solid ${accent.border}` : 'none',
           }}
         >
-          {CTA_LABEL[journey.status]}
+          {ctaLabel(journey.status, lang)}
         </div>
       )}
     </button>

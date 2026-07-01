@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
 import type { OrinMission, OrinPlanet } from '@/lib/orin-guide-types';
 import { getSessionStudentId } from '@/lib/session';
+import { getFirstName } from '@/lib/student-store';
 
 const BOT_URL    = 'https://astorli-bot.vercel.app/api/bot';
 const FALLBACK_ID = '00000000-0000-0000-0000-000000000001';
@@ -33,7 +34,14 @@ const T = {
 // Types
 // =============================================================================
 
-type DockState = 'cta-brief' | 'lock' | 'understand' | 'launch' | 'done';
+type DockState = 'cta-brief' | 'explore' | 'lock' | 'understand' | 'launch' | 'done';
+
+interface LockedPlanetSummary {
+  planetId:    string;
+  planetTitle: string;
+  completedAt: string;
+  insights:    { insightText: string; studentAddition: string | null }[];
+}
 
 type ChatMsg =
   | { id: string; role: 'pip' | 'user'; type: 'text';    html: string }
@@ -458,6 +466,200 @@ function DoneDock() {
 }
 
 // =============================================================================
+// All Discoveries overlay — shown when student taps "What I've discovered"
+// =============================================================================
+
+function AllDiscoveriesView({
+  summaries,
+  onClose,
+}: {
+  summaries: LockedPlanetSummary[];
+  onClose: () => void;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 20 }}
+      transition={{ duration: 0.25 }}
+      style={{
+        position: 'absolute', inset: 0, zIndex: 30,
+        background: 'rgba(5,5,16,0.97)',
+        display: 'flex', flexDirection: 'column',
+        overflowY: 'auto',
+        padding: '20px 16px',
+        gap: 16,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: T.tp }}>מה גיליתי בכל הכוכבים</div>
+          <div style={{ fontSize: 10, color: T.ts, marginTop: 2 }}>What I&apos;ve discovered across all planets</div>
+        </div>
+        <button
+          onClick={onClose}
+          style={{
+            background: 'none', border: `1px solid ${T.b2}`, borderRadius: 8,
+            color: T.ts, fontSize: 12, cursor: 'pointer', padding: '5px 12px',
+            transition: 'border-color 0.15s',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = T.ac; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = T.b2; }}
+        >
+          Close
+        </button>
+      </div>
+
+      {summaries.length === 0 ? (
+        <p style={{ fontSize: 13, color: T.ts, textAlign: 'center', marginTop: 40 }}>
+          You haven&apos;t discovered anything yet — start exploring!
+        </p>
+      ) : (
+        summaries.map(s => (
+          <div
+            key={s.planetId}
+            style={{
+              background: T.s2, border: `1px solid ${T.b1}`,
+              borderRadius: 14, padding: '14px 16px',
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 800, color: T.ac, marginBottom: 10, letterSpacing: '0.06em' }}>
+              {s.planetTitle}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {s.insights.map((insight, idx) => (
+                <p key={idx} style={{ fontSize: 12, color: T.ts, lineHeight: 1.6, margin: 0 }}>
+                  ✦ {insight.studentAddition ?? insight.insightText}
+                </p>
+              ))}
+            </div>
+          </div>
+        ))
+      )}
+    </motion.div>
+  );
+}
+
+// =============================================================================
+// Explore dock — Orin's persistent dock with discovery + how-to + text input
+// =============================================================================
+
+function ExploreDock({
+  howToShown,
+  onViewDiscoveries,
+  onHowTo,
+  onSend,
+}: {
+  howToShown: boolean;
+  onViewDiscoveries: () => void;
+  onHowTo: () => void;
+  onSend: (text: string) => void;
+}) {
+  const [val, setVal] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const send = () => {
+    if (!val.trim()) return;
+    onSend(val.trim());
+    setVal('');
+    inputRef.current?.focus();
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {/* Discovery button — always visible */}
+      <button
+        onClick={onViewDiscoveries}
+        style={{
+          width: '100%', padding: '12px 16px', borderRadius: 12,
+          background: 'rgba(155,92,255,0.10)', border: '1.5px solid rgba(155,92,255,0.35)',
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          transition: 'background 0.15s, border-color 0.15s',
+        }}
+        onMouseEnter={e => {
+          const el = e.currentTarget as HTMLElement;
+          el.style.background = 'rgba(155,92,255,0.18)';
+          el.style.borderColor = 'rgba(155,92,255,0.65)';
+        }}
+        onMouseLeave={e => {
+          const el = e.currentTarget as HTMLElement;
+          el.style.background = 'rgba(155,92,255,0.10)';
+          el.style.borderColor = 'rgba(155,92,255,0.35)';
+        }}
+      >
+        <div style={{ textAlign: 'left' }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: 'rgba(200,160,255,0.95)' }}>
+            מה גיליתי בכל הכוכבים
+          </div>
+          <div style={{ fontSize: 10, color: T.ts, marginTop: 1 }}>What I&apos;ve discovered across all planets</div>
+        </div>
+        <span style={{ fontSize: 14, color: 'rgba(155,92,255,0.8)' }}>✦</span>
+      </button>
+
+      {/* How to explore button — disappears after first tap */}
+      {!howToShown && (
+        <button
+          onClick={onHowTo}
+          style={{
+            width: '100%', padding: '12px 16px', borderRadius: 12,
+            background: T.acDim, border: `1.5px solid ${T.acBdr}`,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            transition: 'background 0.15s, border-color 0.15s',
+          }}
+          onMouseEnter={e => {
+            const el = e.currentTarget as HTMLElement;
+            el.style.background = 'rgba(0,212,212,0.15)';
+            el.style.borderColor = 'rgba(0,212,212,0.5)';
+          }}
+          onMouseLeave={e => {
+            const el = e.currentTarget as HTMLElement;
+            el.style.background = T.acDim;
+            el.style.borderColor = T.acBdr;
+          }}
+        >
+          <div style={{ textAlign: 'left' }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: T.ac }}>איך לחקור</div>
+            <div style={{ fontSize: 10, color: T.ts, marginTop: 1 }}>How to explore</div>
+          </div>
+          <span style={{ fontSize: 14, color: T.ac }}>→</span>
+        </button>
+      )}
+
+      {/* Text input row */}
+      <div style={{
+        display: 'flex', gap: 8, alignItems: 'center',
+        background: T.s2, border: `1px solid ${T.b1}`,
+        borderRadius: 12, padding: '4px 4px 4px 14px',
+      }}>
+        <input
+          ref={inputRef}
+          value={val}
+          onChange={e => setVal(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && send()}
+          placeholder="שאל אותי כל דבר…  /  Ask me anything…"
+          style={{
+            flex: 1, background: 'none', border: 'none', outline: 'none',
+            fontSize: 13, color: T.tp,
+            // @ts-ignore — caretColor is valid CSS
+            caretColor: T.ac,
+          }}
+        />
+        <button
+          onClick={send}
+          disabled={!val.trim()}
+          style={{
+            padding: '9px 14px', borderRadius: 8, border: 'none', cursor: val.trim() ? 'pointer' : 'default',
+            background: val.trim() ? T.ac : T.b2,
+            color: val.trim() ? '#000' : T.tm,
+            fontSize: 13, fontWeight: 800, transition: 'all 0.15s', flexShrink: 0,
+          }}
+        >→</button>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
 // Main Chat Component
 // =============================================================================
 
@@ -467,10 +669,19 @@ function PipGuideChatInner() {
   const mOrder  = parseInt(params.get('m') ?? '1', 10);
   const [mission, setMission] = useState<OrinMission | null>(null);
 
-  const [messages, setMessages] = useState<ChatMsg[]>([]);
-  const [dock,     setDock]     = useState<DockState>('lock');
-  const [qaIdx,    setQaIdx]    = useState(0); // fallback index if AI call fails
+  const [messages,          setMessages]          = useState<ChatMsg[]>([]);
+  const [dock,              setDock]              = useState<DockState>('lock');
+  const [qaIdx,             setQaIdx]             = useState(0); // fallback index if AI call fails
+  const [howToShown,        setHowToShown]        = useState(false);
+  const [allSummaries,      setAllSummaries]      = useState<LockedPlanetSummary[]>([]);
+  const [showAllDiscoveries, setShowAllDiscoveries] = useState(false);
+  // Student first name comes from the display-layer store (localStorage, set at
+  // login) — NOT a browser-side DB read, which RLS blocks. Same source used by
+  // botName/avatar and the landscape/[id] planet chat. Read once on mount.
+  const [firstName, setFirstName] = useState('Traveler');
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { setFirstName(getFirstName()); }, []);
 
   // Smooth scroll on new messages
   useEffect(() => {
@@ -495,6 +706,8 @@ function PipGuideChatInner() {
     setMessages([]);
     setDock('lock');
     setQaIdx(0);
+    setHowToShown(false);
+    setShowAllDiscoveries(false);
     fetch(`/api/mission?order=${mOrder}`)
       .then((r) => r.json())
       .then(setMission)
@@ -509,11 +722,14 @@ function PipGuideChatInner() {
     _idCounter = 0;
     const t1 = setTimeout(() => showTyping(), 300);
     const t2 = setTimeout(() => {
-      push({
-        id: uid(), role: 'pip', type: 'text',
-        html: mission.openingMessage.replace(/\n/g, '<br/>'),
-      });
-      setDock('cta-brief');
+      const name = firstName;
+      const html = mission.openingMessage
+        .replace(/\{\{first_name\}\}/g, name)
+        .replace(/\[שם תלמיד\]/g, name)
+        .replace(/\[student name\]/gi, name)
+        .replace(/\n/g, '<br/>');
+      push({ id: uid(), role: 'pip', type: 'text', html });
+      setDock('explore');
     }, 1600);
     return () => { clearTimeout(t1); clearTimeout(t2); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -582,6 +798,30 @@ function PipGuideChatInner() {
     }, 3900);
   }
 
+  // ── Flow: How to explore (Orin explore dock) ────────────────────────────────
+  function handleHowTo() {
+    setHowToShown(true);
+    push({ id: uid(), role: 'user', type: 'chip', icon: '🗺', text: 'איך לחקור' });
+    setTimeout(showTyping, 400);
+    setTimeout(() => {
+      push({ id: uid(), role: 'pip', type: 'howto', planets: mission!.planets });
+      setDock('understand');
+    }, 1500);
+  }
+
+  // ── Flow: View all planet discoveries ───────────────────────────────────────
+  async function handleViewDiscoveries() {
+    try {
+      const studentId = (await getSessionStudentId()) ?? FALLBACK_ID;
+      const res = await fetch(`/api/student/planet-summaries?studentId=${encodeURIComponent(studentId)}`);
+      const data = await res.json();
+      setAllSummaries(data.summaries ?? []);
+    } catch {
+      setAllSummaries([]);
+    }
+    setShowAllDiscoveries(true);
+  }
+
   // ── Flow: Launch Mission ─────────────────────────────────────────────────────
   function handleLaunch() {
     setDock('lock');
@@ -601,6 +841,7 @@ function PipGuideChatInner() {
   // ── Dock renderer ────────────────────────────────────────────────────────────
   function renderDock() {
     switch (dock) {
+      case 'explore':    return <ExploreDock howToShown={howToShown} onViewDiscoveries={handleViewDiscoveries} onHowTo={handleHowTo} onSend={handleQA} />;
       case 'cta-brief':  return <CtaBriefDock onGenerate={handleGenerateBrief} />;
       case 'lock':       return <LockDock />;
       case 'understand': return <UnderstandDock onGotIt={handleGotIt} onSend={handleQA} />;
@@ -701,7 +942,7 @@ function PipGuideChatInner() {
         }}>
           <span style={{ fontSize: 13, flexShrink: 0 }}>🎯</span>
           <span style={{ fontSize: 11, color: T.ts, fontWeight: 500, lineHeight: 1.4 }}>
-            {mission.missionBrief}
+            {mission.missionBrief.replace(/\{\{first_name\}\}/g, firstName)}
           </span>
         </div>
       </div>
@@ -729,6 +970,16 @@ function PipGuideChatInner() {
         </AnimatePresence>
         <div ref={bottomRef} style={{ height: 1 }} />
       </div>
+
+      {/* All Discoveries overlay */}
+      <AnimatePresence>
+        {showAllDiscoveries && (
+          <AllDiscoveriesView
+            summaries={allSummaries}
+            onClose={() => setShowAllDiscoveries(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* ── Input dock ──────────────────────────────────────────────────────── */}
       <div style={{

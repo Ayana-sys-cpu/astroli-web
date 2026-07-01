@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
 import TopBar from '@/components/TopBar';
 import OrinOrb from '@/components/OrinOrb';
+import { t } from '@/lib/i18n';
 import Planet from '@/components/Planet';
 import MissionOverlay from '@/components/MissionOverlay';
 import PipGuidePanel from '@/components/PipGuidePanel';
@@ -25,6 +26,7 @@ interface Mission {
   id: string;
   question: string;
   order: number;
+  language:             'en' | 'he';
   openingMessage:       string | null;
   questionDescription:  string | null;
   projectTitle:         string | null;
@@ -45,6 +47,7 @@ function LandscapeContent() {
   const [showOverlay, setShowOverlay] = useState(false);
   const [ready, setReady]             = useState(false);
   const [baseAvatarUrl, setBaseAvatarUrl] = useState<string | null>(null);
+  const [planetProgress, setPlanetProgress] = useState<Record<string, { goalsDiscovered: number; totalGoals: number; completed: boolean }>>({});
   const isFirstVisit = useRef(false);
 
   useEffect(() => {
@@ -98,6 +101,10 @@ function LandscapeContent() {
                 setReady(true);
               }
               setMission(mission);
+              fetch(`/api/student/planet-progress?missionId=${mission.id}`)
+                .then(r => r.json())
+                .then(({ progress }) => { if (progress) setPlanetProgress(progress); })
+                .catch(() => {});
             })
             .catch(() => {});
         }
@@ -119,9 +126,10 @@ function LandscapeContent() {
   };
 
   const planets = (mission?.planets ?? []).map((p, i) => {
-    const meta  = getPlanetMeta(p.title);
-    const label = p.label ?? meta.label;
-    const pos   = PLANET_LAYOUT[i] ?? { x: 50, y: 50 };
+    const meta     = getPlanetMeta(p.title);
+    const label    = p.label ?? meta.label;
+    const pos      = PLANET_LAYOUT[i] ?? { x: 50, y: 50 };
+    const progress = planetProgress[p.id];
     return {
       id: p.id,
       name: label,
@@ -132,7 +140,9 @@ function LandscapeContent() {
         : meta.question || null,
       number: String(i + 1).padStart(2, '0'),
       ...pos,
-      explored: false,
+      explored:        progress?.completed ?? false,
+      goalsDiscovered: progress?.goalsDiscovered ?? 0,
+      totalGoals:      progress?.totalGoals ?? 0,
     };
   });
 
@@ -161,6 +171,7 @@ function LandscapeContent() {
             question={mission.question}
             order={mission.order}
             onAccept={handleAcceptMission}
+            language={mission.language}
           />
         )}
       </AnimatePresence>
@@ -191,7 +202,7 @@ function LandscapeContent() {
               ))}
             </svg>
 
-            <TopBar left={`${missionLabel} · ${bigIdea.toUpperCase()}`} />
+            <TopBar left={`${missionLabel} · ${bigIdea.toUpperCase()}`} showHome={!isPreview} />
 
             {/* Preview mode banner */}
             {isPreview && (
@@ -206,14 +217,14 @@ function LandscapeContent() {
               >
                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#8B00FF' }} />
                 <span className="font-space text-[9px] tracking-[0.18em]" style={{ color: 'rgba(232,232,240,0.7)' }}>
-                  TEACHER PREVIEW · PLANET NAVIGATION DISABLED
+                  {t('teacherPreviewBanner', mission?.language ?? 'en')}
                 </span>
                 <button
                   onClick={() => router.back()}
                   className="ml-2 font-space text-[9px] tracking-[0.12em] hover:opacity-100 transition-opacity"
                   style={{ color: 'rgba(232,232,240,0.5)' }}
                 >
-                  ← BACK
+                  {t('back', mission?.language ?? 'en')}
                 </button>
               </div>
             )}
@@ -227,7 +238,8 @@ function LandscapeContent() {
                   <Planet
                     key={p.id}
                     {...p}
-                    onClick={isPreview ? () => {} : () => router.push(`/landscape/${p.id}`)}
+                    lang={mission?.language === 'he' ? 'he' : 'en'}
+                    onClick={isPreview ? () => {} : () => router.push(`/landscape/${p.id}${classId ? `?classId=${classId}` : ''}`)}
                   />
                 ))}
               </div>
@@ -272,6 +284,7 @@ function LandscapeContent() {
                       missionOrder={mission?.order ?? 1}
                       firstPlanet={firstPlanet}
                       onLaunch={() => setOrinOpen(false)}
+                      language={mission?.language}
                     />
                   </motion.aside>
                 )}

@@ -18,26 +18,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { requireAuth, assertTeacherSession } from '@/lib/auth';
+import { translateMission } from '@/lib/translate-mission';
 
-function toMission(m: any, state: string | null) {
+function toMission(m: any, state: string | null, lang: 'en' | 'he' = 'en') {
+  const he = lang === 'he' ? ((m.translations as any)?.he ?? {}) : {};
   return {
     id:                  m.id,
     journeyId:           m.journey_id,
-    question:            m.question,
-    questionDescription: m.question_description,
-    projectTitle:        m.project_title,
-    projectDescription:  m.project_description,
+    question:            he.question            ?? m.question,
+    questionDescription: he.question_description ?? m.question_description,
+    projectTitle:        he.project_title        ?? m.project_title,
+    projectDescription:  he.project_description  ?? m.project_description,
     openingMessage:      m.opening_message,
+    language:            lang,
     state,
     order:               m.order,
-    planets:             (m.planets ?? []).map((p: any) => ({
-      id:             p.id,
-      title:          p.title,
-      content:        p.content,
-      openingMessage: p.opening_message,
-      mediaUrl:       p.media_url,
-      mediaType:      p.media_type,
-    })),
+    planets:             (m.planets ?? []).map((p: any) => {
+      const phe = lang === 'he' ? ((p.translations as any)?.he ?? {}) : {};
+      return {
+        id:             p.id,
+        title:          phe.title   ?? p.title,
+        content:        phe.content ?? p.content,
+        openingMessage: p.opening_message,
+        mediaUrl:       p.media_url,
+        mediaType:      p.media_type,
+      };
+    }),
   };
 }
 
@@ -83,7 +89,7 @@ export async function GET(req: NextRequest) {
   // Verify ownership and resolve the class's template in one query.
   const { data: klass } = await supabaseAdmin
     .from('classes')
-    .select('id, journey_id, teacher_id')
+    .select('id, journey_id, teacher_id, language')
     .eq('id', journeyId)
     .maybeSingle();
 
@@ -94,6 +100,8 @@ export async function GET(req: NextRequest) {
   if (klass.teacher_id !== teacherId) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
+
+  const lang: 'en' | 'he' = ((klass as any).language === 'he') ? 'he' : 'en';
 
   const [{ data: missions, error }, { data: stateRows }] = await Promise.all([
     supabaseAdmin
@@ -115,7 +123,7 @@ export async function GET(req: NextRequest) {
   const stateByMissionId = new Map((stateRows ?? []).map(r => [r.mission_id, r.state]));
 
   return NextResponse.json({
-    missions: (missions ?? []).map(m => toMission(m, stateByMissionId.get(m.id) ?? 'locked')),
+    missions: (missions ?? []).map(m => toMission(m, stateByMissionId.get(m.id) ?? 'locked', lang)),
   });
 }
 
@@ -132,14 +140,54 @@ export async function PATCH(req: NextRequest) {
 
   const teacherId = auth.user.user_metadata.teacher_id as string;
 
-  let body: { journeyId?: string; missionId?: string; state?: string };
+  let body: { journeyId?: string; missionId?: string; state?: string; language?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { journeyId: classId, missionId, state } = body;
+  const { journeyId: classId, missionId, state, language } = body;
+
+  // Language-only update — no class context needed
+  if (missionId && language && !state) {
+    if (!['en', 'he'].includes(language)) {
+      return NextResponse.json({ error: 'Invalid language' }, { status: 400 });
+    }
+    const { error } = await supabaseAdmin
+      .from('missions')
+      .update({ language })
+      .eq('id', missionId);
+    if (error) {
+      console.error('[PATCH /api/teacher/missions language]', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // When switching to Hebrew, kick off translation in the background if not
+    // already translated. We don't await — teacher gets instant feedback and
+    // translation completes before any student opens the mission.
+    if (language === 'he') {
+      const { data: existing } = await supabaseAdmin
+        .from('missions')
+        .select('translations')
+        .eq('id', missionId)
+        .single();
+
+      const hasHeTranslation =
+        existing?.translations &&
+        typeof existing.translations === 'object' &&
+        'he' in (existing.translations as object);
+
+      if (!hasHeTranslation) {
+        translateMission(missionId).catch((err) =>
+          console.error('[translate-mission background]', missionId, err),
+        );
+      }
+    }
+
+    return NextResponse.json({ ok: true, language });
+  }
+
   if (!classId || !missionId || !state) {
     return NextResponse.json({ error: 'journeyId, missionId, and state required' }, { status: 400 });
   }

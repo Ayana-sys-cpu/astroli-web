@@ -3,7 +3,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { OrinMission, OrinPlanet, WorldBriefItem } from '@/lib/orin-guide-types';
+import type { OrinMission, OrinPlanet, MissionTerm, WorldBriefItem } from '@/lib/orin-guide-types';
+import { t, type Lang } from '@/lib/i18n';
+import { getFirstName } from '@/lib/student-store';
 
 // =============================================================================
 // Design tokens — matches pip-guide/page.tsx exactly
@@ -28,13 +30,20 @@ const T = {
 // Types
 // =============================================================================
 
-type DockState = 'cta-brief' | 'lock' | 'understand' | 'mission-qa' | 'launch' | 'done';
+type DockState = 'cta-brief' | 'cta-howto' | 'lock' | 'understand' | 'mission-qa' | 'launch' | 'done';
+
+interface LockedPlanetSummary {
+  planetId:    string;
+  planetTitle: string;
+  completedAt: string;
+  insights:    { insightText: string; studentAddition: string | null }[];
+}
 
 type ChatMsg =
   | { id: string; role: 'pip' | 'user'; type: 'text';    html: string }
   | { id: string; role: 'user';          type: 'chip';    icon: string; text: string }
   | { id: string; role: 'pip';           type: 'brief';   items: WorldBriefItem[]; summary: string }
-  | { id: string; role: 'pip';           type: 'mission'; chapter: string; title: string; objective: string }
+  | { id: string; role: 'pip';           type: 'mission'; chapter: string; title: string; objective: string; terms?: MissionTerm[] }
   | { id: string; role: 'pip';           type: 'howto';   planets: OrinPlanet[] }
   | { id: string; role: 'pip';           type: 'typing' };
 
@@ -46,6 +55,7 @@ export interface PipGuidePanelProps {
   missionOrder: number;
   firstPlanet?: { id: string; label: string };
   onLaunch?: () => void;
+  language?: Lang;
 }
 
 // =============================================================================
@@ -96,7 +106,7 @@ function TypingBubble() {
 
 const STRIPE_COLORS = ['#9d4edd', '#f4a20e', '#ef4444'];
 
-function WorldBrief({ items, summary }: { items: WorldBriefItem[]; summary: string }) {
+function WorldBrief({ items, summary, lang }: { items: WorldBriefItem[]; summary: string; lang: Lang }) {
   const [open, setOpen] = useState(true);
 
   return (
@@ -122,7 +132,7 @@ function WorldBrief({ items, summary }: { items: WorldBriefItem[]; summary: stri
             fontSize: 9, fontWeight: 800, color: T.ac,
             textTransform: 'uppercase', letterSpacing: '0.14em', marginRight: 6,
           }}>
-            World Brief
+            {t('worldBriefLabel', lang)}
           </span>
           <span style={{ fontSize: 11, color: T.tm }}>{summary}</span>
         </div>
@@ -187,7 +197,43 @@ function WorldBrief({ items, summary }: { items: WorldBriefItem[]; summary: stri
 // Mission Card
 // =============================================================================
 
-function MissionCard({ chapter, title, objective }: { chapter: string; title: string; objective: string }) {
+function TermRow({ term }: { term: MissionTerm }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div
+      style={{
+        borderRadius: 8, overflow: 'hidden',
+        background: 'rgba(255,255,255,0.02)',
+        border: '1px solid rgba(255,255,255,0.07)',
+      }}
+    >
+      <button
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between', gap: 8,
+          padding: '8px 12px', background: 'none', border: 'none',
+          cursor: 'pointer', textAlign: 'left',
+        }}
+      >
+        <span style={{ fontSize: 12, fontWeight: 700, color: T.tp }}>{term.label}</span>
+        <span style={{
+          fontSize: 10, color: T.tm, flexShrink: 0,
+          display: 'inline-block',
+          transform: open ? 'rotate(0deg)' : 'rotate(-90deg)',
+          transition: 'transform 0.15s',
+        }}>▾</span>
+      </button>
+      {open && (
+        <div style={{ padding: '0 12px 10px', fontSize: 11, color: T.ts, lineHeight: 1.6 }}>
+          {term.definition}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MissionCard({ chapter, title, objective, terms, lang }: { chapter: string; title: string; objective: string; terms?: MissionTerm[]; lang: Lang }) {
   return (
     <div style={{
       background: T.s2, border: `1px solid ${T.b1}`,
@@ -201,7 +247,7 @@ function MissionCard({ chapter, title, objective }: { chapter: string; title: st
           padding: '3px 8px', borderRadius: 20,
           letterSpacing: '0.12em', textTransform: 'uppercase',
         }}>{chapter}</span>
-        <span style={{ fontSize: 9, color: T.tm, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Mission Project</span>
+        <span style={{ fontSize: 9, color: T.tm, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{t('missionProject', lang)}</span>
       </div>
       <div style={{ fontSize: 19, fontWeight: 900, color: T.tp, lineHeight: 1.2, marginBottom: 10 }}>
         {title}
@@ -209,6 +255,19 @@ function MissionCard({ chapter, title, objective }: { chapter: string; title: st
       <p style={{ fontSize: 13, lineHeight: 1.65, color: T.ts, margin: 0 }}>
         {objective}
       </p>
+      {terms && terms.length > 0 && (
+        <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid rgba(255,255,255,0.06)` }}>
+          <div style={{
+            fontSize: 9, fontWeight: 800, color: T.ac,
+            textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 8,
+          }}>
+            {t('keyTermsLabel', lang)}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {terms.map((term, i) => <TermRow key={i} term={term} />)}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -217,7 +276,7 @@ function MissionCard({ chapter, title, objective }: { chapter: string; title: st
 // How-To Card — CHANGE 5: elaborate text, single planet suggestion
 // =============================================================================
 
-function HowToCard({ planets, firstPlanet }: { planets: OrinPlanet[]; firstPlanet?: { id: string; label: string } }) {
+function HowToCard({ planets, firstPlanet, lang }: { planets: OrinPlanet[]; firstPlanet?: { id: string; label: string }; lang: Lang }) {
   const router = useRouter();
   const suggested = planets[0];
 
@@ -230,17 +289,17 @@ function HowToCard({ planets, firstPlanet }: { planets: OrinPlanet[]; firstPlane
         fontSize: 9, fontWeight: 800, color: T.ts,
         textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 10,
       }}>
-        How to explore
+        {t('howToExplore', lang)}
       </div>
 
       <p style={{ fontSize: 12, color: T.ts, margin: '0 0 10px', lineHeight: 1.6 }}>
-        Your mission map is on the left — each planet represents a topic to investigate.{' '}
-        <strong style={{ color: T.tp }}>Click any planet on the map</strong> to enter it and start digging in.
-        Gather evidence as you go, save key insights with ✦, then return when you&apos;re ready to build your case.
+        {t('howToBody', lang)}{' '}
+        <strong style={{ color: T.tp }}>{t('clickAnyPlanet', lang)}</strong>{' '}
+        {t('howToBodyCont', lang)}
       </p>
 
       <p style={{ fontSize: 12, color: T.ts, margin: '0 0 10px', lineHeight: 1.5 }}>
-        We suggest starting with:
+        {t('suggestStartWith', lang)}
       </p>
 
       {suggested && (
@@ -260,7 +319,7 @@ function HowToCard({ planets, firstPlanet }: { planets: OrinPlanet[]; firstPlane
             <span style={{ fontSize: 14 }}>{suggested.icon}</span>
             <span style={{ fontSize: 12, color: T.ts, fontWeight: 600 }}>{suggested.name}</span>
           </div>
-          <span style={{ fontSize: 10, color: 'rgba(0,245,212,0.4)', letterSpacing: '0.08em' }}>EXPLORE →</span>
+          <span style={{ fontSize: 10, color: 'rgba(0,245,212,0.4)', letterSpacing: '0.08em' }}>{t('exploreArrow', lang)}</span>
         </motion.div>
       )}
     </div>
@@ -271,7 +330,7 @@ function HowToCard({ planets, firstPlanet }: { planets: OrinPlanet[]; firstPlane
 // Message bubble — dispatches to correct renderer per type
 // =============================================================================
 
-function MessageBubble({ msg, firstPlanet }: { msg: ChatMsg; firstPlanet?: { id: string; label: string } }) {
+function MessageBubble({ msg, firstPlanet, lang }: { msg: ChatMsg; firstPlanet?: { id: string; label: string }; lang: Lang }) {
   if (msg.type === 'typing') return <TypingBubble />;
 
   if (msg.role === 'user') {
@@ -322,7 +381,7 @@ function MessageBubble({ msg, firstPlanet }: { msg: ChatMsg; firstPlanet?: { id:
         <div className="flex items-start gap-2 px-4">
           <PipOrb size={24} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <WorldBrief items={msg.items} summary={msg.summary} />
+            <WorldBrief items={msg.items} summary={msg.summary} lang={lang} />
           </div>
         </div>
       );
@@ -331,7 +390,7 @@ function MessageBubble({ msg, firstPlanet }: { msg: ChatMsg; firstPlanet?: { id:
         <div className="flex items-start gap-2 px-4">
           <PipOrb size={24} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <MissionCard chapter={msg.chapter} title={msg.title} objective={msg.objective} />
+            <MissionCard chapter={msg.chapter} title={msg.title} objective={msg.objective} terms={msg.terms} lang={lang} />
           </div>
         </div>
       );
@@ -340,7 +399,7 @@ function MessageBubble({ msg, firstPlanet }: { msg: ChatMsg; firstPlanet?: { id:
         <div className="flex items-start gap-2 px-4">
           <PipOrb size={24} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <HowToCard planets={msg.planets} firstPlanet={firstPlanet} />
+            <HowToCard planets={msg.planets} firstPlanet={firstPlanet} lang={lang} />
           </div>
         </div>
       );
@@ -350,10 +409,70 @@ function MessageBubble({ msg, firstPlanet }: { msg: ChatMsg; firstPlanet?: { id:
 }
 
 // =============================================================================
+// All Discoveries overlay
+// =============================================================================
+
+function AllDiscoveriesView({ summaries, onClose }: { summaries: LockedPlanetSummary[]; onClose: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 20 }}
+      transition={{ duration: 0.25 }}
+      style={{
+        position: 'absolute', inset: 0, zIndex: 30,
+        background: 'rgba(5,5,16,0.97)',
+        display: 'flex', flexDirection: 'column',
+        overflowY: 'auto',
+        padding: '20px 16px',
+        gap: 16,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: T.tp }}>מה גיליתי בכל הכוכבים</div>
+          <div style={{ fontSize: 10, color: T.ts, marginTop: 2 }}>What I&apos;ve discovered across all planets</div>
+        </div>
+        <button
+          onClick={onClose}
+          style={{
+            background: 'none', border: `1px solid ${T.b2}`, borderRadius: 8,
+            color: T.ts, fontSize: 12, cursor: 'pointer', padding: '5px 12px',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = T.ac; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = T.b2; }}
+        >Close</button>
+      </div>
+
+      {summaries.length === 0 ? (
+        <p style={{ fontSize: 13, color: T.ts, textAlign: 'center', marginTop: 40 }}>
+          You haven&apos;t discovered anything yet — start exploring!
+        </p>
+      ) : (
+        summaries.map(s => (
+          <div key={s.planetId} style={{ background: T.s2, border: `1px solid ${T.b1}`, borderRadius: 14, padding: '14px 16px' }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: T.ac, marginBottom: 10, letterSpacing: '0.06em' }}>
+              {s.planetTitle}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {s.insights.map((insight, idx) => (
+                <p key={idx} style={{ fontSize: 12, color: T.ts, lineHeight: 1.6, margin: 0 }}>
+                  ✦ {insight.studentAddition ?? insight.insightText}
+                </p>
+              ))}
+            </div>
+          </div>
+        ))
+      )}
+    </motion.div>
+  );
+}
+
+// =============================================================================
 // Dock components
 // =============================================================================
 
-function CtaBriefDock({ onGenerate }: { onGenerate: () => void }) {
+function CtaBriefDock({ onGenerate, lang }: { onGenerate: () => void; lang: Lang }) {
   const [hovered, setHovered] = useState(false);
   return (
     <button
@@ -376,11 +495,94 @@ function CtaBriefDock({ onGenerate }: { onGenerate: () => void }) {
         <span style={{ fontSize: 18 }}>🌐</span>
       </div>
       <div style={{ flex: 1, textAlign: 'left' }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: T.tp }}>Generate World Brief</div>
-        <div style={{ fontSize: 11, color: T.ts, marginTop: 2 }}>Understand the historical context first</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: T.tp }}>{t('generateWorldBrief', lang)}</div>
+        <div style={{ fontSize: 11, color: T.ts, marginTop: 2 }}>{t('worldBriefSubtitle', lang)}</div>
       </div>
       <span style={{ color: T.ac, fontSize: 16 }}>→</span>
     </button>
+  );
+}
+
+function CtaHowtoDock({ onShowHowTo, onSend, onViewDiscoveries, lang }: { onShowHowTo: () => void; onSend: (text: string) => void; onViewDiscoveries: () => void; lang: Lang }) {
+  const [hovered, setHovered] = useState(false);
+  const [val, setVal] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const send = () => {
+    if (!val.trim()) return;
+    onSend(val.trim());
+    setVal('');
+    inputRef.current?.focus();
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {/* Discovery button — always visible */}
+      <button
+        onClick={onViewDiscoveries}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '12px 16px',
+          background: 'rgba(155,92,255,0.08)',
+          border: '1.5px solid rgba(155,92,255,0.35)',
+          borderRadius: 12, cursor: 'pointer', transition: 'all 0.15s',
+        }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(155,92,255,0.15)'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(155,92,255,0.08)'; }}
+      >
+        <div style={{ textAlign: 'left' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#c084fc' }}>{t('whatIDiscoveredAll', lang)}</div>
+        </div>
+        <span style={{ fontSize: 14, color: '#c084fc' }}>✦</span>
+      </button>
+
+      <button
+        onClick={onShowHowTo}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '14px 18px',
+          background: hovered ? 'rgba(0,212,212,0.18)' : 'rgba(0,212,212,0.13)',
+          border: `1.5px solid ${hovered ? 'rgba(0,212,212,0.65)' : 'rgba(0,212,212,0.50)'}`,
+          borderRadius: 14, cursor: 'pointer', transition: 'all 0.15s',
+        }}
+      >
+        <span style={{ fontSize: 13, fontWeight: 700, color: T.ac }}>{t('howToExplore', lang)}</span>
+        <span style={{ color: T.ac, fontSize: 16 }}>→</span>
+      </button>
+
+      <div style={{
+        display: 'flex', gap: 8, alignItems: 'center',
+        background: T.s2, border: `1px solid ${T.b1}`,
+        borderRadius: 12, padding: '4px 4px 4px 14px',
+      }}>
+        <input
+          ref={inputRef}
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && send()}
+          placeholder={t('askAnythingShort', lang)}
+          style={{
+            flex: 1, background: 'none', border: 'none', outline: 'none',
+            fontSize: 13, color: T.tp,
+            // @ts-ignore — caretColor is valid CSS
+            caretColor: T.ac,
+          }}
+        />
+        <button
+          onClick={send}
+          disabled={!val.trim()}
+          style={{
+            padding: '9px 14px', borderRadius: 8, border: 'none',
+            cursor: val.trim() ? 'pointer' : 'default',
+            background: val.trim() ? T.ac : T.b2,
+            color: val.trim() ? '#000' : T.tm,
+            fontSize: 13, fontWeight: 800, transition: 'all 0.15s', flexShrink: 0,
+          }}
+        >→</button>
+      </div>
+    </div>
   );
 }
 
@@ -399,7 +601,7 @@ function LockDock() {
   );
 }
 
-function UnderstandDock({ onGotIt, onSend }: { onGotIt: () => void; onSend: (text: string) => void }) {
+function UnderstandDock({ onGotIt, onSend, lang }: { onGotIt: () => void; onSend: (text: string) => void; lang: Lang }) {
   const [val, setVal] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -422,7 +624,7 @@ function UnderstandDock({ onGotIt, onSend }: { onGotIt: () => void; onSend: (tex
           value={val}
           onChange={(e) => setVal(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && send()}
-          placeholder="Ask me anything about this era…"
+          placeholder={t('askAnythingEra', lang)}
           style={{
             flex: 1, background: 'none', border: 'none', outline: 'none',
             fontSize: 13, color: T.tp,
@@ -454,13 +656,13 @@ function UnderstandDock({ onGotIt, onSend }: { onGotIt: () => void; onSend: (tex
         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,212,212,0.15)'; }}
         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = T.acDim; }}
       >
-        Got it — I&apos;m ready to answer →
+        {t('gotItReady', lang)}
       </button>
     </div>
   );
 }
 
-function MissionQaDock({ onAccept, onSend }: { onAccept: () => void; onSend: (text: string) => void }) {
+function MissionQaDock({ onAccept, onSend, lang }: { onAccept: () => void; onSend: (text: string) => void; lang: Lang }) {
   const [val, setVal] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -483,7 +685,7 @@ function MissionQaDock({ onAccept, onSend }: { onAccept: () => void; onSend: (te
           value={val}
           onChange={(e) => setVal(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && send()}
-          placeholder="Ask me anything about this mission…"
+          placeholder={t('askAnythingMission', lang)}
           style={{
             flex: 1, background: 'none', border: 'none', outline: 'none',
             fontSize: 13, color: T.tp,
@@ -515,13 +717,13 @@ function MissionQaDock({ onAccept, onSend }: { onAccept: () => void; onSend: (te
         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,212,212,0.15)'; }}
         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = T.acDim; }}
       >
-        Got it — Accept Mission →
+        {t('gotItAccept', lang)}
       </button>
     </div>
   );
 }
 
-function LaunchDock({ onLaunch }: { onLaunch: () => void }) {
+function LaunchDock({ onLaunch, lang }: { onLaunch: () => void; lang: Lang }) {
   const [hovered, setHovered] = useState(false);
   return (
     <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 14 }}>
@@ -550,17 +752,17 @@ function LaunchDock({ onLaunch }: { onLaunch: () => void }) {
           animate={{ x: ['-100%', '280%'] }}
           transition={{ duration: 2.5, repeat: Infinity, ease: 'linear', delay: 0.3 }}
         />
-        <span style={{ position: 'relative', zIndex: 1 }}>🚀 Launch Mission</span>
+        <span style={{ position: 'relative', zIndex: 1 }}>{t('launchMission', lang)}</span>
       </button>
     </div>
   );
 }
 
-function DoneDock() {
+function DoneDock({ lang }: { lang: Lang }) {
   return (
     <div style={{ textAlign: 'center', padding: '10px 0' }}>
       <span style={{ fontSize: 11, color: T.ts, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-        ✦ Mission Active · Explore the planets
+        {t('missionActive', lang)}
       </span>
     </div>
   );
@@ -571,13 +773,16 @@ function DoneDock() {
 // CHANGE 4: flex-1 + overflow-y-auto for scrollable content area
 // =============================================================================
 
-export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, onLaunch }: PipGuidePanelProps) {
+export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, onLaunch, language }: PipGuidePanelProps) {
+  const lang: Lang = language ?? 'en';
   const [mission, setMission] = useState<OrinMission | null>(null);
 
-  const [messages,      setMessages]      = useState<ChatMsg[]>([]);
-  const [dock,          setDock]          = useState<DockState>('lock');
-  const [qaIdx,         setQaIdx]         = useState(0);
-  const [missionQaIdx,  setMissionQaIdx]  = useState(0);
+  const [messages,           setMessages]           = useState<ChatMsg[]>([]);
+  const [dock,               setDock]               = useState<DockState>('lock');
+  const [qaIdx,              setQaIdx]              = useState(0);
+  const [missionQaIdx,       setMissionQaIdx]       = useState(0);
+  const [allSummaries,       setAllSummaries]       = useState<LockedPlanetSummary[]>([]);
+  const [showAllDiscoveries, setShowAllDiscoveries] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom on new messages
@@ -598,52 +803,73 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
 
   // ── Fetch mission data from DB ─────────────────────────────────────────────
   useEffect(() => {
+    const langParam = lang === 'he' ? '&lang=he' : '';
     const url = missionId
-      ? `/api/mission?missionId=${missionId}`
-      : `/api/mission?order=${missionOrder}`;
+      ? `/api/mission?missionId=${missionId}${langParam}`
+      : `/api/mission?order=${missionOrder}${langParam}`;
     fetch(url)
       .then((r) => r.json())
       .then(setMission)
       .catch(console.error);
-  }, [missionId, missionOrder]);
+  }, [missionId, missionOrder, lang]);
 
   // ── Show opening sequence once mission data has loaded ────────────────────
-  // Order: hook message → HowToCard (planets + start suggestion) → brief CTA
+  // Opening message only — HowToCard is shown on demand via the dock button.
   // Cleanup ensures strict-mode double-fire clears first-set timers before second.
   useEffect(() => {
     if (!mission) return;
     const t1 = setTimeout(() => showTyping(), 300);
     const t2 = setTimeout(() => {
-      push({ id: uid(), role: 'pip', type: 'text', html: mission.openingMessage.replace(/\n/g, '<br>') });
+      const firstName = getFirstName();
+      const html = mission.openingMessage
+        .replace(/\{\{first_name\}\}/g, firstName)
+        .replace(/\[שם תלמיד\]/g, firstName)
+        .replace(/\[student name\]/gi, firstName)
+        .replace(/\n/g, '<br>');
+      push({ id: uid(), role: 'pip', type: 'text', html });
+      setDock('cta-howto');
     }, 1600);
-    const t3 = setTimeout(() => showTyping(), 2200);
-    const t4 = setTimeout(() => {
-      push({ id: uid(), role: 'pip', type: 'howto', planets: mission.planets });
-    }, 3600);
-    const t5 = setTimeout(() => showTyping(), 4200);
-    const t6 = setTimeout(() => {
-      push({ id: uid(), role: 'pip', type: 'text', html: mission.openingMessage2.replace(/\n/g, '<br>') });
-      setDock('cta-brief');
-    }, 5500);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); clearTimeout(t5); clearTimeout(t6); };
+    return () => { clearTimeout(t1); clearTimeout(t2); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mission]);
 
+  async function handleViewDiscoveries() {
+    try {
+      const res = await fetch('/api/student/planet-summaries');
+      const data = await res.json();
+      setAllSummaries(data.summaries ?? []);
+    } catch {
+      setAllSummaries([]);
+    }
+    setShowAllDiscoveries(true);
+  }
+
   function handleGenerateBrief() {
     setDock('lock');
-    push({ id: uid(), role: 'user', type: 'chip', icon: '🌐', text: 'Generate World Brief' });
+    push({ id: uid(), role: 'user', type: 'chip', icon: '🌐', text: t('generateWorldBrief', lang) });
     setTimeout(showTyping, 400);
     setTimeout(() => {
       push({ id: uid(), role: 'pip', type: 'brief', items: mission!.worldBriefItems, summary: mission!.worldBriefSummary });
       setTimeout(showTyping, 300);
       setTimeout(() => {
-        push({
-          id: uid(), role: 'pip', type: 'text',
-          html: `Take your time with that. <strong style="color:${T.tp}">Ask me anything</strong> about this era — or click <em style="color:${T.ac}">Got it</em> when you feel ready to weigh in.`,
-        });
+        push({ id: uid(), role: 'pip', type: 'text', html: t('takeYourTime', lang) });
         setDock('understand');
       }, 1300);
     }, 1700);
+  }
+
+  function handleShowHowTo() {
+    push({ id: uid(), role: 'user', type: 'chip', icon: '🔭', text: t('howToExplore', lang) });
+    setTimeout(showTyping, 300);
+    setTimeout(() => {
+      push({ id: uid(), role: 'pip', type: 'howto', planets: mission!.planets });
+      setDock('understand');
+    }, 1400);
+  }
+
+  function handleHowToSend(text: string) {
+    setDock('understand');
+    handleQA(text);
   }
 
   function handleQA(text: string) {
@@ -658,22 +884,22 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
 
   function handleGotIt() {
     setDock('lock');
-    push({ id: uid(), role: 'user', type: 'chip', icon: '✓', text: 'Got it' });
+    push({ id: uid(), role: 'user', type: 'chip', icon: '✓', text: t('gotIt', lang) });
     setTimeout(showTyping, 400);
     setTimeout(() => {
       push({
-        id: uid(), role: 'pip', type: 'mission',
+        id:        uid(),
+        role:      'pip',
+        type:      'mission',
         chapter:   mission!.chapter,
         title:     mission!.projectTitle,
         objective: mission!.projectObjective,
+        terms:     mission!.allTerms.length > 0 ? mission!.allTerms : undefined,
       });
     }, 1400);
     setTimeout(showTyping, 2700);
     setTimeout(() => {
-      push({
-        id: uid(), role: 'pip', type: 'text',
-        html: `That&apos;s your mission. Take a moment to look it over — <strong style="color:${T.tp}">ask me anything</strong> about what&apos;s expected, or accept when you&apos;re ready.`,
-      });
+      push({ id: uid(), role: 'pip', type: 'text', html: t('thatsYourMission', lang) });
       setDock('mission-qa');
     }, 4000);
   }
@@ -690,26 +916,20 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
 
   function handleAcceptMission() {
     setDock('lock');
-    push({ id: uid(), role: 'user', type: 'chip', icon: '✓', text: 'Got it — Accept Mission' });
+    push({ id: uid(), role: 'user', type: 'chip', icon: '✓', text: t('acceptMissionChip', lang) });
     setTimeout(showTyping, 400);
     setTimeout(() => {
-      push({
-        id: uid(), role: 'pip', type: 'text',
-        html: `You&apos;re set. Explore the planets, save insights with ✦, and return when you&apos;re ready to build your argument.`,
-      });
+      push({ id: uid(), role: 'pip', type: 'text', html: t('readyBuild', lang) });
       setDock('launch');
     }, 1600);
   }
 
   function handleLaunch() {
     setDock('lock');
-    push({ id: uid(), role: 'user', type: 'chip', icon: '🚀', text: 'Launch Mission' });
+    push({ id: uid(), role: 'user', type: 'chip', icon: '🚀', text: t('launchMissionChip', lang) });
     setTimeout(showTyping, 400);
     setTimeout(() => {
-      push({
-        id: uid(), role: 'pip', type: 'text',
-        html: `Your mission begins, Traveler. Explore each planet, <strong style="color:${T.tp}">save every insight</strong> you find with ✦, and return when you're ready to build your case.`,
-      });
+      push({ id: uid(), role: 'pip', type: 'text', html: t('missionBegins', lang) });
       setDock('done');
       if (onLaunch) setTimeout(onLaunch, 2000);
     }, 1700);
@@ -717,12 +937,13 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
 
   function renderDock() {
     switch (dock) {
-      case 'cta-brief':  return <CtaBriefDock onGenerate={handleGenerateBrief} />;
+      case 'cta-brief':  return null; /* hidden for now — keep for future use */
+      case 'cta-howto':  return <CtaHowtoDock onShowHowTo={handleShowHowTo} onSend={handleHowToSend} onViewDiscoveries={handleViewDiscoveries} lang={lang} />;
       case 'lock':       return <LockDock />;
-      case 'understand':  return <UnderstandDock onGotIt={handleGotIt} onSend={handleQA} />;
-      case 'mission-qa': return <MissionQaDock onAccept={handleAcceptMission} onSend={handleMissionQA} />;
-      case 'launch':     return <LaunchDock onLaunch={handleLaunch} />;
-      case 'done':       return <DoneDock />;
+      case 'understand':  return <UnderstandDock onGotIt={handleGotIt} onSend={handleQA} lang={lang} />;
+      case 'mission-qa': return <MissionQaDock onAccept={handleAcceptMission} onSend={handleMissionQA} lang={lang} />;
+      case 'launch':     return <LaunchDock onLaunch={handleLaunch} lang={lang} />;
+      case 'done':       return <DoneDock lang={lang} />;
     }
   }
 
@@ -730,14 +951,24 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
   if (!mission) {
     return (
       <div className="flex flex-col flex-1 min-h-0 overflow-hidden items-center justify-center">
-        <div style={{ color: '#00d4d4', fontSize: 12, letterSpacing: '0.2em', opacity: 0.6 }}>LOADING…</div>
+        <div style={{ color: '#00d4d4', fontSize: 12, letterSpacing: '0.2em', opacity: 0.6 }}>{t('loading', lang)}</div>
       </div>
     );
   }
 
   return (
-    // flex column fills the sidebar, content area scrolls
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+    // flex column fills the sidebar, content area scrolls; relative for AllDiscoveriesView overlay
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden relative" dir={lang === 'he' ? 'rtl' : 'ltr'}>
+
+      {/* All Discoveries overlay */}
+      <AnimatePresence>
+        {showAllDiscoveries && (
+          <AllDiscoveriesView
+            summaries={allSummaries}
+            onClose={() => setShowAllDiscoveries(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Scrollable message area */}
       <div className="flex-1 overflow-y-auto min-h-0 panel-chat-scroll py-4 flex flex-col gap-3">
@@ -750,7 +981,7 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.25, ease: 'easeOut' }}
             >
-              <MessageBubble msg={msg} firstPlanet={firstPlanet} />
+              <MessageBubble msg={msg} firstPlanet={firstPlanet} lang={lang} />
             </motion.div>
           ))}
         </AnimatePresence>

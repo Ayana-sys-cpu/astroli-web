@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
-import { requireAuth, resolveStudentId } from '@/lib/auth';
+import { resolveStudentIdFromRequest } from '@/lib/auth';
 
 // GET /api/home
 //
@@ -14,13 +14,10 @@ import { requireAuth, resolveStudentId } from '@/lib/auth';
 // class_mission_state for this specific class's progress.
 //
 // The ?studentId= query param is intentionally ignored — identity comes from
-// the verified session cookie only.
+// the verified web session cookie, or a DB-validated x-student-id header (mobile).
 export async function GET(req: NextRequest) {
-  const auth = await requireAuth();
-  if (!auth.ok) return auth.response;
-
-  const studentId = await resolveStudentId(auth.user);
-  if (!studentId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const studentId = await resolveStudentIdFromRequest(req);
+  if (!studentId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     // Fetch the classes the student is enrolled in.
@@ -39,7 +36,7 @@ export async function GET(req: NextRequest) {
 
     const { data: classes, error: cErr } = await supabaseAdmin
       .from('classes')
-      .select('id, title, journey_id')
+      .select('id, title, journey_id, language')
       .in('id', classIds);
 
     if (cErr) throw cErr;
@@ -52,7 +49,7 @@ export async function GET(req: NextRequest) {
     const [{ data: missionRows, error: mErr }, { data: stateRows }, { data: openSessions }] = await Promise.all([
       supabaseAdmin
         .from('missions')
-        .select('id, journey_id, question, "order"')
+        .select('id, journey_id, question, "order", translations')
         .in('journey_id', journeyIds),
       supabaseAdmin
         .from('class_mission_state')
@@ -77,19 +74,27 @@ export async function GET(req: NextRequest) {
     const stateByClassAndMission = new Map((stateRows ?? []).map((r) => [`${r.class_id}:${r.mission_id}`, r.state]));
     const voteEndsAtByClass = new Map((openSessions ?? []).map((s) => [s.class_id, s.ends_at]));
 
-    const journeys = classes.map((c) => ({
+    const journeys = classes.map((c) => {
+      const lang = (c as any).language ?? 'en';
+      return {
       id: c.id,
       title: c.title,
       voteEndsAt: voteEndsAtByClass.get(c.id) ?? null,
       missions: (missionsByJourney.get(c.journey_id) ?? [])
         .sort((a, b) => a.order - b.order)
-        .map((m) => ({
-          id: m.id,
-          question: m.question,
-          state: stateByClassAndMission.get(`${c.id}:${m.id}`) ?? 'locked',
-          order: m.order,
-        })),
-    }));
+        .map((m) => {
+          const tx: Record<string, any> = lang === 'he'
+            ? (((m as any).translations as Record<string, any>)?.he ?? {})
+            : {};
+          return {
+            id: m.id,
+            question: tx.question ?? m.question,
+            state: stateByClassAndMission.get(`${c.id}:${m.id}`) ?? 'locked',
+            order: m.order,
+          };
+        }),
+      };
+    });
 
     return NextResponse.json({ journeys });
   } catch (err) {

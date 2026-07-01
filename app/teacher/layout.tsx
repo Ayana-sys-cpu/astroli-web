@@ -13,10 +13,6 @@ export default async function TeacherLayout({ children }: { children: React.Reac
 
   const teacherId = user.user_metadata?.teacher_id as string | undefined;
 
-  // Journey fetch is independent of further auth work — start it immediately
-  // after we have the teacherId rather than waiting for any downstream logic.
-  // Sidebar shows classes (teacher instances), not curriculum templates —
-  // see docs/architecture/2026-06-16-journeys-classes-redesign.md.
   const journeys = teacherId
     ? await prisma.class.findMany({
         where: { teacherId },

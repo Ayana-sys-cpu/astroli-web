@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { requireAuth, resolveStudentId } from '@/lib/auth';
 import { z, parseBody } from '@/lib/validate';
+import { awardCoins } from '@/lib/coin-service';
 
 const VoteSchema = z.object({
   voteSessionId: z.string().trim().uuid('voteSessionId must be a UUID'),
@@ -59,7 +60,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true });
+  const coinReward = await awardCoins(supabaseAdmin, studentId, 'first_vote', voteSessionId);
+
+  return NextResponse.json({
+    ok: true,
+    ...(coinReward.awarded ? { coinReward: { ...coinReward, eventType: 'first_vote' } } : {}),
+  });
 }
 
 // GET /api/votes?voteSessionId=

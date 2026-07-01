@@ -19,6 +19,7 @@ interface Mission {
   projectTitle: string;
   projectDescription: string | null;
   openingMessage: string | null;
+  language: 'en' | 'he';
   status: string;
   order: number;
   planets: Planet[];
@@ -31,6 +32,7 @@ export default function MissionReview() {
   const [loading, setLoading] = useState(true);
   const [briefOpen, setBriefOpen] = useState(false);
   const [selectedPlanet, setSelectedPlanet] = useState<Planet | null>(null);
+  const [savingLanguage, setSavingLanguage] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -98,25 +100,23 @@ export default function MissionReview() {
       <div className="grid grid-cols-[1fr_360px] gap-6">
         {/* ── Left column ── */}
         <div className="flex flex-col gap-5">
-          {/* Project card */}
+          {/* Bonus task card */}
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
-            className="glass-panel"
+            className="glass-panel flex items-center gap-4"
             style={{ padding: 24, borderColor: 'rgba(139,0,255,0.2)' }}
           >
-            <p className="font-space text-[10px] tracking-[0.2em] mb-2" style={{ color: '#8B00FF' }}>
-              STUDENT PROJECT
-            </p>
-            <h2 className="font-space font-bold text-base mb-2" style={{ color: '#1a1a2e' }}>
-              {mission.projectTitle}
-            </h2>
-            {mission.projectDescription && (
-              <p className="font-inter text-sm leading-relaxed" style={{ color: 'rgba(26,26,46,0.5)' }}>
-                {mission.projectDescription}
+            <span style={{ fontSize: 28, flexShrink: 0 }}>🎨</span>
+            <div>
+              <p className="font-space text-[10px] tracking-[0.2em] mb-1" style={{ color: '#8B00FF' }}>
+                BONUS TASK
               </p>
-            )}
+              <p className="font-inter text-sm leading-relaxed" style={{ color: 'rgba(26,26,46,0.5)' }}>
+                Create an AI image that demonstrates your full understanding of this mission.
+              </p>
+            </div>
           </motion.div>
 
           {/* Project Brief (collapsible) */}
@@ -231,6 +231,47 @@ export default function MissionReview() {
             >
               CLOSE MISSION
             </button>
+          </motion.div>
+
+          {/* Mission language selector */}
+          <motion.div
+            initial={{ opacity: 0, x: 12 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.15 }}
+            className="glass-card p-4"
+          >
+            <p className="font-space text-[10px] tracking-[0.2em] mb-3" style={{ color: 'rgba(26,26,46,0.4)' }}>
+              MISSION LANGUAGE
+            </p>
+            <p className="font-inter text-xs mb-3" style={{ color: 'rgba(26,26,46,0.45)' }}>
+              Students will see mission content in this language.
+            </p>
+            <div className="flex gap-2">
+              {(['en', 'he'] as const).map(lang => (
+                <button
+                  key={lang}
+                  disabled={savingLanguage}
+                  onClick={async () => {
+                    setSavingLanguage(true);
+                    await fetch('/api/teacher/missions', {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ missionId: mission.id, language: lang }),
+                    });
+                    setMission(prev => prev ? { ...prev, language: lang } : prev);
+                    setSavingLanguage(false);
+                  }}
+                  className="flex-1 py-2 rounded-lg font-space text-[11px] font-bold tracking-[0.1em] transition-all"
+                  style={
+                    mission.language === lang
+                      ? { background: '#8B00FF', color: '#fff', border: '1px solid #8B00FF' }
+                      : { background: 'rgba(26,26,46,0.04)', color: 'rgba(26,26,46,0.45)', border: '1px solid rgba(26,26,46,0.1)' }
+                  }
+                >
+                  {lang === 'en' ? 'English' : 'עברית'}
+                </button>
+              ))}
+            </div>
           </motion.div>
 
           {/* Planet detail preview */}

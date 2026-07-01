@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { requireAuth, resolveStudentId } from '@/lib/auth';
+import { resolveStudentIdFromRequest } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase-server';
 
 const BASE_URL     = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3001';
@@ -26,13 +26,11 @@ function getAvailableAvatars(): string[] {
 // POST /api/avatar/base
 // Assigns a random base avatar to the authenticated student if one is not
 // already set. The student_id comes from the verified session cookie —
-// any student_id in the request body is intentionally ignored.
+// any student_id in the request body is intentionally ignored. Identity comes
+// from the web session cookie or a DB-validated x-student-id header (mobile).
 export async function POST(req: NextRequest) {
-  const auth = await requireAuth();
-  if (!auth.ok) return auth.response;
-
-  const studentId = await resolveStudentId(auth.user);
-  if (!studentId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const studentId = await resolveStudentIdFromRequest(req);
+  if (!studentId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   // Step 1 — Return early if base avatar already assigned.
   const { data: existing } = await supabaseAdmin

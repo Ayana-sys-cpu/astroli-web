@@ -61,10 +61,11 @@ function pickAvatarUrl(): string {
 }
 
 const RegisterSchema = z.object({
-  email:       z.string().trim().email('Valid email required'),
-  full_name:   z.string().trim().min(1, 'full_name is required'),
-  first_name:  z.string().trim().min(1, 'first_name is required'),
-  accessToken: z.string().trim().min(1, 'accessToken is required'),
+  email:          z.string().trim().email('Valid email required'),
+  full_name:      z.string().trim().min(1, 'full_name is required'),
+  first_name:     z.string().trim().min(1, 'first_name is required'),
+  accessToken:    z.string().trim().min(1).optional(),
+  apple_user_id:  z.string().trim().min(1).optional(),
 });
 
 const PatchStudentSchema = z.object({
@@ -85,8 +86,11 @@ export async function POST(req: NextRequest) {
 
   const parsed = await parseBody(req, RegisterSchema);
   if (!parsed.ok) return parsed.response;
-  const { email: rawEmail, full_name, first_name, accessToken } = parsed.data;
+  const { email: rawEmail, full_name, first_name, accessToken, apple_user_id } = parsed.data;
   const email = rawEmail.toLowerCase();
+
+  const userFields: Record<string, unknown> = { email, full_name, first_name, role: 'student' };
+  if (apple_user_id) userFields.apple_user_id = apple_user_id;
 
   const res = await fetch(`${SUPABASE_URL}users?on_conflict=email`, {
     method: 'POST',
@@ -94,7 +98,7 @@ export async function POST(req: NextRequest) {
       ...supabaseHeaders(),
       Prefer: 'resolution=merge-duplicates,return=representation',
     },
-    body: JSON.stringify({ email, full_name, first_name, role: 'student' }),
+    body: JSON.stringify(userFields),
   });
 
   if (!res.ok) {
@@ -171,7 +175,35 @@ export async function PATCH(req: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
-// GET /api/student?email=... — look up a student by email.
+// DELETE /api/student — permanently delete the authenticated student's account and data.
+export async function DELETE(req: NextRequest) {
+  if (missingConfig()) {
+    return NextResponse.json({ error: 'Server configuration error' }, { status: 503 });
+  }
+
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
+
+  const studentId = await resolveStudentId(auth.user);
+  if (!studentId) {
+    return NextResponse.json({ error: 'Forbidden: student session required' }, { status: 403 });
+  }
+
+  const { error } = await supabaseAdmin
+    .from('users')
+    .delete()
+    .eq('id', studentId);
+
+  if (error) {
+    console.error('[DELETE /api/student] Supabase error', error);
+    return NextResponse.json({ error: 'Failed to delete account' }, { status: 503 });
+  }
+
+  console.log('[DELETE /api/student] deleted student:', studentId);
+  return NextResponse.json({ ok: true });
+}
+
+// GET /api/student?email=... — look up a student by email (or apple_user_id).
 // Returns the student record, or null (200) when the email is not found.
 // Returns 503 when env vars are missing, 502 when Supabase itself errors —
 // so the client can distinguish "not found" from "lookup failed".
@@ -182,13 +214,19 @@ export async function GET(req: NextRequest) {
   }
 
   const rawEmail = req.nextUrl.searchParams.get('email');
-  if (!rawEmail) return NextResponse.json({ error: 'email is required' }, { status: 400 });
-  const email = rawEmail.toLowerCase();
+  const appleUserId = req.nextUrl.searchParams.get('apple_user_id');
+  if (!rawEmail && !appleUserId) {
+    return NextResponse.json({ error: 'email or apple_user_id is required' }, { status: 400 });
+  }
+
+  const filter = rawEmail
+    ? `email=eq.${encodeURIComponent(rawEmail.toLowerCase())}`
+    : `apple_user_id=eq.${encodeURIComponent(appleUserId!)}`;
 
   let res: Response;
   try {
     res = await fetch(
-      `${SUPABASE_URL}users?email=eq.${encodeURIComponent(email)}&select=*`,
+      `${SUPABASE_URL}users?${filter}&select=*`,
       { headers: supabaseHeaders() },
     );
   } catch (err) {
@@ -204,7 +242,6 @@ export async function GET(req: NextRequest) {
 
   const rows = await res.json();
   const row = rows?.[0] ?? null;
-  // Alias user_id as student_id for backwards compat with client code.
   if (row) row.student_id = row.user_id;
   return NextResponse.json(row);
 }

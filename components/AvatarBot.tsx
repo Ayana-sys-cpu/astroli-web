@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { getBotName, loadStudent } from '@/lib/student-store';
+import { getBotName, loadStudent, getFirstName } from '@/lib/student-store';
 import { getSessionStudentId } from '@/lib/session';
+import { t, type Lang } from '@/lib/i18n';
 
 const BOT_URL     = 'https://astorli-bot.vercel.app/api/bot';
 const OPENING_URL = 'https://astorli-bot.vercel.app/api/opening-message';
@@ -58,6 +59,7 @@ export default function AvatarBot() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [botName, setBotName] = useState('Scout');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [missionLanguage, setMissionLanguage] = useState<'en' | 'he'>('en');
   const openingFetched = useRef(false);
 
   useEffect(() => {
@@ -68,6 +70,20 @@ export default function AvatarBot() {
   const screen  = screenFromPath(pathname);
   const content = contentFromPath(pathname);
 
+  // Fetch mission language whenever we land on a new planet/mission page.
+  useEffect(() => {
+    if (!content) { setMissionLanguage('en'); return; }
+    const { contentType, contentId } = content;
+    const apiParam = contentType === 'planet' ? `planetId=${contentId}` : `missionId=${contentId}`;
+    fetch(`/api/student/mission?${apiParam}`)
+      .then(r => r.json())
+      .then(data => {
+        const lang = data.planet?.missionLanguage ?? data.mission?.language ?? 'en';
+        setMissionLanguage(lang === 'he' ? 'he' : 'en');
+      })
+      .catch(() => {});
+  }, [content?.contentType, content?.contentId]);
+
   // When the panel opens for the first time on a mission/planet screen,
   // fetch Pip's opening message from the shared bot API.
   useEffect(() => {
@@ -75,15 +91,20 @@ export default function AvatarBot() {
     openingFetched.current = true;
 
     const { contentType, contentId } = content;
-    getSessionStudentId().then(id => {
+    getSessionStudentId().then((id) => {
       const studentId = id ?? FALLBACK_ID;
-      fetch(`${OPENING_URL}?type=${contentType}&contentId=${contentId}&studentId=${studentId}`)
+      const name = getFirstName();
+      fetch(`${OPENING_URL}?type=${contentType}&contentId=${contentId}&studentId=${studentId}&lang=${missionLanguage}`)
         .then(r => r.json())
         .then(data => {
           if (data.message) {
+            const message = data.message
+              .replace(/\{\{first_name\}\}/g, name)
+              .replace(/\[שם תלמיד\]/g, name)
+              .replace(/\[student name\]/gi, name);
             setMessages([{
               role:         'assistant',
-              content:      data.message,
+              content:      message,
               quickReplies: data.quickReplies ?? [],
             }]);
           }
@@ -111,6 +132,7 @@ export default function AvatarBot() {
           screen,
           currentPlanet:  content?.contentType === 'planet'  ? content.contentId : undefined,
           currentMission: content?.contentType === 'mission' ? content.contentId : undefined,
+          language:       missionLanguage,
         }),
       });
       const data = await res.json();
@@ -123,7 +145,7 @@ export default function AvatarBot() {
         },
       ]);
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Signal lost — try again.' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: t('signalLost', missionLanguage as Lang) }]);
     } finally {
       setLoading(false);
     }
@@ -154,7 +176,7 @@ export default function AvatarBot() {
                 fontSize: 11, color: '#666',
                 letterSpacing: '0.08em', textTransform: 'uppercase',
               }}>
-                Your Alien Scout
+                {t('alienScout', missionLanguage as Lang)}
               </div>
             </div>
             <button
@@ -174,7 +196,7 @@ export default function AvatarBot() {
           <div className="flex flex-col gap-3 overflow-y-auto max-h-72 min-h-28" style={{ padding: '12px 0' }}>
             {messages.length === 0 && (
               <p className="text-center text-xs mt-6" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                Tap to sync with your alien companion...
+                {t('tapToSync', missionLanguage as Lang)}
               </p>
             )}
             {messages.map((m, i) => (

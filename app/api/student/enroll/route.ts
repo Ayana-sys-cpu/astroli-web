@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { enrollStudentInJourneys } from '@/lib/enroll-student';
-import { requireAuth, resolveStudentId } from '@/lib/auth';
+import { resolveStudentIdFromRequest } from '@/lib/auth';
 
 // POST /api/student/enroll
 // Called after a student signs in (both new and returning).
@@ -8,13 +8,10 @@ import { requireAuth, resolveStudentId } from '@/lib/auth';
 // into student_journeys so the student sees their teacher's journeys.
 //
 // Body: { accessToken: string }
-// studentId is taken from the session — never from the body.
+// studentId is taken from the session/validated header — never from the body.
 export async function POST(req: NextRequest) {
-  const auth = await requireAuth();
-  if (!auth.ok) return auth.response;
-
-  const studentId = await resolveStudentId(auth.user);
-  if (!studentId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const studentId = await resolveStudentIdFromRequest(req);
+  if (!studentId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   let body: { accessToken?: string };
   try {

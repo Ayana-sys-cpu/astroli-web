@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Space_Grotesk, Inter, Caveat } from 'next/font/google';
+import CoinRewardProvider from '@/components/CoinRewardProvider';
 import './globals.css';
 
 const spaceGrotesk = Space_Grotesk({
@@ -30,7 +31,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
       </head>
       <body className="bg-black text-white font-inter antialiased">
-        {children}
+        <CoinRewardProvider>
+          {children}
+        </CoinRewardProvider>
       </body>
     </html>
   );

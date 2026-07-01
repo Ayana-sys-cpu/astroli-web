@@ -298,14 +298,15 @@ function VoteSetupInner() {
                     </p>
                   </div>
                 )}
-                {mission.projectDescription && (
-                  <div className="mx-5 mb-4 rounded-lg px-4 py-3" style={{ background: 'rgba(139,0,255,0.05)', border: '1px solid rgba(139,0,255,0.12)' }}>
-                    <p className="font-space text-[9px] tracking-[0.2em] mb-1" style={{ color: '#8B00FF' }}>STUDENT PROJECT</p>
+                <div className="mx-5 mb-4 rounded-lg px-4 py-3 flex items-center gap-3" style={{ background: 'rgba(139,0,255,0.05)', border: '1px solid rgba(139,0,255,0.12)' }}>
+                  <span style={{ fontSize: 16 }}>🎨</span>
+                  <div>
+                    <p className="font-space text-[9px] tracking-[0.2em] mb-0.5" style={{ color: '#8B00FF' }}>BONUS TASK</p>
                     <p className="font-inter text-xs leading-relaxed" style={{ color: 'rgba(26,26,46,0.5)' }}>
-                      {mission.projectDescription}
+                      Create an AI image that demonstrates your full understanding of this mission.
                     </p>
                   </div>
-                )}
+                </div>
 
                 {/* Expandable: student activities + student view */}
                 <AnimatePresence initial={false}>

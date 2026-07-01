@@ -26,7 +26,7 @@ export async function GET() {
 
   const { data: classes } = await supabaseAdmin
     .from('classes')
-    .select('id, title, journey_id, teacher_id')
+    .select('id, title, journey_id, teacher_id, language')
     .in('id', classIds);
 
   if (!classes || classes.length === 0) {
@@ -43,7 +43,7 @@ export async function GET() {
     { data: voteSessionRows },
   ] = await Promise.all([
     supabaseAdmin.from('users').select('id, name').in('id', teacherIds.length > 0 ? teacherIds : ['__none__']),
-    supabaseAdmin.from('missions').select('id, journey_id, question, project_title, "order"').in('journey_id', journeyIds).order('"order"'),
+    supabaseAdmin.from('missions').select('id, journey_id, question, project_title, language, translations, "order"').in('journey_id', journeyIds).order('"order"'),
     supabaseAdmin.from('class_mission_state').select('class_id, mission_id, state').in('class_id', classIds),
     supabaseAdmin.from('vote_sessions').select('id, class_id, ends_at').eq('status', 'open').in('class_id', classIds),
   ]);
@@ -83,14 +83,15 @@ export async function GET() {
   }
 
   const allPlanetIds = (planetRows ?? []).map((p: any) => p.id);
-  const { data: summaryRows } = await supabaseAdmin
-    .from('planet_summaries')
-    .select('planet_id, status')
+  const { data: sessionStateRows } = await supabaseAdmin
+    .from('planet_session_state')
+    .select('planet_id')
     .eq('student_id', studentId)
+    .eq('completed', true)
     .in('planet_id', allPlanetIds.length > 0 ? allPlanetIds : ['__none__']);
 
   const exploredPlanetIds = new Set(
-    (summaryRows ?? []).filter((s: any) => s.status !== 'not_started').map((s: any) => s.planet_id),
+    (sessionStateRows ?? []).map((s: any) => s.planet_id),
   );
 
   const journeys: HomeJourney[] = (classes as any[]).map((c) => {
@@ -101,12 +102,16 @@ export async function GET() {
 
     const activeMissionId = activeMissionIdByClass.get(c.id) ?? null;
     let activeMission = null;
+    const classLanguage: 'en' | 'he' = (c as any).language === 'he' ? 'he' : 'en';
     if (activeMissionId) {
       const mission = missions.find((m: any) => m.id === activeMissionId);
+      const tx = classLanguage === 'he' ? ((mission?.translations as Record<string, Record<string, string>> | null)?.he ?? {}) : {};
+      const rawTitle = mission?.question ?? mission?.project_title ?? 'Mission';
+      const title = tx.question ?? tx.project_title ?? rawTitle;
       const planetIds = planetsByMission.get(activeMissionId) ?? [];
       activeMission = {
         id:              activeMissionId,
-        title:           mission?.project_title ?? mission?.question ?? 'Mission',
+        title,
         planetsTotal:    planetIds.length,
         planetsExplored: planetIds.filter((id) => exploredPlanetIds.has(id)).length,
       };
@@ -119,6 +124,7 @@ export async function GET() {
       classId:     c.id,
       className:   c.title,
       teacherName: teacherNameById.get(c.teacher_id) ?? null,
+      language:    classLanguage,
       missionStates,
       openVoteSession: openVoteSessionRow
         ? { id: (openVoteSessionRow as any).id, endsAt: (openVoteSessionRow as any).ends_at }

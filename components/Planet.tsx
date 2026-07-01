@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { t, type Lang } from '@/lib/i18n';
 
 /* Per-planet color theme */
 const THEMES: Record<string, { core: string; glow: string; rgb: string; orbitRgb: string }> = {
@@ -22,12 +23,15 @@ interface PlanetProps {
   x: number;
   y: number;
   explored?: boolean;
+  goalsDiscovered?: number;
+  totalGoals?: number;
   onClick?: () => void;
+  lang?: Lang;
 }
 
 const PLANET_SIZE = 58;
 
-export default function Planet({ id, name, shortTitle, number, planetQuestion, x, y, explored = false, onClick }: PlanetProps) {
+export default function Planet({ id, name, shortTitle, number, planetQuestion, x, y, explored = false, goalsDiscovered = 0, totalGoals = 0, onClick, lang = 'en' }: PlanetProps) {
   const [hovered, setHovered] = useState(false);
   const theme = THEMES[id] ?? FALLBACK;
 
@@ -56,11 +60,11 @@ export default function Planet({ id, name, shortTitle, number, planetQuestion, x
               className="text-[11px] tracking-[0.22em] font-space uppercase mb-2"
               style={{ color: `rgba(${theme.rgb},0.75)` }}
             >
-              PLANET {number}
+              {t('planetLabel', lang)} {number}
             </p>
             {planetQuestion ? (
               <p className="text-[15px] font-inter leading-snug text-white/90">
-                &ldquo;{planetQuestion}&rdquo;
+                {planetQuestion}
               </p>
             ) : (
               <p className="text-[13px] font-inter text-white/40 italic">
@@ -68,13 +72,40 @@ export default function Planet({ id, name, shortTitle, number, planetQuestion, x
               </p>
             )}
             <div className="mt-3 flex items-center gap-2">
-              <div
-                className="w-1.5 h-1.5 rounded-full"
-                style={{ background: theme.glow, boxShadow: `0 0 6px ${theme.glow}` }}
-              />
-              <span className="text-[11px] tracking-wider font-space text-white/40 uppercase">
-                {explored ? 'EXPLORED' : 'UNEXPLORED'}
-              </span>
+              {explored ? (
+                <>
+                  {/* Teal dots — all filled */}
+                  <div className="flex items-center gap-[3px]">
+                    {Array.from({ length: Math.max(totalGoals, 1) }).map((_, i) => (
+                      <span key={i} style={{ width: 5, height: 5, borderRadius: '50%', display: 'inline-block', background: '#00C4CC' }} />
+                    ))}
+                  </div>
+                  <span className="text-[11px] tracking-wider font-space uppercase" style={{ color: '#00C4CC' }}>
+                    {t('exploredStatus', lang)} · {totalGoals}/{totalGoals}
+                  </span>
+                </>
+              ) : goalsDiscovered > 0 && totalGoals > 0 ? (
+                <>
+                  {/* Amber dots — filled to ratio */}
+                  <div className="flex items-center gap-[3px]">
+                    {Array.from({ length: totalGoals }).map((_, i) => (
+                      <span key={i} style={{ width: 5, height: 5, borderRadius: '50%', display: 'inline-block',
+                        background: i < goalsDiscovered ? '#F59E0B' : 'rgba(255,255,255,0.15)',
+                        border: i < goalsDiscovered ? 'none' : '0.5px solid rgba(255,255,255,0.25)' }} />
+                    ))}
+                  </div>
+                  <span className="text-[11px] tracking-wider font-space uppercase" style={{ color: '#F59E0B' }}>
+                    {t('exploringHoverLabel', lang)} · {goalsDiscovered}/{totalGoals}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.25)' }} />
+                  <span className="text-[11px] tracking-wider font-space text-white/40 uppercase">
+                    {t('unexploredStatus', lang)}
+                  </span>
+                </>
+              )}
             </div>
           </motion.div>
         )}
@@ -89,33 +120,20 @@ export default function Planet({ id, name, shortTitle, number, planetQuestion, x
         style={{ width: PLANET_SIZE + 20, height: PLANET_SIZE + 20 }}
         aria-label={shortTitle}
       >
-        {/* Orbital ring */}
+        {/* Orbital ring — dashed at rest, solid on hover */}
         <motion.div
           className="absolute rounded-full border pointer-events-none"
           style={{
             width: PLANET_SIZE + 20,
             height: PLANET_SIZE + 20,
-            borderColor: `rgba(${theme.orbitRgb},${hovered || explored ? 0.35 : 0.14})`,
-            borderStyle: 'dashed',
+            borderColor: `rgba(${theme.orbitRgb},${hovered || explored ? 0.75 : 0.5})`,
+            borderStyle: hovered ? 'solid' : 'dashed',
+            borderWidth: hovered ? '1.5px' : '1px',
+            transition: 'border-color 0.25s, border-style 0.25s, border-width 0.25s',
           }}
           animate={{ rotate: 360 }}
           transition={{ duration: 18, repeat: Infinity, ease: 'linear' }}
         />
-
-        {/* Second orbital ring (counter-rotation) */}
-        {(explored || hovered) && (
-          <motion.div
-            className="absolute rounded-full border pointer-events-none"
-            style={{
-              width: PLANET_SIZE + 8,
-              height: PLANET_SIZE + 8,
-              borderColor: `rgba(${theme.orbitRgb},0.2)`,
-            }}
-            initial={{ rotate: 0, opacity: 0 }}
-            animate={{ rotate: -360, opacity: 1 }}
-            transition={{ duration: 12, repeat: Infinity, ease: 'linear' }}
-          />
-        )}
 
         {/* Planet body */}
         <motion.div
@@ -126,12 +144,12 @@ export default function Planet({ id, name, shortTitle, number, planetQuestion, x
             background: explored
               ? `radial-gradient(circle at 38% 32%, ${theme.core}, #000310)`
               : `radial-gradient(circle at 38% 32%, ${theme.core}aa, #00020a)`,
-            border: `2px solid rgba(${theme.rgb},${hovered || explored ? 0.75 : 0.3})`,
+            border: `2px solid rgba(${theme.rgb},${hovered || explored ? 0.88 : 0.6})`,
             boxShadow: explored
               ? `0 0 22px rgba(${theme.rgb},0.55), inset 0 0 14px rgba(${theme.rgb},0.1)`
               : hovered
-              ? `0 0 16px rgba(${theme.rgb},0.4)`
-              : `0 0 8px rgba(${theme.rgb},0.12)`,
+              ? `0 0 22px rgba(${theme.rgb},0.55)`
+              : `0 0 14px rgba(${theme.rgb},0.35)`,
             transition: 'box-shadow 0.25s, border-color 0.25s',
           }}
           whileHover={{ scale: 1.08 }}
@@ -149,7 +167,7 @@ export default function Planet({ id, name, shortTitle, number, planetQuestion, x
                 <circle
                   key={i}
                   cx={cx} cy={cy} r={1.2}
-                  fill={`rgba(${theme.rgb},${hovered ? 0.5 : 0.2})`}
+                  fill={`rgba(${theme.rgb},${hovered ? 0.65 : 0.45})`}
                 />
               ))}
             </svg>
@@ -158,11 +176,11 @@ export default function Planet({ id, name, shortTitle, number, planetQuestion, x
 
         {/* Planet name label */}
         <span
-          className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[8px] tracking-[0.16em] whitespace-nowrap font-space uppercase transition-colors duration-200"
+          className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[11px] tracking-[0.16em] whitespace-nowrap font-space uppercase transition-colors duration-200"
           style={{
             color: hovered || explored
-              ? `rgba(${theme.rgb},0.8)`
-              : 'rgba(255,255,255,0.28)',
+              ? `rgba(${theme.rgb},0.9)`
+              : 'rgba(255,255,255,0.6)',
           }}
         >
           {shortTitle}

@@ -12,6 +12,31 @@ const PUBLIC_API_ROUTES = new Set([
   '/api/test/routing-check', // shadow session runner — auth via Bearer service role key
 ]);
 
+/**
+ * Mobile clients can't hold a Supabase cookie session, so they authenticate by
+ * sending their student id in the `x-student-id` header (set after sign-in via
+ * the public /api/auth/* endpoints). We verify the id is a real student in the
+ * DB before letting the request through — a forged or unknown id is rejected.
+ * Uses a direct Supabase REST call so this stays Edge-safe (no next/headers).
+ */
+async function isValidStudentHeader(studentId: string | null): Promise<boolean> {
+  if (!studentId || !/^[0-9a-f-]{36}$/i.test(studentId)) return false;
+  const base = process.env.SUPABASE_REST_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!base || !key) return false;
+  try {
+    const res = await fetch(
+      `${base}users?id=eq.${studentId}&role=eq.student&select=id`,
+      { headers: { apikey: key, Authorization: `Bearer ${key}` } },
+    );
+    if (!res.ok) return false;
+    const rows = await res.json();
+    return Array.isArray(rows) && rows.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -82,6 +107,11 @@ export async function middleware(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
+    // Mobile fallback: allow requests carrying a DB-validated x-student-id
+    // through to the route handlers, which apply their own authorization.
+    if (await isValidStudentHeader(req.headers.get('x-student-id'))) {
+      return NextResponse.next({ request: req });
+    }
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

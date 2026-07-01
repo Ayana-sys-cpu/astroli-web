@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
-import { requireAuth, resolveStudentId } from '@/lib/auth';
+import { resolveStudentIdFromRequest } from '@/lib/auth';
 
 // GET /api/student/mission?missionId=<uuid>  — mission + all planets (for landscape hub)
 // GET /api/student/mission?planetId=<uuid>   — single planet (for planet detail page)
@@ -8,11 +8,8 @@ import { requireAuth, resolveStudentId } from '@/lib/auth';
 // Mission and planet data are curriculum content accessible to any enrolled
 // student — no per-student ownership check is needed beyond a valid session.
 export async function GET(req: NextRequest) {
-  const auth = await requireAuth();
-  if (!auth.ok) return auth.response;
-
-  const studentId = await resolveStudentId(auth.user);
-  if (!studentId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const studentId = await resolveStudentIdFromRequest(req);
+  if (!studentId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const missionId = req.nextUrl.searchParams.get('missionId');
   const planetId  = req.nextUrl.searchParams.get('planetId');
@@ -22,8 +19,8 @@ export async function GET(req: NextRequest) {
       .from('missions')
       .select(`
         id, journey_id, question, question_description, project_title, project_description,
-        opening_message, "order",
-        planets ( id, title, label, short_title, planet_question, content, opening_message, character_figure, character_year, character_location, student_reveal_message, media_url, media_type )
+        opening_message, language, translations, "order",
+        planets ( id, title, label, short_title, planet_question, content, opening_message, character_figure, character_year, character_location, student_reveal_message, media_url, media_type, translations )
       `)
       .eq('id', missionId)
       .order('created_at', { referencedTable: 'planets' })
@@ -55,31 +52,42 @@ export async function GET(req: NextRequest) {
       state = stateRow?.state ?? 'locked';
     }
 
+    const language = (data as any).language ?? 'en';
+    const missionTx = language === 'he'
+      ? ((data as any).translations as Record<string, any>)?.he ?? {}
+      : {};
+
     return NextResponse.json({
       mission: {
         id:                  data.id,
-        question:            data.question,
-        questionDescription: data.question_description,
-        projectTitle:        data.project_title,
-        projectDescription:  data.project_description,
-        openingMessage:      data.opening_message,
+        question:            missionTx.question            ?? data.question,
+        questionDescription: missionTx.question_description ?? data.question_description,
+        projectTitle:        missionTx.project_title       ?? data.project_title,
+        projectDescription:  missionTx.project_description ?? data.project_description,
+        openingMessage:      missionTx.opening_message     ?? data.opening_message,
+        language,
         order:               (data as any).order,
         state,
-        planets: (data.planets ?? []).map((p: any) => ({
-          id:                   p.id,
-          title:                p.title,
-          label:                p.label ?? null,
-          shortTitle:           p.short_title ?? null,
-          planetQuestion:       p.planet_question ?? null,
-          content:              p.content,
-          openingMessage:       p.opening_message ?? null,
-          characterFigure:      p.character_figure ?? null,
-          characterYear:        p.character_year ?? null,
-          characterLocation:    p.character_location ?? null,
-          studentRevealMessage: p.student_reveal_message ?? null,
-          mediaUrl:             p.media_url,
-          mediaType:            p.media_type,
-        })),
+        planets: (data.planets ?? []).map((p: any) => {
+          const ptx = language === 'he'
+            ? ((p.translations as Record<string, any>)?.he ?? {})
+            : {};
+          return {
+            id:                   p.id,
+            title:                ptx.title          ?? p.title,
+            label:                ptx.label          ?? p.label          ?? null,
+            shortTitle:           ptx.short_title    ?? p.short_title    ?? null,
+            planetQuestion:       ptx.planet_question ?? p.planet_question ?? null,
+            content:              ptx.content        ?? p.content,
+            openingMessage:       ptx.opening_message ?? p.opening_message ?? null,
+            characterFigure:      p.character_figure  ?? null,
+            characterYear:        p.character_year    ?? null,
+            characterLocation:    p.character_location ?? null,
+            studentRevealMessage: ptx.student_reveal_message ?? p.student_reveal_message ?? null,
+            mediaUrl:             p.media_url,
+            mediaType:            p.media_type,
+          };
+        }),
       },
     });
   }
@@ -87,7 +95,7 @@ export async function GET(req: NextRequest) {
   if (planetId) {
     const { data, error } = await supabaseAdmin
       .from('planets')
-      .select('id, title, label, short_title, planet_question, content, opening_message, character_figure, character_year, character_location, student_reveal_message, media_url, media_type, mission_id')
+      .select('id, title, label, short_title, planet_question, content, opening_message, character_figure, character_year, character_location, student_reveal_message, media_url, media_type, translations, mission_id, missions!mission_id ( language, translations )')
       .eq('id', planetId)
       .single();
 
@@ -95,22 +103,30 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Planet not found' }, { status: 404 });
     }
 
+    const missionData = (data as any).missions;
+    const missionLanguage: string = missionData?.language ?? 'en';
+
+    const ptx = missionLanguage === 'he'
+      ? ((data as any).translations as Record<string, any>)?.he ?? {}
+      : {};
+
     return NextResponse.json({
       planet: {
         id:                   data.id,
-        title:                data.title,
-        label:                data.label ?? null,
-        shortTitle:           data.short_title ?? null,
-        planetQuestion:       data.planet_question ?? null,
-        content:              data.content,
-        openingMessage:       data.opening_message ?? null,
-        characterFigure:      data.character_figure ?? null,
-        characterYear:        data.character_year ?? null,
+        title:                ptx.title           ?? data.title,
+        label:                ptx.label           ?? data.label           ?? null,
+        shortTitle:           ptx.short_title     ?? data.short_title     ?? null,
+        planetQuestion:       ptx.planet_question ?? data.planet_question ?? null,
+        content:              ptx.content         ?? data.content,
+        openingMessage:       ptx.opening_message ?? data.opening_message ?? null,
+        characterFigure:      data.character_figure  ?? null,
+        characterYear:        data.character_year    ?? null,
         characterLocation:    data.character_location ?? null,
-        studentRevealMessage: data.student_reveal_message ?? null,
+        studentRevealMessage: ptx.student_reveal_message ?? data.student_reveal_message ?? null,
         mediaUrl:             data.media_url,
         mediaType:            data.media_type,
         missionId:            data.mission_id,
+        missionLanguage,
       },
     });
   }

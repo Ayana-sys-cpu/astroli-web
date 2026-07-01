@@ -1,16 +1,20 @@
 'use client';
 import { motion } from 'framer-motion';
 import StarField from '@/components/StarField';
+import { t, type Lang } from '@/lib/i18n';
 
 interface MissionOverlayProps {
   question: string;
   order: number;
   onAccept: () => void;
+  language?: Lang;
 }
 
-export default function MissionOverlay({ question, order, onAccept }: MissionOverlayProps) {
+export default function MissionOverlay({ question, order, onAccept, language }: MissionOverlayProps) {
+  const lang: Lang = language ?? 'en';
+  if (!question) return null;
   const words = question.split(' ');
-  const label = `MISSION ${String(order).padStart(2, '0')} · ACTIVATED`;
+  const label = `${t('missionLabel', lang)} ${String(order).padStart(2, '0')} · ${t('missionActivated', lang)}`;
   const lastWordDelay = 0.4 + words.length * 0.15;
 
   return (
@@ -109,7 +113,7 @@ export default function MissionOverlay({ question, order, onAccept }: MissionOve
           animate={{ backgroundPosition: ['250% 0', '-250% 0'] }}
           transition={{ duration: 2.6, repeat: Infinity, ease: 'linear' }}
         />
-        <span className="relative z-10">✦ ACCEPT MISSION</span>
+        <span className="relative z-10">{t('acceptMission', lang)}</span>
       </motion.button>
     </motion.div>
   );

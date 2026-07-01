@@ -9,9 +9,10 @@ interface TopBarProps {
   left?: string;
   center?: string;
   showUser?: boolean;
+  showHome?: boolean;
 }
 
-export default function TopBar({ left, center, showUser = true }: TopBarProps) {
+export default function TopBar({ left, center, showUser = true, showHome = false }: TopBarProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -28,16 +29,29 @@ export default function TopBar({ left, center, showUser = true }: TopBarProps) {
   }, [menuOpen]);
 
   const handleSignOut = () => {
-    clearSession();                  // clears display-layer localStorage
-    supabaseSignOut().catch(() => {}); // revokes server session (fire-and-forget)
+    clearSession();
+    supabaseSignOut().catch(() => {});
     router.push('/');
   };
 
   return (
     <header className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-5 py-3 border-b border-white/5 bg-black/40 backdrop-blur-sm">
-      <span className="text-[10px] tracking-[0.22em] text-white/35 font-space uppercase">
-        {left ?? 'MISSION 03 · WHO OWNS THE TRUTH?'}
-      </span>
+      <div className="flex items-center gap-2.5">
+        {showHome && (
+          <button
+            onClick={() => router.push('/home')}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-full border border-[#00F5D4]/30 bg-[#00F5D4]/08 hover:border-[#00F5D4]/60 hover:bg-[#00F5D4]/15 transition-colors"
+            style={{ background: 'rgba(0,245,212,0.06)' }}
+            aria-label="Go to home"
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(0,245,212,0.8)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            <span className="text-[8px] tracking-[0.18em] font-space uppercase" style={{ color: 'rgba(0,245,212,0.8)' }}>Home</span>
+          </button>
+        )}
+        <span className="text-[10px] tracking-[0.22em] text-white/35 font-space uppercase">
+          {left ?? 'MISSION 03 · WHO OWNS THE TRUTH?'}
+        </span>
+      </div>
 
       {center && (
         <span className="absolute left-1/2 -translate-x-1/2 text-[10px] tracking-widest text-[#00C4CC]/70 font-space uppercase">

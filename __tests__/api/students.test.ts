@@ -12,9 +12,9 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    journey: {
+    class: {
       findMany: vi.fn().mockResolvedValue([
-        { id: 'journey-1', title: '3A English – Rome Unit' },
+        { id: 'journey-1', title: '3A English – Rome Unit', journeyId: 'journey-1' },
       ]),
     },
     classSession: {

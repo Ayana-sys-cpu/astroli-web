@@ -7,6 +7,7 @@ import StarField from '@/components/StarField';
 import TopBar from '@/components/TopBar';
 import OrinOrb from '@/components/OrinOrb';
 import { getFirstName } from '@/lib/student-store';
+import { useCoinReward } from '@/hooks/useCoinReward';
 
 interface VoteMission {
   id: string;
@@ -58,6 +59,7 @@ function VotePageContent() {
   const [tick, setTick] = useState(0);
   const [firstName] = useState(() => getFirstName() || 'Traveller');
   const [voteCounts, setVoteCounts] = useState<Record<string, number>>({});
+  const { triggerReward } = useCoinReward();
 
   const load = useCallback(async () => {
     try {
@@ -159,9 +161,11 @@ function VotePageContent() {
         body: JSON.stringify({ voteSessionId: state.voteSessionId, bigIdeaId: selectedId }),
       });
       if (res.ok) {
+        const data = await res.json();
         setPreviousVoteId(selectedId);
         setConfirmed(true);
         if (state?.voteSessionId) loadCounts(state.voteSessionId);
+        if (data.coinReward?.awarded) triggerReward(data.coinReward);
       }
     } catch {
       // swallow — let student retry

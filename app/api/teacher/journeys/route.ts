@@ -18,6 +18,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { requireAuth, assertTeacherSession } from '@/lib/auth';
+import { translateMission } from '@/lib/translate-mission';
 
 // ---------------------------------------------------------------------------
 // GET /api/teacher/journeys
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
 
   const { data: classes, error } = await supabaseAdmin
     .from('classes')
-    .select('id, title, google_course_id, journey_id')
+    .select('id, title, language, google_course_id, journey_id')
     .eq('teacher_id', teacherId)
     .order('created_at');
 
@@ -92,6 +93,7 @@ export async function GET(req: NextRequest) {
     return {
       id:             c.id,
       title:          c.title,
+      language:       (c as any).language ?? 'en',
       googleCourseId: c.google_course_id,
       activeVoteSession: activeSession
         ? { id: activeSession.id, startsAt: activeSession.starts_at, endsAt: activeSession.ends_at }
@@ -137,7 +139,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { journeyId: classId, voteEndsAt, voteStartsAt } = body as { journeyId?: string; voteEndsAt?: string | null; voteStartsAt?: string | null };
+  const { journeyId: classId, voteEndsAt, voteStartsAt, language } = body as { journeyId?: string; voteEndsAt?: string | null; voteStartsAt?: string | null; language?: string };
   if (!classId) {
     return NextResponse.json({ error: 'journeyId required' }, { status: 400 });
   }
@@ -152,6 +154,39 @@ export async function PATCH(req: NextRequest) {
 
   if (!klass) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  // ── Language update ────────────────────────────────────────────────────────
+  if (language !== undefined) {
+    if (!['en', 'he'].includes(language)) {
+      return NextResponse.json({ error: 'Invalid language' }, { status: 400 });
+    }
+    const { error: langErr } = await supabaseAdmin
+      .from('classes')
+      .update({ language })
+      .eq('id', classId);
+
+    if (langErr) {
+      console.error('[PATCH /api/teacher/journeys language]', langErr);
+      return NextResponse.json({ error: langErr.message }, { status: 500 });
+    }
+
+    // Fan out translations for all missions in the template (fire-and-forget).
+    if (language === 'he') {
+      supabaseAdmin
+        .from('missions')
+        .select('id')
+        .eq('journey_id', klass.journey_id)
+        .then(({ data: missions }) => {
+          for (const m of missions ?? []) {
+            translateMission(m.id).catch(err =>
+              console.error('[translate-mission background]', m.id, err),
+            );
+          }
+        });
+    }
+
+    return NextResponse.json({ ok: true, language });
   }
 
   const parsedEndsAt   = voteEndsAt   ? new Date(voteEndsAt).toISOString()   : null;
