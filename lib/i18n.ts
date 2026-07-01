@@ -29,20 +29,20 @@ const strings = {
     he: 'ראה את מפת הכוכבים והנושאים',
   },
   howToBody: {
-    en: 'Your mission map is on the left — each planet represents a topic to investigate.',
-    he: 'מפת המשימה שלך נמצאת משמאל — כל כוכב לכת מייצג נושא לחקירה.',
+    en: 'Ready to discover new worlds? Your mission map is on the left.',
+    he: 'מוכן לגלות עולמות חדשים? מפת המשימה שלך נמצאת משמאל.',
   },
   clickAnyPlanet: {
-    en: 'Click any planet on the map',
-    he: 'לחץ על כל כוכב לכת במפה',
+    en: 'Click any planet',
+    he: 'לחץ על כל כוכב לכת',
   },
   howToBodyCont: {
-    en: 'to enter it and start digging in. Gather evidence as you go, save key insights with ✦, then return when you\'re ready to build your case.',
-    he: 'כדי להיכנס ולהתחיל לחקור. אסוף ראיות תוך כדי, שמור תובנות חשובות עם ✦, וחזור כשאתה מוכן לבנות את הטיעון שלך.',
+    en: 'to enter it and explore its topic. Good luck!',
+    he: 'כדי להיכנס אליו ולחקור את הנושא שלו. בהצלחה!',
   },
   suggestStartWith: {
-    en: 'We suggest starting with:',
-    he: 'אנחנו ממליצים להתחיל עם:',
+    en: 'I recommend starting with:',
+    he: 'אני ממליץ להתחיל עם:',
   },
   exploreArrow: {
     en: 'EXPLORE →',

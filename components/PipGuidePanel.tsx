@@ -292,13 +292,13 @@ function HowToCard({ planets, firstPlanet, lang }: { planets: OrinPlanet[]; firs
         {t('howToExplore', lang)}
       </div>
 
-      <p style={{ fontSize: 12, color: T.ts, margin: '0 0 10px', lineHeight: 1.6 }}>
+      <p style={{ fontSize: 13, color: T.ts, margin: '0 0 10px', lineHeight: 1.6 }}>
         {t('howToBody', lang)}{' '}
         <strong style={{ color: T.tp }}>{t('clickAnyPlanet', lang)}</strong>{' '}
         {t('howToBodyCont', lang)}
       </p>
 
-      <p style={{ fontSize: 12, color: T.ts, margin: '0 0 10px', lineHeight: 1.5 }}>
+      <p style={{ fontSize: 13, color: T.ts, margin: '0 0 10px', lineHeight: 1.5 }}>
         {t('suggestStartWith', lang)}
       </p>
 
