@@ -23,12 +23,19 @@ interface EditableInsight extends SummaryInsight {
   draftText: string;
 }
 
+interface CoinAward {
+  awarded:    boolean;
+  amount:     number;
+  newBalance: number;
+  eventType:  string;
+}
+
 interface Props {
   studentId:        string;
   planetId:         string;
   insights:         SummaryInsight[];
   completionType:   'standard' | 'grace';
-  onLocked:         () => void;
+  onLocked:         (coinAward?: CoinAward | null, missionCoinAward?: CoinAward | null) => void;
   onDismiss:        () => void;
   language?:        Lang;
   mode?:            'lock' | 'review';
@@ -80,7 +87,8 @@ export default function PlanetSummaryScreen({
         }),
       });
       if (!res.ok) throw new Error('save failed');
-      onLocked();
+      const data = await res.json().catch(() => null);
+      onLocked(data?.coinAward ?? null, data?.missionCoinAward ?? null);
     } catch {
       setLockError(true);
       setLocking(false);

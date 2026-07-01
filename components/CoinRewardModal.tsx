@@ -12,9 +12,13 @@ const EVENT_CONFIG: Record<EventType, { title: string; subtitle: string }> = {
     title:    'First Vote Cast!',
     subtitle: 'Your voice shapes the mission.',
   },
+  planet_complete: {
+    title:    'Planet Explored!',
+    subtitle: "You've uncovered every secret on this planet.",
+  },
   mission_complete: {
     title:    'Mission Accomplished!',
-    subtitle: 'Elite performance achieved.',
+    subtitle: 'Every planet on this mission is explored.',
   },
   bonus_mission: {
     title:    'Bonus Mission Done!',

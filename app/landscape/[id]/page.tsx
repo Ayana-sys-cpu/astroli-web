@@ -113,7 +113,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
     }
   }, [orin.messages.length]);
 
-  // T024 — show the reward modal when the bot awards coins server-side.
+  // Show the reward modal when the bot awards coins server-side.
   // The award itself is now durable (written to coin_reward_log by the bot route),
   // so the client just needs to display the modal when a new award arrives.
   useEffect(() => {
@@ -125,7 +125,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
       awarded:          true,
       amount:           award.amount,
       newBalance:       award.newBalance,
-      eventType:        award.eventType as 'goal_completion' | 'first_vote' | 'mission_complete' | 'bonus_mission',
+      eventType:        award.eventType as 'goal_completion' | 'first_vote' | 'planet_complete' | 'mission_complete' | 'bonus_mission',
       titleOverride:    isGoalCompletion
         ? (isFinalGoal ? 'Planet Explored!' : 'Goal Reached')
         : undefined,
@@ -140,23 +140,44 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
     });
   }, [planetVoice.coinAward, planetVoice.completionReady, triggerReward]);
 
-  // T025 — award mission_complete coins when the student locks in the summary.
-  async function handleMissionLockIn() {
+  // Grace exits skip the summary screen, so the bot awards planet/mission coins
+  // directly in the planet-voice response — show the mission-complete popup
+  // here if the just-finished planet turned out to be the last one in its mission.
+  useEffect(() => {
+    const award = planetVoice.missionCoinAward;
+    if (!award?.awarded) return;
+    triggerReward({
+      awarded:    true,
+      amount:     award.amount,
+      newBalance: award.newBalance,
+      eventType:  'mission_complete',
+    });
+  }, [planetVoice.missionCoinAward, triggerReward]);
+
+  // Show the planet_complete / mission_complete rewards the bot's complete
+  // endpoint already awarded when the student locked in their summary.
+  function handleMissionLockIn(
+    coinAward?:        { awarded: boolean; amount: number; newBalance: number; eventType: string } | null,
+    missionCoinAward?: { awarded: boolean; amount: number; newBalance: number; eventType: string } | null,
+  ) {
     planetVoice.setShowSummary(false);
     setIsPlanetLocked(true);
 
-    try {
-      const res = await fetch('/api/store/coins/award', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventType: 'mission_complete', missionId: params.id }),
+    if (coinAward?.awarded) {
+      triggerReward({
+        awarded:    true,
+        amount:     coinAward.amount,
+        newBalance: coinAward.newBalance,
+        eventType:  'planet_complete',
       });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.awarded) triggerReward(data);
-      }
-    } catch {
-      // non-critical
+    }
+    if (missionCoinAward?.awarded) {
+      triggerReward({
+        awarded:    true,
+        amount:     missionCoinAward.amount,
+        newBalance: missionCoinAward.newBalance,
+        eventType:  'mission_complete',
+      });
     }
     // Stay on planet page — the discovery button is now visible
   }

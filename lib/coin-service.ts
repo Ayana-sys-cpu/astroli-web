@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export type EventType =
   | 'goal_completion'
   | 'first_vote'
+  | 'planet_complete'
   | 'mission_complete'
   | 'bonus_mission';
 
@@ -15,7 +16,8 @@ export interface AwardResult {
 const EVENT_AMOUNTS: Record<EventType, number> = {
   goal_completion:  20,
   first_vote:       10,
-  mission_complete: 50,
+  planet_complete:  50,
+  mission_complete: 100,
   bonus_mission:    75,
 };
 
