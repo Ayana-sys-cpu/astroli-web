@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { OrinMission, OrinPlanet, MissionTerm, WorldBriefItem } from '@/lib/orin-guide-types';
 import { t, type Lang } from '@/lib/i18n';
 import { getFirstName } from '@/lib/student-store';
+import { TermRow } from '@/components/TermRow';
 
 // =============================================================================
 // Design tokens — matches pip-guide/page.tsx exactly
@@ -32,11 +33,12 @@ const T = {
 
 type DockState = 'cta-brief' | 'cta-howto' | 'lock' | 'understand' | 'mission-qa' | 'launch' | 'done';
 
-interface LockedPlanetSummary {
-  planetId:    string;
-  planetTitle: string;
-  completedAt: string;
-  insights:    { insightText: string; studentAddition: string | null }[];
+export interface LockedPlanetSummary {
+  planetId:        string;
+  planetTitle:     string;
+  completedAt:     string;
+  insights:        { insightText: string; studentAddition: string | null }[];
+  termDefinitions: MissionTerm[];
 }
 
 type ChatMsg =
@@ -196,42 +198,6 @@ function WorldBrief({ items, summary, lang }: { items: WorldBriefItem[]; summary
 // =============================================================================
 // Mission Card
 // =============================================================================
-
-function TermRow({ term }: { term: MissionTerm }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div
-      style={{
-        borderRadius: 8, overflow: 'hidden',
-        background: 'rgba(255,255,255,0.02)',
-        border: '1px solid rgba(255,255,255,0.07)',
-      }}
-    >
-      <button
-        onClick={() => setOpen((o) => !o)}
-        style={{
-          width: '100%', display: 'flex', alignItems: 'center',
-          justifyContent: 'space-between', gap: 8,
-          padding: '8px 12px', background: 'none', border: 'none',
-          cursor: 'pointer', textAlign: 'left',
-        }}
-      >
-        <span style={{ fontSize: 12, fontWeight: 700, color: T.tp }}>{term.label}</span>
-        <span style={{
-          fontSize: 10, color: T.tm, flexShrink: 0,
-          display: 'inline-block',
-          transform: open ? 'rotate(0deg)' : 'rotate(-90deg)',
-          transition: 'transform 0.15s',
-        }}>▾</span>
-      </button>
-      {open && (
-        <div style={{ padding: '0 12px 10px', fontSize: 11, color: T.ts, lineHeight: 1.6 }}>
-          {term.definition}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function MissionCard({ chapter, title, objective, terms, lang }: { chapter: string; title: string; objective: string; terms?: MissionTerm[]; lang: Lang }) {
   return (
@@ -412,7 +378,8 @@ function MessageBubble({ msg, firstPlanet, lang }: { msg: ChatMsg; firstPlanet?:
 // All Discoveries overlay
 // =============================================================================
 
-function AllDiscoveriesView({ summaries, onClose }: { summaries: LockedPlanetSummary[]; onClose: () => void }) {
+export function AllDiscoveriesView({ summaries, onClose, lang }: { summaries: LockedPlanetSummary[]; onClose: () => void; lang: Lang }) {
+  const router = useRouter();
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -456,11 +423,33 @@ function AllDiscoveriesView({ summaries, onClose }: { summaries: LockedPlanetSum
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {s.insights.map((insight, idx) => (
-                <p key={idx} style={{ fontSize: 12, color: T.ts, lineHeight: 1.6, margin: 0 }}>
-                  ✦ {insight.studentAddition ?? insight.insightText}
-                </p>
+                <div key={idx} style={{
+                  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 12, padding: '14px 16px',
+                }}>
+                  <p style={{ fontSize: 13, color: T.tp, lineHeight: 1.65, margin: 0 }}>
+                    {insight.studentAddition ?? insight.insightText}
+                  </p>
+                </div>
               ))}
             </div>
+            <button
+              onClick={() => router.push(`/landscape/${s.planetId}`)}
+              style={{
+                width: '100%', marginTop: 12, padding: '11px 14px', borderRadius: 12,
+                background: T.acDim, border: `1.5px solid ${T.acBdr}`,
+                cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                transition: 'background 0.15s, border-color 0.15s',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,212,212,0.18)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = T.acDim; }}
+            >
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: T.ac }}>{t('reviewPlanetCta', lang)}</div>
+                <div style={{ fontSize: 10, color: T.ts, marginTop: 2 }}>{t('reviewPlanetCtaSubtitle', lang)}</div>
+              </div>
+            </button>
           </div>
         ))
       )}
@@ -966,6 +955,7 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
           <AllDiscoveriesView
             summaries={allSummaries}
             onClose={() => setShowAllDiscoveries(false)}
+            lang={lang}
           />
         )}
       </AnimatePresence>

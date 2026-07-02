@@ -16,6 +16,7 @@ import PlanetSummaryScreen from '@/components/PlanetSummaryScreen';
 import { t, type Lang } from '@/lib/i18n';
 import { type SummaryInsight, type PlanetVoiceMessage } from '@/hooks/usePlanetVoice';
 import { parseKeywordChips } from '@/lib/parseKeywordChips';
+import type { MissionTerm } from '@/lib/orin-guide-types';
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? 'https://astorli-bot.vercel.app';
 
@@ -49,7 +50,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
   const orin = useOrinChat('planet_screen', params.id, 'planet');
   const planetVoice = usePlanetVoice(params.id, missionLang);
   const [savedInsights, setSavedInsights]         = useState<SummaryInsight[]>([]);
-  const [savedIntroducedTerms, setSavedIntroducedTerms] = useState<string[]>([]);
+  const [savedIntroducedTerms, setSavedIntroducedTerms] = useState<MissionTerm[]>([]);
   const [showSummaryReview, setShowSummaryReview] = useState(false);
   const [isPlanetLocked, setIsPlanetLocked]       = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -181,15 +182,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
 
   async function handleViewDiscovery() {
     try {
-      const [summaryRes, histRes] = await Promise.all([
-        fetch('/api/student/planet-summaries'),
-        getSessionStudentId().then(sid =>
-          sid
-            ? fetch(`${BOT_URL}/api/planet-voice/history?studentId=${encodeURIComponent(sid)}&planetId=${encodeURIComponent(params.id)}`)
-            : null,
-        ),
-      ]);
-
+      const summaryRes = await fetch('/api/student/planet-summaries');
       const summaryData = await summaryRes.json();
       const match = (summaryData.summaries ?? []).find(
         (s: { planetId: string }) => s.planetId === params.id,
@@ -203,20 +196,10 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
           studentAddition: g.studentAddition ?? undefined,
         })),
       );
-
-      if (histRes?.ok) {
-        const histData = await histRes.json();
-        const histMsgs: PlanetVoiceMessage[] = (histData.messages ?? []).map(
-          (m: { role: string; content: string; speaker: string | null }) => ({
-            id:      Math.random().toString(36).slice(2),
-            speaker: m.speaker === 'figure' ? 'figure' : m.speaker === 'orin' ? 'orin' : 'student',
-            content: m.content,
-          }),
-        );
-        setSavedIntroducedTerms(extractIntroducedTerms(histMsgs));
-      }
+      setSavedIntroducedTerms(match?.termDefinitions ?? []);
     } catch {
       setSavedInsights([]);
+      setSavedIntroducedTerms([]);
     }
     setShowSummaryReview(true);
   }
@@ -270,6 +253,13 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
       {/* Top bar */}
       <header className="relative z-20 flex-shrink-0 flex items-center justify-between px-5 h-11 border-b border-white/5 bg-black/40 backdrop-blur-sm">
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push('/home')}
+            className="font-space font-black text-sm tracking-[0.22em] gradient-wordmark"
+            aria-label="Go to home"
+          >
+            ASTROLI
+          </button>
           <button
             onClick={() => router.push(classId ? `/landscape?classId=${classId}` : '/landscape')}
             className="flex items-center gap-2 px-3 py-1.5 rounded-md text-[11px] font-space tracking-[0.12em] font-semibold uppercase transition-all"
@@ -499,7 +489,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
                   onLocked={handleMissionLockIn}
                   onDismiss={() => planetVoice.setShowSummary(false)}
                   language={missionLang}
-                  introducedTerms={extractIntroducedTerms(planetVoice.messages)}
+                  introducedTerms={extractIntroducedTerms(planetVoice.messages).map(label => ({ label, definition: '' }))}
                 />
               )}
             </AnimatePresence>

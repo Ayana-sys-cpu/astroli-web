@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
         .order('goal_order', { ascending: true }),
       supabaseAdmin
         .from('planet_summaries')
-        .select('id, planet_id, completed_at, planet_summary_goals(teaching_goal_id, student_addition)')
+        .select('id, planet_id, completed_at, term_definitions, planet_summary_goals(teaching_goal_id, student_addition)')
         .eq('student_id', studentId)
         .in('planet_id', planetIds),
     ]);
@@ -89,8 +89,10 @@ export async function GET(req: NextRequest) {
     // Build studentAddition overrides from locked-in summaries: goalId → override text
     const studentAdditionByGoalId: Record<string, string | null> = {};
     const lockedCompletedAt: Record<string, string | null> = {};
+    const termDefinitionsByPlanet: Record<string, { label: string; definition: string }[]> = {};
     for (const s of summariesResult.data ?? []) {
       lockedCompletedAt[(s as any).planet_id] = (s as any).completed_at ?? null;
+      termDefinitionsByPlanet[(s as any).planet_id] = (s as any).term_definitions ?? [];
       for (const g of (s as any).planet_summary_goals ?? []) {
         if (g.student_addition) {
           studentAdditionByGoalId[g.teaching_goal_id] = g.student_addition;
@@ -122,10 +124,11 @@ export async function GET(req: NextRequest) {
         });
 
       return {
-        planetId:    session.planet_id as string,
-        planetTitle: meta?.title ?? 'Unknown Planet',
-        completedAt: lockedCompletedAt[session.planet_id as string] ?? (session.completed_at as string | null) ?? null,
+        planetId:        session.planet_id as string,
+        planetTitle:     meta?.title ?? 'Unknown Planet',
+        completedAt:     lockedCompletedAt[session.planet_id as string] ?? (session.completed_at as string | null) ?? null,
         insights,
+        termDefinitions: termDefinitionsByPlanet[session.planet_id as string] ?? [],
       };
     });
 

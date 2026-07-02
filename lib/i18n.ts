@@ -366,6 +366,14 @@ const strings = {
     en: 'Terms introduced in this conversation',
     he: 'מושגים שהוצגו בשיחה',
   },
+  reviewPlanetCta: {
+    en: 'Drill down to review →',
+    he: 'צלול פנימה לסקירה →',
+  },
+  reviewPlanetCtaSubtitle: {
+    en: 'Revisit this planet and go deeper on what you discovered',
+    he: 'חזור לכוכב הזה וצלול עמוק יותר במה שגילית',
+  },
 
   // ── TopBar / landscape ──────────────────────────────────────────────────────
   teacherPreviewBanner: {

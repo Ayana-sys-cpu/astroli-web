@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { t, type Lang } from '@/lib/i18n';
 import { type SummaryInsight } from '@/hooks/usePlanetVoice';
+import type { MissionTerm } from '@/lib/orin-guide-types';
+import { TermRow } from '@/components/TermRow';
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? 'https://astorli-bot.vercel.app';
 
@@ -39,7 +41,7 @@ interface Props {
   onDismiss:        () => void;
   language?:        Lang;
   mode?:            'lock' | 'review';
-  introducedTerms?: string[];
+  introducedTerms?: MissionTerm[];
 }
 
 export default function PlanetSummaryScreen({
@@ -299,17 +301,8 @@ export default function PlanetSummaryScreen({
           }}>
             {t('termsEncountered', language)}
           </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {introducedTerms.map(term => (
-              <span key={term} style={{
-                fontSize: 12, color: T.ac,
-                background: 'rgba(0,212,212,0.08)',
-                border: `1px solid rgba(0,212,212,0.2)`,
-                borderRadius: 20, padding: '4px 12px',
-              }}>
-                {term}
-              </span>
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {introducedTerms.map((term, i) => <TermRow key={i} term={term} />)}
           </div>
         </motion.div>
       )}
