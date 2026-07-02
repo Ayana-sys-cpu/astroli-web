@@ -93,6 +93,14 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
       if (histData.initialPerkinsMap && Object.keys(histData.initialPerkinsMap).length > 0) {
         setPerkinsMap(histData.initialPerkinsMap as Record<string, number | null>);
       }
+      // Restore completion-readiness computed by the history endpoint so a
+      // returning student sees the Complete Learning CTA immediately — it
+      // shouldn't only exist as a one-turn side effect of the last chat message.
+      if (histData.completionReady) {
+        setCompletionReady(true);
+        setCompletionType(histData.completionType ?? null);
+        setSummaryInsights(histData.summaryInsights ?? []);
+      }
       if (Array.isArray(histData.messages) && histData.messages.length > 0) {
         const prior: PlanetVoiceMessage[] = histData.messages.map((m: { role: string; content: string; speaker: string | null }) => ({
           id: nextId(m.speaker ?? m.role),
