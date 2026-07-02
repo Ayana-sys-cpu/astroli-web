@@ -13,11 +13,9 @@ import { usePlanetVoice } from '@/hooks/usePlanetVoice';
 import { useCoinReward } from '@/hooks/useCoinReward';
 import PlanetVoicePanel from '@/components/PlanetVoicePanel';
 import PlanetSummaryScreen from '@/components/PlanetSummaryScreen';
-import StoreButton from '@/components/StoreButton';
 import { t, type Lang } from '@/lib/i18n';
 import { type SummaryInsight, type PlanetVoiceMessage } from '@/hooks/usePlanetVoice';
 import { parseKeywordChips } from '@/lib/parseKeywordChips';
-import type { MissionTerm } from '@/lib/orin-guide-types';
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? 'https://astorli-bot.vercel.app';
 
@@ -51,7 +49,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
   const orin = useOrinChat('planet_screen', params.id, 'planet');
   const planetVoice = usePlanetVoice(params.id, missionLang);
   const [savedInsights, setSavedInsights]         = useState<SummaryInsight[]>([]);
-  const [savedIntroducedTerms, setSavedIntroducedTerms] = useState<MissionTerm[]>([]);
+  const [savedIntroducedTerms, setSavedIntroducedTerms] = useState<string[]>([]);
   const [showSummaryReview, setShowSummaryReview] = useState(false);
   const [isPlanetLocked, setIsPlanetLocked]       = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -183,7 +181,15 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
 
   async function handleViewDiscovery() {
     try {
-      const summaryRes = await fetch('/api/student/planet-summaries');
+      const [summaryRes, histRes] = await Promise.all([
+        fetch('/api/student/planet-summaries'),
+        getSessionStudentId().then(sid =>
+          sid
+            ? fetch(`${BOT_URL}/api/planet-voice/history?studentId=${encodeURIComponent(sid)}&planetId=${encodeURIComponent(params.id)}`)
+            : null,
+        ),
+      ]);
+
       const summaryData = await summaryRes.json();
       const match = (summaryData.summaries ?? []).find(
         (s: { planetId: string }) => s.planetId === params.id,
@@ -197,10 +203,20 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
           studentAddition: g.studentAddition ?? undefined,
         })),
       );
-      setSavedIntroducedTerms(match?.termDefinitions ?? []);
+
+      if (histRes?.ok) {
+        const histData = await histRes.json();
+        const histMsgs: PlanetVoiceMessage[] = (histData.messages ?? []).map(
+          (m: { role: string; content: string; speaker: string | null }) => ({
+            id:      Math.random().toString(36).slice(2),
+            speaker: m.speaker === 'figure' ? 'figure' : m.speaker === 'orin' ? 'orin' : 'student',
+            content: m.content,
+          }),
+        );
+        setSavedIntroducedTerms(extractIntroducedTerms(histMsgs));
+      }
     } catch {
       setSavedInsights([]);
-      setSavedIntroducedTerms([]);
     }
     setShowSummaryReview(true);
   }
@@ -275,36 +291,33 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
             {figureDisplayName} {t('isPresenting', missionLang)}
           </span>
         )}
-        <div className="flex items-center gap-2.5">
-          <StoreButton />
-          <div className="relative" ref={menuRef}>
-            <button
-              className="flex items-center gap-2 group"
-              title="Account"
-              onClick={() => setMenuOpen((prev) => !prev)}
-            >
-              <span className="text-[11px] text-white/40 font-space group-hover:text-white/70 transition-colors">{displayName}</span>
-              <div className="w-6 h-6 rounded-full border border-[#00C4CC]/50 flex items-center justify-center bg-[#001820] group-hover:border-[#00C4CC] transition-colors">
-                <span className="text-[9px] text-[#00C4CC] font-space font-bold">
-                  {firstName[0]?.toUpperCase() ?? 'A'}
-                </span>
-              </div>
-            </button>
+        <div className="relative" ref={menuRef}>
+          <button
+            className="flex items-center gap-2 group"
+            title="Account"
+            onClick={() => setMenuOpen((prev) => !prev)}
+          >
+            <span className="text-[11px] text-white/40 font-space group-hover:text-white/70 transition-colors">{displayName}</span>
+            <div className="w-6 h-6 rounded-full border border-[#00C4CC]/50 flex items-center justify-center bg-[#001820] group-hover:border-[#00C4CC] transition-colors">
+              <span className="text-[9px] text-[#00C4CC] font-space font-bold">
+                {firstName[0]?.toUpperCase() ?? 'A'}
+              </span>
+            </div>
+          </button>
 
-            {menuOpen && (
-              <div
-                className="absolute top-9 right-0 w-36 rounded-lg overflow-hidden z-50"
-                style={{ background: 'rgba(0,10,18,0.95)', border: '1px solid rgba(0,196,204,0.2)', boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}
+          {menuOpen && (
+            <div
+              className="absolute top-9 right-0 w-36 rounded-lg overflow-hidden z-50"
+              style={{ background: 'rgba(0,10,18,0.95)', border: '1px solid rgba(0,196,204,0.2)', boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}
+            >
+              <button
+                onClick={handleSignOut}
+                className="w-full px-4 py-3 text-left text-[11px] tracking-[0.15em] font-space text-white/60 hover:text-white hover:bg-white/5 transition-colors uppercase"
               >
-                <button
-                  onClick={handleSignOut}
-                  className="w-full px-4 py-3 text-left text-[11px] tracking-[0.15em] font-space text-white/60 hover:text-white hover:bg-white/5 transition-colors uppercase"
-                >
-                  Sign Out
-                </button>
-              </div>
-            )}
-          </div>
+                Sign Out
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
@@ -486,7 +499,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
                   onLocked={handleMissionLockIn}
                   onDismiss={() => planetVoice.setShowSummary(false)}
                   language={missionLang}
-                  introducedTerms={extractIntroducedTerms(planetVoice.messages).map(label => ({ label, definition: '' }))}
+                  introducedTerms={extractIntroducedTerms(planetVoice.messages)}
                 />
               )}
             </AnimatePresence>
