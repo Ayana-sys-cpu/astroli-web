@@ -10,12 +10,12 @@ export default function StorePage() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
-      className="relative min-h-screen bg-black overflow-hidden flex flex-col"
+      className="relative h-screen bg-black overflow-hidden flex flex-col"
     >
       <StarField count={80} seed={42} />
       <TopBar />
 
-      <div className="flex flex-1 items-start justify-center pt-20 pb-10 px-6">
+      <div className="flex flex-1 flex-col pt-14 overflow-hidden">
         <Store />
       </div>
     </motion.div>

@@ -202,7 +202,7 @@ function LandscapeContent() {
               ))}
             </svg>
 
-            <TopBar left={`${missionLabel} · ${bigIdea.toUpperCase()}`} showHome={!isPreview} />
+            <TopBar left={`${missionLabel} · ${bigIdea.toUpperCase()}`} showHome={!isPreview} showStore={!isPreview} />
 
             {/* Preview mode banner */}
             {isPreview && (

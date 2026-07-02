@@ -8,6 +8,7 @@ import {
   CATEGORY_ICONS,
 } from '@/lib/store-catalogue';
 import type { Category, StoreItem } from '@/lib/store-catalogue';
+import { useCoinReward } from '@/hooks/useCoinReward';
 
 interface StoreState {
   balance: number;
@@ -55,13 +56,13 @@ function ItemCard({
   if (!item.revealed) {
     return (
       <div style={{
-        borderRadius: '10px', padding: '14px 8px 12px', textAlign: 'center',
-        border: `1.5px solid ${RARITY_BORDER.cosmic}`,
+        borderRadius: '14px', padding: '28px 16px 24px', textAlign: 'center',
+        border: `2px solid ${RARITY_BORDER.cosmic}`,
         background: 'rgba(255,255,255,0.02)',
-        opacity: 0.5, userSelect: 'none',
+        opacity: 0.8, userSelect: 'none',
       }}>
-        <i className="ti ti-lock" style={{ fontSize: '22px', color: 'rgba(212,160,23,0.5)', display: 'block', marginBottom: '5px' }} />
-        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>???</span>
+        <i className="ti ti-lock" style={{ fontSize: '48px', color: 'rgba(212,160,23,0.6)', display: 'block', marginBottom: '10px' }} />
+        <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>???</span>
       </div>
     );
   }
@@ -72,12 +73,12 @@ function ItemCard({
       onMouseEnter={() => { if (!isOwned) setHovered(true); }}
       onMouseLeave={() => { if (!isOwned) setHovered(false); }}
       style={{
-        position: 'relative', borderRadius: '10px', padding: '14px 8px 12px',
+        position: 'relative', borderRadius: '14px', padding: '28px 16px 24px',
         textAlign: 'center',
         cursor: isOwned ? 'pointer' : 'default',
-        border: `1.5px solid ${borderColor}`,
+        border: `2px solid ${borderColor}`,
         background: isEquipped ? 'rgba(124,58,237,0.12)' : 'rgba(255,255,255,0.03)',
-        opacity: isOwned ? 1 : 0.45,
+        opacity: isOwned ? 1 : 0.78,
         transition: 'border-color 0.12s, opacity 0.15s',
         userSelect: 'none', overflow: 'hidden',
       }}
@@ -85,13 +86,13 @@ function ItemCard({
       <img
         src={item.image}
         alt={item.name}
-        style={{ width: '40px', height: '40px', objectFit: 'contain', display: 'block', margin: '0 auto 5px', opacity: isOwned ? 1 : 0.6 }}
+        style={{ width: '170px', height: '170px', objectFit: 'contain', display: 'block', margin: '0 auto 14px' }}
       />
-      <span style={{ fontSize: '10px', color: isOwned ? 'rgba(255,255,255,0.72)' : 'rgba(255,255,255,0.45)', lineHeight: 1.3, display: 'block' }}>
+      <span style={{ fontSize: '14px', color: isOwned ? 'rgba(255,255,255,0.72)' : 'rgba(255,255,255,0.55)', lineHeight: 1.3, display: 'block' }}>
         {item.name}
       </span>
       {isEquipped && (
-        <span style={{ fontSize: '9px', color: '#2dd4bf', fontWeight: 500, marginTop: '3px', display: 'block' }}>
+        <span style={{ fontSize: '11px', color: '#2dd4bf', fontWeight: 500, marginTop: '6px', display: 'block' }}>
           ✓ on
         </span>
       )}
@@ -99,19 +100,19 @@ function ItemCard({
       {/* Hover purchase overlay for locked items */}
       {!isOwned && (hovered || buying) && (
         <div style={{
-          position: 'absolute', inset: 0, borderRadius: '9px',
+          position: 'absolute', inset: 0, borderRadius: '12px',
           background: 'rgba(6,6,18,0.94)',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '5px',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px',
         }}>
-          <span style={{ fontSize: '11px', color: '#fde68a', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '2px' }}>
-            <i className="ti ti-star-filled" style={{ fontSize: '10px', color: '#D4A017' }} />
+          <span style={{ fontSize: '14px', color: '#fde68a', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <i className="ti ti-star-filled" style={{ fontSize: '12px', color: '#D4A017' }} />
             {item.price}
           </span>
           <button
             onClick={handlePurchase}
             style={{
-              border: 'none', borderRadius: '7px', padding: '4px 10px',
-              fontSize: '10px', fontWeight: 500,
+              border: 'none', borderRadius: '9px', padding: '6px 16px',
+              fontSize: '12px', fontWeight: 500,
               cursor: canAfford && !buying ? 'pointer' : 'default',
               background: canAfford ? '#7c3aed' : 'rgba(255,255,255,0.08)',
               color: canAfford ? '#fff' : 'rgba(255,255,255,0.3)',
@@ -127,12 +128,12 @@ function ItemCard({
 
 function Skeleton() {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
-      {Array.from({ length: 8 }).map((_, i) => (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+      {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} style={{
-          borderRadius: '10px', height: '82px',
+          borderRadius: '14px', height: '258px',
           background: 'rgba(255,255,255,0.04)',
-          border: '1.5px solid rgba(255,255,255,0.06)',
+          border: '2px solid rgba(255,255,255,0.06)',
           animation: `skPulse 1.4s ease-in-out ${i * 0.08}s infinite`,
         }} />
       ))}
@@ -144,6 +145,7 @@ export default function Store() {
   const [activeCategory, setActiveCategory] = useState<Category>('capes');
   const [storeState,     setStoreState]     = useState<StoreState | null>(null);
   const [loading,        setLoading]        = useState(true);
+  const { balance: sharedBalance, setBalance: setSharedBalance } = useCoinReward();
 
   useEffect(() => {
     fetch('/api/store/state')
@@ -151,6 +153,8 @@ export default function Store() {
       .then((data: StoreState) => { setStoreState(data); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
+
+  const displayBalance = sharedBalance ?? storeState?.balance ?? 0;
 
   const categoryItems = CATALOGUE.filter(item => item.category === activeCategory);
 
@@ -182,6 +186,7 @@ export default function Store() {
     if (res.ok) {
       const { newBalance, equipped } = await res.json();
       setStoreState(prev => prev ? { balance: newBalance, owned: [...prev.owned, itemId], equipped } : prev);
+      setSharedBalance(newBalance);
     } else if (res.status === 409) {
       // Already owned — refresh.
       fetch('/api/store/state').then(r => r.json()).then(setStoreState).catch(() => {});
@@ -192,19 +197,13 @@ export default function Store() {
     <>
       <style>{`@keyframes skPulse{0%,100%{opacity:.4}50%{opacity:.7}}`}</style>
 
-      <div style={{
-        display: 'flex', width: '100%', maxWidth: '700px',
-        background: '#0d0d1a', borderRadius: '16px',
-        border: '1.5px solid rgba(124,58,237,0.22)',
-        overflow: 'hidden', boxShadow: '0 24px 60px rgba(0,0,0,0.5)',
-        minHeight: '420px',
-      }}>
+      <div style={{ display: 'flex', width: '100%', flex: 1, minHeight: 0 }}>
 
-        {/* ── Sidebar ───────────────────────────────────── */}
+        {/* ── Sidebar ── full height ──────────────────────── */}
         <div style={{
-          width: '110px', flexShrink: 0,
+          width: '160px', flexShrink: 0,
           borderRight: '1px solid rgba(124,58,237,0.15)',
-          background: 'rgba(0,0,0,0.2)', paddingTop: '12px', paddingBottom: '12px',
+          background: 'rgba(0,0,0,0.2)', paddingTop: '20px', paddingBottom: '20px',
         }}>
           {CATEGORIES.map(cat => {
             const isActive = cat === activeCategory;
@@ -214,7 +213,7 @@ export default function Store() {
                 onClick={() => setActiveCategory(cat)}
                 style={{
                   width: '100%', display: 'flex', flexDirection: 'column',
-                  alignItems: 'center', gap: '4px', padding: '10px 0',
+                  alignItems: 'center', gap: '6px', padding: '16px 0',
                   background: isActive ? 'rgba(124,58,237,0.12)' : 'transparent',
                   border: 'none', borderLeft: `3px solid ${isActive ? '#7c3aed' : 'transparent'}`,
                   cursor: 'pointer', transition: 'background 0.12s',
@@ -222,10 +221,10 @@ export default function Store() {
               >
                 <i
                   className={`ti ${CATEGORY_ICONS[cat]}`}
-                  style={{ fontSize: '18px', color: isActive ? '#c4b5fd' : 'rgba(255,255,255,0.35)' }}
+                  style={{ fontSize: '24px', color: isActive ? '#c4b5fd' : 'rgba(255,255,255,0.35)' }}
                 />
                 <span style={{
-                  fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.06em',
+                  fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em',
                   color: isActive ? '#c4b5fd' : 'rgba(255,255,255,0.35)',
                 }}>
                   {CATEGORY_LABELS[cat]}
@@ -241,21 +240,21 @@ export default function Store() {
           {/* Header row */}
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '12px 16px 11px',
+            padding: '18px 24px',
             background: 'linear-gradient(90deg, #1a0a3a 0%, #0d0d1a 100%)',
             borderBottom: '1px solid rgba(124,58,237,0.18)', flexShrink: 0,
           }}>
-            <span style={{ fontSize: '13px', fontWeight: 500, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+            <span style={{ fontSize: '16px', fontWeight: 500, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
               {CATEGORY_LABELS[activeCategory]}
             </span>
             <div style={{
-              display: 'flex', alignItems: 'center', gap: '4px',
+              display: 'flex', alignItems: 'center', gap: '5px',
               background: 'rgba(212,160,23,0.14)', border: '1px solid rgba(212,160,23,0.36)',
-              borderRadius: '20px', padding: '3px 10px',
+              borderRadius: '20px', padding: '4px 12px',
             }}>
-              <i className="ti ti-star-filled" style={{ fontSize: '11px', color: '#D4A017' }} />
-              <span style={{ fontSize: '12px', fontWeight: 500, color: '#fde68a' }}>
-                {storeState?.balance ?? '—'}
+              <i className="ti ti-star-filled" style={{ fontSize: '13px', color: '#D4A017' }} />
+              <span style={{ fontSize: '14px', fontWeight: 500, color: '#fde68a' }}>
+                {displayBalance}
               </span>
             </div>
           </div>
@@ -263,19 +262,19 @@ export default function Store() {
           {/* Equipped strip */}
           {equippedItems.length > 0 && (
             <div style={{
-              padding: '7px 16px', borderBottom: '1px solid rgba(124,58,237,0.1)',
-              display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', flexShrink: 0,
+              padding: '10px 24px', borderBottom: '1px solid rgba(124,58,237,0.1)',
+              display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', flexShrink: 0,
             }}>
-              <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginRight: '2px' }}>
+              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginRight: '2px' }}>
                 Equipped:
               </span>
               {equippedItems.map(item => (
                 <span key={item.id} style={{
                   background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.2)',
-                  borderRadius: '20px', padding: '2px 8px', fontSize: '10px', color: '#c4b5fd',
-                  display: 'inline-flex', alignItems: 'center', gap: '3px',
+                  borderRadius: '20px', padding: '3px 10px', fontSize: '11px', color: '#c4b5fd',
+                  display: 'inline-flex', alignItems: 'center', gap: '4px',
                 }}>
-                  <img src={item.image} alt={item.name} style={{ width: '12px', height: '12px', objectFit: 'contain' }} />
+                  <img src={item.image} alt={item.name} style={{ width: '14px', height: '14px', objectFit: 'contain' }} />
                   {item.name}
                 </span>
               ))}
@@ -283,14 +282,14 @@ export default function Store() {
           )}
 
           {/* Item grid */}
-          <div style={{ flex: 1, padding: '14px 16px 16px', overflowY: 'auto' }}>
+          <div style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
             {loading ? <Skeleton /> : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
                 {categoryItems.map(item => (
                   <ItemCard
                     key={item.id}
                     item={item}
-                    balance={storeState?.balance ?? 0}
+                    balance={displayBalance}
                     isOwned={storeState?.owned.includes(item.id) ?? false}
                     isEquipped={storeState?.equipped[item.category] === item.id}
                     onEquip={handleEquip}

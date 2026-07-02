@@ -43,13 +43,8 @@ interface Props {
   totalGoals?: number | null;
   goalsDiscovered?: number;
   characterFirstName?: string;
-  // Discovery review (after lock)
-  isLocked?: boolean;
+  // Discovery review — always available, reachable any time
   onViewDiscovery?: () => void;
-  // Complete Learning — persists across reopening the planet, not just a
-  // one-turn side effect of the coin-reward popup.
-  completionReady?: boolean;
-  onCompleteLearning?: () => void;
 }
 
 function FigureOrb({ size = 24 }: { size?: number }) {
@@ -102,8 +97,7 @@ export default function PlanetVoicePanel({
   studentFirstName, missionTitle, openingGreeting, studentRevealMessage,
   missionLang = 'en',
   totalGoals, goalsDiscovered = 0, characterFirstName,
-  isLocked = false, onViewDiscovery,
-  completionReady = false, onCompleteLearning,
+  onViewDiscovery,
 }: Props) {
   const lang  = missionLang;
   const isRtl = lang === 'he';
@@ -378,51 +372,6 @@ export default function PlanetVoicePanel({
                 : `${t('tryAskingNoName', lang)}: "${t('goalHintPhrase', lang)}"`}
             </p>
           )}
-        </div>
-      )}
-
-      {/* ── Complete Learning CTA — persistent once every goal is discovered, until locked in ── */}
-      {!isLocked && completionReady && onCompleteLearning && (
-        <div style={{ padding: '0 12px 8px', flexShrink: 0 }}>
-          <button
-            onClick={onCompleteLearning}
-            style={{
-              width: '100%', padding: '13px 18px', borderRadius: 14,
-              background: 'rgba(0,212,212,0.12)',
-              border: '1.5px solid rgba(0,212,212,0.5)',
-              cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              transition: 'background 0.15s, border-color 0.15s',
-            }}
-            onMouseEnter={e => {
-              const el = e.currentTarget as HTMLElement;
-              el.style.background = 'rgba(0,212,212,0.20)';
-              el.style.borderColor = 'rgba(0,212,212,0.8)';
-            }}
-            onMouseLeave={e => {
-              const el = e.currentTarget as HTMLElement;
-              el.style.background = 'rgba(0,212,212,0.12)';
-              el.style.borderColor = 'rgba(0,212,212,0.5)';
-            }}
-          >
-            <div style={{ textAlign: isRtl ? 'right' : 'left' }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: T.ac }}>
-                {t('completeLearning', lang)}
-              </div>
-              <div style={{ fontSize: 11, color: T.ts, marginTop: 2 }}>
-                {t('completeLearningSubtitle', lang)}
-              </div>
-            </div>
-            <div style={{
-              width: 28, height: 28, borderRadius: '50%',
-              background: T.ac,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 14, color: '#000', fontWeight: 800,
-              flexShrink: 0,
-            }}>
-              ✓
-            </div>
-          </button>
         </div>
       )}
 

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
 import JourneyCard from '@/components/student/JourneyCard';
+import StoreButton from '@/components/StoreButton';
 import { getAlienName, getBaseAvatarUrl, getInterest, generateAlienName, clearSession, getFirstName } from '@/lib/student-store';
 import { supabaseSignOut } from '@/lib/session';
 import type { HomeJourney } from '@/lib/student-home';
@@ -80,8 +81,15 @@ export default function HomePage() {
       />
 
       <header className="relative z-10 flex items-center gap-4 px-7 py-4 border-b border-white/8">
-        <span className="font-space font-black text-sm tracking-[0.22em] gradient-wordmark">ASTROLI</span>
+        <button
+          onClick={() => router.push('/home')}
+          className="font-space font-black text-sm tracking-[0.22em] gradient-wordmark"
+          aria-label="Go to home"
+        >
+          ASTROLI
+        </button>
         <div className="flex-1" />
+        <StoreButton />
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setMenuOpen((prev) => !prev)}

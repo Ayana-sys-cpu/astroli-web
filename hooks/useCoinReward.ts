@@ -13,6 +13,8 @@ export interface CoinRewardResult {
 
 interface CoinRewardContextValue {
   triggerReward: (result: CoinRewardResult) => void;
+  balance: number | null;
+  setBalance: (balance: number) => void;
 }
 
 export const CoinRewardContext = createContext<CoinRewardContextValue | null>(null);

@@ -8,17 +8,14 @@ import { getPlanetMeta } from '@/lib/planet-meta';
 import { PLANET_EXPERIENCE } from '@/lib/planet-experience';
 import { useOrinChat } from '@/hooks/useOrinChat';
 import { getFirstName, clearSession } from '@/lib/student-store';
-import { supabaseSignOut, getSessionStudentId } from '@/lib/session';
+import { supabaseSignOut } from '@/lib/session';
 import { usePlanetVoice } from '@/hooks/usePlanetVoice';
 import { useCoinReward } from '@/hooks/useCoinReward';
 import PlanetVoicePanel from '@/components/PlanetVoicePanel';
 import PlanetSummaryScreen from '@/components/PlanetSummaryScreen';
 import { t, type Lang } from '@/lib/i18n';
-import { type SummaryInsight, type PlanetVoiceMessage } from '@/hooks/usePlanetVoice';
-import { parseKeywordChips } from '@/lib/parseKeywordChips';
+import { type SummaryInsight } from '@/hooks/usePlanetVoice';
 import type { MissionTerm } from '@/lib/orin-guide-types';
-
-const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? 'https://astorli-bot.vercel.app';
 
 interface Planet {
   id: string;
@@ -52,7 +49,6 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
   const [savedInsights, setSavedInsights]         = useState<SummaryInsight[]>([]);
   const [savedIntroducedTerms, setSavedIntroducedTerms] = useState<MissionTerm[]>([]);
   const [showSummaryReview, setShowSummaryReview] = useState(false);
-  const [isPlanetLocked, setIsPlanetLocked]       = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -71,30 +67,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
     router.push('/');
   };
 
-  function extractIntroducedTerms(msgs: PlanetVoiceMessage[]): string[] {
-    const seen = new Set<string>();
-    for (const msg of msgs) {
-      if (msg.speaker !== 'figure') continue;
-      for (const seg of parseKeywordChips(msg.content)) {
-        if (seg.type === 'keyword') seen.add(seg.value);
-      }
-    }
-    return Array.from(seen);
-  }
-
   useEffect(() => { isThinkingRef.current = isAvatarThinking; }, [isAvatarThinking]);
-
-  // Check whether this planet is already locked for this student
-  useEffect(() => {
-    if (!params.id) return;
-    getSessionStudentId().then(sid => {
-      if (!sid) return;
-      fetch(`${BOT_URL}/api/planet-voice/summary?studentId=${encodeURIComponent(sid)}&planetId=${encodeURIComponent(params.id)}`)
-        .then(r => r.json())
-        .then(data => { if (data.locked) setIsPlanetLocked(true); })
-        .catch(() => {});
-    });
-  }, [params.id]);
 
   useEffect(() => {
     if (orin.messages.length <= processedMsgCount.current) return;
@@ -135,32 +108,15 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
             ? "You've uncovered every secret on this planet."
             : 'Keep exploring the universe.')
         : undefined,
+      // The planet is already recorded complete server-side by this point
+      // (finalizePlanetCompletion runs before this response was returned) —
+      // dismissing the popup just opens the read-only summary, the same
+      // data-fetch handleViewDiscovery already uses correctly elsewhere.
       onDismiss: (isGoalCompletion && isFinalGoal)
-        ? () => planetVoice.setShowSummary(true)
+        ? () => handleViewDiscovery()
         : undefined,
     });
   }, [planetVoice.coinAward, planetVoice.completionReady, triggerReward]);
-
-  // Show the reward the bot's complete endpoint already awarded when the
-  // student locked in their summary. The bot pre-merges planet + mission
-  // completion into one reward when both fire on the same lock-in, so this
-  // is always a single popup — never two back to back.
-  function handleMissionLockIn(
-    reward?: { awarded: boolean; amount: number; newBalance: number; eventType: string } | null,
-  ) {
-    planetVoice.setShowSummary(false);
-    setIsPlanetLocked(true);
-
-    if (reward?.awarded) {
-      triggerReward({
-        awarded:    true,
-        amount:     reward.amount,
-        newBalance: reward.newBalance,
-        eventType:  reward.eventType as 'planet_complete' | 'mission_complete',
-      });
-    }
-    // Stay on planet page — the discovery button is now visible
-  }
 
   function handleSend() {
     if (!orin.input.trim() || isAvatarThinking) return;
@@ -464,9 +420,6 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
                 goalsDiscovered={Object.values(planetVoice.perkinsMap).filter(v => v !== null).length}
                 characterFirstName={figureDisplayName?.split(' ')[0]}
                 onViewDiscovery={handleViewDiscovery}
-                isLocked={isPlanetLocked}
-                completionReady={planetVoice.completionReady}
-                onCompleteLearning={() => planetVoice.setShowSummary(true)}
               />
             ) : planetVoice.charLoading ? (
               <div className="flex-1 flex items-center justify-center">
@@ -478,34 +431,17 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
               </div>
             )}
 
-            {/* Planet Summary Screen overlay — lock flow */}
-            <AnimatePresence>
-              {planetVoice.showSummary && (
-                <PlanetSummaryScreen
-                  studentId={planetVoice.studentId ?? ''}
-                  planetId={params.id}
-                  insights={planetVoice.summaryInsights}
-                  completionType={planetVoice.completionType ?? 'standard'}
-                  onLocked={handleMissionLockIn}
-                  onDismiss={() => planetVoice.setShowSummary(false)}
-                  language={missionLang}
-                  introducedTerms={extractIntroducedTerms(planetVoice.messages).map(label => ({ label, definition: '' }))}
-                />
-              )}
-            </AnimatePresence>
-
-            {/* Planet Summary Screen overlay — review flow (read-only, after planet locked) */}
+            {/* Planet Summary Screen overlay — read-only "what I learned" review.
+                Opens automatically the instant the reward popup is dismissed
+                (fresh completion), and reopens on demand via the "what did I
+                discover" dock button (handleViewDiscovery) for a planet
+                completed at any point in the past. No lock/confirm step. */}
             <AnimatePresence>
               {showSummaryReview && (
                 <PlanetSummaryScreen
-                  studentId={planetVoice.studentId ?? ''}
-                  planetId={params.id}
                   insights={savedInsights}
-                  completionType="standard"
-                  onLocked={() => {}}
                   onDismiss={() => setShowSummaryReview(false)}
                   language={missionLang}
-                  mode="review"
                   introducedTerms={savedIntroducedTerms}
                 />
               )}

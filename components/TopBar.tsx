@@ -4,15 +4,17 @@ import { useRouter } from 'next/navigation';
 import { MOCK_STUDENT_USER } from '@/lib/dev/mock-student-user';
 import { clearSession } from '@/lib/student-store';
 import { supabaseSignOut } from '@/lib/session';
+import StoreButton from '@/components/StoreButton';
 
 interface TopBarProps {
   left?: string;
   center?: string;
   showUser?: boolean;
   showHome?: boolean;
+  showStore?: boolean;
 }
 
-export default function TopBar({ left, center, showUser = true, showHome = false }: TopBarProps) {
+export default function TopBar({ left, center, showUser = true, showHome = true, showStore = false }: TopBarProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -36,16 +38,14 @@ export default function TopBar({ left, center, showUser = true, showHome = false
 
   return (
     <header className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-5 py-3 border-b border-white/5 bg-black/40 backdrop-blur-sm">
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-3">
         {showHome && (
           <button
             onClick={() => router.push('/home')}
-            className="flex items-center gap-1.5 px-2 py-1 rounded-full border border-[#00F5D4]/30 bg-[#00F5D4]/08 hover:border-[#00F5D4]/60 hover:bg-[#00F5D4]/15 transition-colors"
-            style={{ background: 'rgba(0,245,212,0.06)' }}
+            className="font-space font-black text-sm tracking-[0.22em] gradient-wordmark"
             aria-label="Go to home"
           >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(0,245,212,0.8)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-            <span className="text-[8px] tracking-[0.18em] font-space uppercase" style={{ color: 'rgba(0,245,212,0.8)' }}>Home</span>
+            ASTROLI
           </button>
         )}
         <span className="text-[10px] tracking-[0.22em] text-white/35 font-space uppercase">
@@ -59,34 +59,39 @@ export default function TopBar({ left, center, showUser = true, showHome = false
         </span>
       )}
 
-      {showUser && (
-        <div className="relative flex items-center gap-2" ref={menuRef}>
-          <span className="text-[11px] text-white/40 font-space">{MOCK_STUDENT_USER.displayName}</span>
-          <button
-            onClick={() => setMenuOpen(prev => !prev)}
-            className="w-6 h-6 rounded-full border border-[#00C4CC]/50 flex items-center justify-center bg-[#001820] cursor-pointer hover:border-[#00C4CC] transition-colors"
-          >
-            <span className="text-[9px] text-[#00C4CC] font-space font-bold">
-              {MOCK_STUDENT_USER.firstName[0]}
-            </span>
-          </button>
-
-          {menuOpen && (
-            <div
-              className="absolute top-8 right-0 w-40 rounded-lg overflow-hidden z-50"
-              style={{
-                background: 'rgba(0,10,18,0.95)',
-                border: '1px solid rgba(0,196,204,0.2)',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-              }}
-            >
+      {(showStore || showUser) && (
+        <div className="relative flex items-center gap-2.5" ref={menuRef}>
+          {showStore && <StoreButton />}
+          {showUser && (
+            <>
+              <span className="text-[11px] text-white/40 font-space">{MOCK_STUDENT_USER.displayName}</span>
               <button
-                onClick={handleSignOut}
-                className="w-full px-4 py-3 text-left text-[11px] tracking-[0.15em] font-space text-white/60 hover:text-white hover:bg-white/5 transition-colors uppercase"
+                onClick={() => setMenuOpen(prev => !prev)}
+                className="w-6 h-6 rounded-full border border-[#00C4CC]/50 flex items-center justify-center bg-[#001820] cursor-pointer hover:border-[#00C4CC] transition-colors"
               >
-                Sign Out
+                <span className="text-[9px] text-[#00C4CC] font-space font-bold">
+                  {MOCK_STUDENT_USER.firstName[0]}
+                </span>
               </button>
-            </div>
+
+              {menuOpen && (
+                <div
+                  className="absolute top-8 right-0 w-40 rounded-lg overflow-hidden z-50"
+                  style={{
+                    background: 'rgba(0,10,18,0.95)',
+                    border: '1px solid rgba(0,196,204,0.2)',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+                  }}
+                >
+                  <button
+                    onClick={handleSignOut}
+                    className="w-full px-4 py-3 text-left text-[11px] tracking-[0.15em] font-space text-white/60 hover:text-white hover:bg-white/5 transition-colors uppercase"
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

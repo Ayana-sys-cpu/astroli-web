@@ -145,10 +145,12 @@ export async function translateMission(missionId: string): Promise<void> {
 
   const translated = await translatePayload(payload);
 
-  // Store mission translation.
+  // Store mission translation and flip the mission's display language to 'he' —
+  // student API routes gate translation lookup on missions.language, so without
+  // this the translations sit unused and students keep seeing English.
   const { error: mUpdateErr } = await supabaseAdmin
     .from('missions')
-    .update({ translations: { he: translated.mission } })
+    .update({ translations: { he: translated.mission }, language: 'he' })
     .eq('id', missionId);
 
   if (mUpdateErr) throw new Error(`Mission translation save failed: ${mUpdateErr.message}`);

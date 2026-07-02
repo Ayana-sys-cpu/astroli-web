@@ -307,34 +307,10 @@ const strings = {
     he: 'המורה שלך מכין את המסע הזה.',
   },
 
-  // ── Complete Learning CTA + Planet Summary Screen ───────────────────────────
-  completeLearning: {
-    en: 'Complete Learning →',
-    he: 'סיים את הלמידה →',
-  },
-  completeLearningSubtitle: {
-    en: 'Review what you discovered and lock it in',
-    he: 'סקור את מה שגילית ונעל',
-  },
+  // ── Planet Summary Screen (read-only) ───────────────────────────────────────
   hereWhatICaught: {
     en: "Here's what I caught. Real stuff.",
     he: 'הנה מה שתפסתי. דברים אמיתיים.',
-  },
-  addSomethingMissed: {
-    en: 'Add something I missed',
-    he: 'הוסף משהו שהחמצתי',
-  },
-  lockItIn: {
-    en: 'Lock it in',
-    he: 'נעל את זה',
-  },
-  savingLabel: {
-    en: 'Saving…',
-    he: 'שומר…',
-  },
-  keepExploring: {
-    en: 'Keep exploring',
-    he: 'המשך לחקור',
   },
 
   // ── Planet discovery review ─────────────────────────────────────────────────

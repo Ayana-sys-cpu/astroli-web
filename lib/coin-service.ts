@@ -40,11 +40,21 @@ export async function awardCoins(
   const amount = EVENT_AMOUNTS[eventType];
 
   // Attempt to insert the deduplication log row.
-  const { data: logRow } = await supabase
+  const { data: logRow, error: logError } = await supabase
     .from('coin_reward_log')
     .insert({ student_id: studentId, event_type: eventType, amount, mission_id: missionId })
     .select('id')
     .maybeSingle();
+
+  if (logError) {
+    // A dedup collision (unique violation, code 23505) means this event was
+    // already awarded -- that's expected and falls through to the balance
+    // read below. Anything else (e.g. a missing GRANT) must not be treated
+    // as "already awarded" silently.
+    if (logError.code !== '23505') {
+      console.error('[awardCoins] coin_reward_log insert failed:', logError);
+    }
+  }
 
   if (!logRow) {
     // Duplicate — fetch and return current balance unchanged.

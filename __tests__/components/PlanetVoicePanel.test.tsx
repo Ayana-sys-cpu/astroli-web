@@ -20,28 +20,19 @@ const baseProps = {
   thinking: false,
 };
 
-describe('PlanetVoicePanel — persistent Complete Learning CTA', () => {
-  it('does not render the CTA when completionReady is false', () => {
-    render(<PlanetVoicePanel {...baseProps} completionReady={false} onCompleteLearning={() => {}} />);
-    expect(screen.queryByText('Complete Learning →')).not.toBeInTheDocument();
+// The "Complete Learning" CTA (and its isLocked/completionReady/onCompleteLearning
+// props) was removed as part of auto-planet-completion — the summary now appears
+// automatically the instant the last goal is reached, there's nothing left to tap.
+describe('PlanetVoicePanel — no manual completion gate (FR-001, FR-007)', () => {
+  it('never renders a Complete Learning CTA, regardless of props passed', () => {
+    render(<PlanetVoicePanel {...baseProps} />);
+    expect(screen.queryByText(/complete learning/i)).not.toBeInTheDocument();
   });
 
-  it('does not render the CTA when onCompleteLearning is not provided, even if completionReady is true', () => {
-    render(<PlanetVoicePanel {...baseProps} completionReady={true} />);
-    expect(screen.queryByText('Complete Learning →')).not.toBeInTheDocument();
-  });
-
-  it('renders the CTA and calls onCompleteLearning when tapped, once completionReady is true', () => {
-    const onCompleteLearning = vi.fn();
-    render(<PlanetVoicePanel {...baseProps} completionReady={true} onCompleteLearning={onCompleteLearning} />);
-    const cta = screen.getByText('Complete Learning →');
-    expect(cta).toBeInTheDocument();
-    fireEvent.click(cta);
-    expect(onCompleteLearning).toHaveBeenCalledTimes(1);
-  });
-
-  it('hides the CTA once the planet is already locked, even if completionReady is still true in memory', () => {
-    render(<PlanetVoicePanel {...baseProps} completionReady={true} onCompleteLearning={() => {}} isLocked={true} />);
-    expect(screen.queryByText('Complete Learning →')).not.toBeInTheDocument();
+  it('still renders the discovery review button and calls onViewDiscovery when tapped', () => {
+    const onViewDiscovery = vi.fn();
+    render(<PlanetVoicePanel {...baseProps} onViewDiscovery={onViewDiscovery} />);
+    fireEvent.click(screen.getByText("What I've discovered here"));
+    expect(onViewDiscovery).toHaveBeenCalledTimes(1);
   });
 });
