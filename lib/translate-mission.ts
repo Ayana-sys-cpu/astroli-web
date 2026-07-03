@@ -86,6 +86,62 @@ ${JSON.stringify(payload, null, 2)}`;
   return JSON.parse(content) as TranslationPayload;
 }
 
+interface TeachingGoalRow {
+  id:          string;
+  description: string;
+  translations: unknown;
+}
+
+// Translates the still-untranslated teaching goals for a set of planets and
+// writes translations.he.description back onto each planet_teaching_goals row.
+// Safe to call repeatedly — already-translated goals are skipped.
+export async function translateTeachingGoals(planetIds: string[]): Promise<void> {
+  if (planetIds.length === 0) return;
+
+  const { data: goals, error } = await supabaseAdmin
+    .from('planet_teaching_goals')
+    .select('id, description, translations')
+    .in('planet_id', planetIds);
+
+  if (error) throw new Error(`Teaching goals fetch failed: ${error.message}`);
+
+  const untranslated = ((goals ?? []) as unknown as TeachingGoalRow[]).filter(g => {
+    const tx = (g.translations as Record<string, any>) ?? {};
+    return !tx.he?.description;
+  });
+
+  if (untranslated.length === 0) return;
+
+  const prompt = `You are a professional Hebrew translator for an educational platform for Israeli students aged 13–15.
+Translate the following teaching-goal descriptions from English to Hebrew. Keep the JSON keys (ids) exactly as given — only translate the values.
+Return ONLY valid JSON with no explanation: an object mapping each id to its Hebrew translation.
+
+${JSON.stringify(Object.fromEntries(untranslated.map(g => [g.id, g.description])), null, 2)}`;
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'user', content: prompt }],
+    response_format: { type: 'json_object' },
+    temperature: 0.1,
+  });
+
+  const content = response.choices[0]?.message?.content;
+  if (!content) throw new Error('Empty response from OpenAI translation');
+  const translated = JSON.parse(content) as Record<string, string>;
+
+  await Promise.all(
+    untranslated.map(async g => {
+      const description = translated[g.id];
+      if (!description) return;
+      const { error: updErr } = await supabaseAdmin
+        .from('planet_teaching_goals')
+        .update({ translations: { he: { description } } })
+        .eq('id', g.id);
+      if (updErr) throw new Error(`Teaching goal ${g.id} translation save failed: ${updErr.message}`);
+    }),
+  );
+}
+
 // Translates a mission and all its planets, storing results in the DB.
 // Safe to call multiple times — will overwrite existing translations.he data.
 export async function translateMission(missionId: string): Promise<void> {
@@ -165,4 +221,8 @@ export async function translateMission(missionId: string): Promise<void> {
       if (error) throw new Error(`Planet ${tp.id} translation save failed: ${error.message}`);
     }),
   );
+
+  // Teaching goals aren't part of the payload above (they're generated
+  // separately from planet content) — translate them in their own pass.
+  await translateTeachingGoals(translated.planets.map(tp => tp.id));
 }

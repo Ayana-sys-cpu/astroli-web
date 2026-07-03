@@ -8,7 +8,7 @@ import { getPlanetMeta } from '@/lib/planet-meta';
 import { PLANET_EXPERIENCE } from '@/lib/planet-experience';
 import { useOrinChat } from '@/hooks/useOrinChat';
 import { getFirstName, clearSession } from '@/lib/student-store';
-import { supabaseSignOut } from '@/lib/session';
+import { supabaseSignOut, getSessionStudentId } from '@/lib/session';
 import { usePlanetVoice } from '@/hooks/usePlanetVoice';
 import { useCoinReward } from '@/hooks/useCoinReward';
 import PlanetVoicePanel from '@/components/PlanetVoicePanel';
@@ -152,7 +152,24 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
           studentAddition: g.studentAddition ?? undefined,
         })),
       );
-      setSavedIntroducedTerms(match?.termDefinitions ?? []);
+      const termDefinitions = match?.termDefinitions ?? [];
+      setSavedIntroducedTerms(termDefinitions);
+
+      // The planet hasn't reached full completion yet (no planet_summaries row,
+      // so no persisted term_definitions) — fetch a live, unpersisted preview
+      // of terms introduced so far, the same way goal insights are already
+      // visible before the planet is locked in.
+      if (termDefinitions.length === 0) {
+        const studentId = await getSessionStudentId();
+        if (studentId) {
+          const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? 'https://astorli-bot.vercel.app';
+          const termsRes = await fetch(
+            `${BOT_URL}/api/planet-voice/terms?studentId=${studentId}&planetId=${params.id}&language=${missionLang}`,
+          );
+          const termsData = await termsRes.json();
+          setSavedIntroducedTerms(termsData.terms ?? []);
+        }
+      }
     } catch {
       setSavedInsights([]);
       setSavedIntroducedTerms([]);
