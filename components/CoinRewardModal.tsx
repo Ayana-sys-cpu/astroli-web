@@ -30,6 +30,16 @@ const DUST_MOTES = [
   { left: '80%', top: '48%', size: 3, delay: 0.055, hue: '#c0a7ff', dx: '-18vw', dy: '1vh'   },
 ];
 
+// Card entrance timing, shared with the backdrop below so the dim can be
+// sequenced to start only once the card has finished centering.
+const CARD_ENTRANCE_DELAY_S = 0.35;
+const CARD_ENTRANCE_DURATION_S = 0.85;
+// The full-screen dim + blur is deliberately held back until the card lands:
+// the chat underneath — including the utterance that earned this reward — stays
+// readable for the whole entrance flight instead of vanishing on mount.
+const BACKDROP_DIM_DELAY_S = CARD_ENTRANCE_DELAY_S + CARD_ENTRANCE_DURATION_S;
+const BACKDROP_DIM_DURATION_S = 0.8;
+
 const EVENT_CONFIG: Record<EventType, { title: string; subtitle: string }> = {
   goal_completion: {
     title:    'Goal Reached',
@@ -96,25 +106,42 @@ export default function CoinRewardModal({
         transition={{ duration: claiming ? 0.35 : 0.6, ease: 'easeOut' }}
         style={{
           position: 'fixed', inset: 0,
-          background: 'radial-gradient(ellipse at 50% 50%, rgba(84,23,190,0.30) 0%, rgba(9,6,20,0.90) 75%)',
-          backdropFilter: 'blur(6px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           zIndex: 200, overflow: 'hidden',
           // Claiming lifts the overlay immediately so the page underneath is
           // interactive again while the coin-burst celebration keeps playing.
           pointerEvents: claiming ? 'none' : 'auto',
         }}>
-        {/* Nebula blobs */}
-        <div style={{
-          position: 'absolute', width: '500px', height: '500px', pointerEvents: 'none',
-          background: 'radial-gradient(circle, rgba(138,92,245,0.14) 0%, transparent 70%)',
-          filter: 'blur(40px)', top: '10%', left: '15%',
-        }} />
-        <div style={{
-          position: 'absolute', width: '500px', height: '500px', pointerEvents: 'none',
-          background: 'radial-gradient(circle, rgba(0,242,234,0.09) 0%, transparent 70%)',
-          filter: 'blur(40px)', bottom: '10%', right: '15%',
-        }} />
+        {/* Dim + blur backdrop, sequenced to fade in only after the card has
+            centered — the chat (and the utterance that triggered this reward)
+            stays readable during the card's entrance flight. The ambient nebula
+            blobs and fog live inside it so the whole scene dims as one. */}
+        <motion.div
+          initial={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+          animate={{ opacity: 1, backdropFilter: 'blur(6px)' }}
+          transition={{ delay: BACKDROP_DIM_DELAY_S, duration: BACKDROP_DIM_DURATION_S, ease: 'easeOut' }}
+          style={{
+            position: 'absolute', inset: 0, pointerEvents: 'none',
+            background: 'radial-gradient(ellipse at 50% 50%, rgba(84,23,190,0.30) 0%, rgba(9,6,20,0.90) 75%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+          {/* Nebula blobs */}
+          <div style={{
+            position: 'absolute', width: '500px', height: '500px', pointerEvents: 'none',
+            background: 'radial-gradient(circle, rgba(138,92,245,0.14) 0%, transparent 70%)',
+            filter: 'blur(40px)', top: '10%', left: '15%',
+          }} />
+          <div style={{
+            position: 'absolute', width: '500px', height: '500px', pointerEvents: 'none',
+            background: 'radial-gradient(circle, rgba(0,242,234,0.09) 0%, transparent 70%)',
+            filter: 'blur(40px)', bottom: '10%', right: '15%',
+          }} />
+          <div className="crm-fog" style={{
+            position: 'absolute', width: '700px', height: '700px', pointerEvents: 'none',
+            background: 'radial-gradient(circle, rgba(138,92,245,0.10) 0%, transparent 65%)',
+            filter: 'blur(60px)',
+          }} />
+        </motion.div>
 
         {/* Stardust motes — drift in from the edges and coalesce toward the card,
             giving the reward a moment to "materialize" instead of snapping in. */}
@@ -148,12 +175,6 @@ export default function CoinRewardModal({
           .crm-fog        { animation: crm-fog-drift 6s ease-in-out infinite; }
         `}</style>
 
-        <div className="crm-fog" style={{
-          position: 'absolute', width: '700px', height: '700px', pointerEvents: 'none',
-          background: 'radial-gradient(circle, rgba(138,92,245,0.10) 0%, transparent 65%)',
-          filter: 'blur(60px)',
-        }} />
-
         <motion.div
           ref={cardRef}
           initial={
@@ -170,7 +191,7 @@ export default function CoinRewardModal({
           transition={
             claiming
               ? { duration: 0.35, ease: 'easeOut' }
-              : { delay: 0.35, duration: 0.85, ease: [0.16, 1, 0.3, 1] }
+              : { delay: CARD_ENTRANCE_DELAY_S, duration: CARD_ENTRANCE_DURATION_S, ease: [0.16, 1, 0.3, 1] }
           }
           style={{
             position: 'relative',
