@@ -6,6 +6,7 @@ import { type PlanetCharacter, type PlanetVoiceMessage } from '@/hooks/usePlanet
 import { t, type Lang } from '@/lib/i18n';
 import GalaxyChip from '@/components/GalaxyChip';
 import { parseKeywordChips } from '@/lib/parseKeywordChips';
+import { useAutoResizeTextarea } from '@/hooks/useAutoResizeTextarea';
 
 // Design tokens — matches PipGuidePanel exactly
 const T = {
@@ -102,7 +103,8 @@ export default function PlanetVoicePanel({
   const lang  = missionLang;
   const isRtl = lang === 'he';
   const bottomRef  = useRef<HTMLDivElement>(null);
-  const inputRef   = useRef<HTMLInputElement>(null);
+  const inputRef   = useRef<HTMLTextAreaElement>(null);
+  useAutoResizeTextarea(inputRef, input);
   const [inputFocused, setInputFocused] = useState(false);
   const [hintOpen, setHintOpen] = useState(false);
   // Greeting starts ready if history already exists (returning user), otherwise animate in
@@ -423,19 +425,20 @@ export default function PlanetVoicePanel({
       {/* ── Input dock — hidden while CTA is shown, visible once conversation starts ── */}
       {messages.length > 0 && <div style={{ borderTop: `1px solid ${T.b1}`, padding: '12px', flexShrink: 0 }}>
         <div style={{
-          display: 'flex', gap: 8, alignItems: 'center',
+          display: 'flex', gap: 8, alignItems: 'flex-end',
           background: T.s2,
           border: `1px solid ${inputFocused ? 'rgba(155,92,255,0.5)' : T.b1}`,
           boxShadow: inputFocused ? '0 0 16px rgba(155,92,255,0.12)' : 'none',
-          borderRadius: 12, padding: '4px 4px 4px 14px',
+          borderRadius: 12, padding: '10px 4px 10px 14px',
           transition: 'border-color 0.2s, box-shadow 0.2s',
         }}>
-          <input
+          <textarea
             ref={inputRef}
+            rows={1}
             value={input}
             disabled={loading}
             onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && !loading) send(); }}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !loading) { e.preventDefault(); send(); } }}
             onFocus={() => setInputFocused(true)}
             onBlur={() => setInputFocused(false)}
             placeholder={loading
@@ -443,7 +446,8 @@ export default function PlanetVoicePanel({
               : t('askAnythingShort', lang)}
             style={{
               flex: 1, background: 'none', border: 'none', outline: 'none',
-              fontSize: 13, color: T.tp,
+              resize: 'none', overflowY: 'auto',
+              fontSize: 13, lineHeight: 1.4, color: T.tp,
               // @ts-ignore
               caretColor: T.ac,
               opacity: loading ? 0.4 : 1,

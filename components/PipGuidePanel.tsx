@@ -7,6 +7,7 @@ import type { OrinMission, OrinPlanet, MissionTerm, WorldBriefItem } from '@/lib
 import { t, type Lang } from '@/lib/i18n';
 import { getFirstName } from '@/lib/student-store';
 import { TermRow } from '@/components/TermRow';
+import { useAutoResizeTextarea } from '@/hooks/useAutoResizeTextarea';
 
 // =============================================================================
 // Design tokens — matches pip-guide/page.tsx exactly
@@ -495,7 +496,8 @@ function CtaBriefDock({ onGenerate, lang }: { onGenerate: () => void; lang: Lang
 function CtaHowtoDock({ onShowHowTo, onSend, onViewDiscoveries, lang }: { onShowHowTo: () => void; onSend: (text: string) => void; onViewDiscoveries: () => void; lang: Lang }) {
   const [hovered, setHovered] = useState(false);
   const [val, setVal] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  useAutoResizeTextarea(inputRef, val);
 
   const send = () => {
     if (!val.trim()) return;
@@ -542,19 +544,21 @@ function CtaHowtoDock({ onShowHowTo, onSend, onViewDiscoveries, lang }: { onShow
       </button>
 
       <div style={{
-        display: 'flex', gap: 8, alignItems: 'center',
+        display: 'flex', gap: 8, alignItems: 'flex-end',
         background: T.s2, border: `1px solid ${T.b1}`,
-        borderRadius: 12, padding: '4px 4px 4px 14px',
+        borderRadius: 12, padding: '10px 4px 10px 14px',
       }}>
-        <input
+        <textarea
           ref={inputRef}
+          rows={1}
           value={val}
           onChange={(e) => setVal(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && send()}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
           placeholder={t('askAnythingShort', lang)}
           style={{
             flex: 1, background: 'none', border: 'none', outline: 'none',
-            fontSize: 13, color: T.tp,
+            resize: 'none', overflowY: 'auto',
+            fontSize: 13, lineHeight: 1.4, color: T.tp,
             // @ts-ignore — caretColor is valid CSS
             caretColor: T.ac,
           }}
@@ -592,7 +596,8 @@ function LockDock() {
 
 function UnderstandDock({ onGotIt, onSend, lang }: { onGotIt: () => void; onSend: (text: string) => void; lang: Lang }) {
   const [val, setVal] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  useAutoResizeTextarea(inputRef, val);
 
   const send = () => {
     if (!val.trim()) return;
@@ -604,19 +609,21 @@ function UnderstandDock({ onGotIt, onSend, lang }: { onGotIt: () => void; onSend
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{
-        display: 'flex', gap: 8, alignItems: 'center',
+        display: 'flex', gap: 8, alignItems: 'flex-end',
         background: T.s2, border: `1px solid ${T.b1}`,
-        borderRadius: 12, padding: '4px 4px 4px 14px',
+        borderRadius: 12, padding: '10px 4px 10px 14px',
       }}>
-        <input
+        <textarea
           ref={inputRef}
+          rows={1}
           value={val}
           onChange={(e) => setVal(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && send()}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
           placeholder={t('askAnythingEra', lang)}
           style={{
             flex: 1, background: 'none', border: 'none', outline: 'none',
-            fontSize: 13, color: T.tp,
+            resize: 'none', overflowY: 'auto',
+            fontSize: 13, lineHeight: 1.4, color: T.tp,
             // @ts-ignore — caretColor is valid CSS
             caretColor: T.ac,
           }}
@@ -653,7 +660,8 @@ function UnderstandDock({ onGotIt, onSend, lang }: { onGotIt: () => void; onSend
 
 function MissionQaDock({ onAccept, onSend, lang }: { onAccept: () => void; onSend: (text: string) => void; lang: Lang }) {
   const [val, setVal] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  useAutoResizeTextarea(inputRef, val);
 
   const send = () => {
     if (!val.trim()) return;
@@ -665,19 +673,21 @@ function MissionQaDock({ onAccept, onSend, lang }: { onAccept: () => void; onSen
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{
-        display: 'flex', gap: 8, alignItems: 'center',
+        display: 'flex', gap: 8, alignItems: 'flex-end',
         background: T.s2, border: `1px solid ${T.b1}`,
-        borderRadius: 12, padding: '4px 4px 4px 14px',
+        borderRadius: 12, padding: '10px 4px 10px 14px',
       }}>
-        <input
+        <textarea
           ref={inputRef}
+          rows={1}
           value={val}
           onChange={(e) => setVal(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && send()}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
           placeholder={t('askAnythingMission', lang)}
           style={{
             flex: 1, background: 'none', border: 'none', outline: 'none',
-            fontSize: 13, color: T.tp,
+            resize: 'none', overflowY: 'auto',
+            fontSize: 13, lineHeight: 1.4, color: T.tp,
             // @ts-ignore — caretColor is valid CSS
             caretColor: T.ac,
           }}
