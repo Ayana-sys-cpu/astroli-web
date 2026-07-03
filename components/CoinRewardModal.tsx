@@ -1,7 +1,34 @@
 'use client';
+import { useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { CoinRewardResult } from '@/hooks/useCoinReward';
 import type { EventType } from '@/lib/coin-service';
+
+// Fixed (non-random) scatter positions for the stardust motes that drift in from
+// the edges of the screen and coalesce toward the card as it materializes.
+// Kept as a static array (not Math.random) so server/client markup always matches.
+// dx/dy point each mote toward viewport center (50%,50%) so the whole field
+// visibly converges on the card rather than drifting in one uniform direction.
+const DUST_MOTES = [
+  { left: '8%',  top: '18%', size: 3, delay: 0.000, hue: '#8a5cf5', dx: '25vw',  dy: '19vh'  },
+  { left: '22%', top: '72%', size: 2, delay: 0.040, hue: '#00f2ea', dx: '17vw',  dy: '-13vh' },
+  { left: '15%', top: '45%', size: 4, delay: 0.020, hue: '#c0a7ff', dx: '21vw',  dy: '3vh'   },
+  { left: '35%', top: '12%', size: 2, delay: 0.070, hue: '#8a5cf5', dx: '9vw',   dy: '23vh'  },
+  { left: '5%',  top: '85%', size: 3, delay: 0.050, hue: '#00f2ea', dx: '27vw',  dy: '-21vh' },
+  { left: '48%', top: '90%', size: 2, delay: 0.090, hue: '#c0a7ff', dx: '1vw',   dy: '-24vh' },
+  { left: '62%', top: '10%', size: 3, delay: 0.030, hue: '#8a5cf5', dx: '-7vw',  dy: '24vh'  },
+  { left: '78%', top: '30%', size: 4, delay: 0.060, hue: '#00f2ea', dx: '-17vw', dy: '12vh'  },
+  { left: '90%', top: '65%', size: 2, delay: 0.010, hue: '#c0a7ff', dx: '-24vw', dy: '-9vh'  },
+  { left: '85%', top: '85%', size: 3, delay: 0.080, hue: '#8a5cf5', dx: '-21vw', dy: '-21vh' },
+  { left: '70%', top: '92%', size: 2, delay: 0.100, hue: '#00f2ea', dx: '-12vw', dy: '-25vh' },
+  { left: '92%', top: '15%', size: 3, delay: 0.045, hue: '#c0a7ff', dx: '-25vw', dy: '21vh'  },
+  { left: '30%', top: '55%', size: 2, delay: 0.065, hue: '#8a5cf5', dx: '12vw',  dy: '-3vh'  },
+  { left: '55%', top: '25%', size: 3, delay: 0.020, hue: '#00f2ea', dx: '-3vw',  dy: '15vh'  },
+  { left: '12%', top: '60%', size: 2, delay: 0.085, hue: '#c0a7ff', dx: '23vw',  dy: '-6vh'  },
+  { left: '68%', top: '55%', size: 4, delay: 0.035, hue: '#8a5cf5', dx: '-11vw', dy: '-3vh'  },
+  { left: '40%', top: '80%', size: 2, delay: 0.075, hue: '#00f2ea', dx: '6vw',   dy: '-18vh' },
+  { left: '80%', top: '48%', size: 3, delay: 0.055, hue: '#c0a7ff', dx: '-18vw', dy: '1vh'   },
+];
 
 const EVENT_CONFIG: Record<EventType, { title: string; subtitle: string }> = {
   goal_completion: {
@@ -28,51 +55,104 @@ const EVENT_CONFIG: Record<EventType, { title: string; subtitle: string }> = {
 
 export default function CoinRewardModal({
   reward,
-  onDismiss,
+  onClaim,
+  claiming,
 }: {
-  reward:    CoinRewardResult;
-  onDismiss: () => void;
+  reward:   CoinRewardResult;
+  onClaim:  (cardRect: DOMRect) => void;
+  claiming: boolean;
 }) {
   const cfg      = EVENT_CONFIG[reward.eventType];
   const title    = reward.titleOverride    ?? cfg.title;
   const subtitle = reward.subtitleOverride ?? cfg.subtitle;
+  const cardRef  = useRef<HTMLDivElement>(null);
+
+  function handleClaim() {
+    if (claiming || !cardRef.current) return;
+    onClaim(cardRef.current.getBoundingClientRect());
+  }
 
   return (
     <AnimatePresence>
-      <div style={{
-        position: 'fixed', inset: 0,
-        background: 'rgba(0,0,0,0.75)',
-        backdropFilter: 'blur(4px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 200,
-      }}>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: claiming ? 0 : 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: claiming ? 0.35 : 0.6, ease: 'easeOut' }}
+        style={{
+          position: 'fixed', inset: 0,
+          background: 'radial-gradient(ellipse at 50% 50%, rgba(84,23,190,0.30) 0%, rgba(9,6,20,0.90) 75%)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 200, overflow: 'hidden',
+          // Claiming lifts the overlay immediately so the page underneath is
+          // interactive again while the coin-burst celebration keeps playing.
+          pointerEvents: claiming ? 'none' : 'auto',
+        }}>
         {/* Nebula blobs */}
         <div style={{
           position: 'absolute', width: '500px', height: '500px', pointerEvents: 'none',
-          background: 'radial-gradient(circle, rgba(138,92,245,0.12) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(138,92,245,0.14) 0%, transparent 70%)',
           filter: 'blur(40px)', top: '10%', left: '15%',
         }} />
         <div style={{
           position: 'absolute', width: '500px', height: '500px', pointerEvents: 'none',
-          background: 'radial-gradient(circle, rgba(0,242,234,0.08) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(0,242,234,0.09) 0%, transparent 70%)',
           filter: 'blur(40px)', bottom: '10%', right: '15%',
         }} />
+
+        {/* Stardust motes — drift in from the edges and coalesce toward the card,
+            giving the reward a moment to "materialize" instead of snapping in. */}
+        {DUST_MOTES.map((mote, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, x: 0, y: 0, scale: 0.4 }}
+            animate={{ opacity: [0, 1, 0.9, 0], x: mote.dx, y: mote.dy, scale: [0.4, 1, 1, 0.6] }}
+            transition={{ duration: 1.5, delay: mote.delay, ease: 'easeIn', times: [0, 0.35, 0.75, 1] }}
+            style={{
+              position: 'absolute', left: mote.left, top: mote.top,
+              width: mote.size, height: mote.size, borderRadius: '50%',
+              background: mote.hue, boxShadow: `0 0 ${mote.size * 3}px ${mote.hue}`,
+              pointerEvents: 'none',
+            }}
+          />
+        ))}
 
         <style>{`
           @keyframes crm-spin-cw  { to { transform: rotate(360deg);  } }
           @keyframes crm-spin-ccw { to { transform: rotate(-360deg); } }
           @keyframes crm-pulse    { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+          @keyframes crm-fog-drift {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50%      { transform: translate(2%, -3%) scale(1.06); }
+          }
           .crm-ring-outer { animation: crm-spin-cw  10s linear infinite; }
           .crm-ring-inner { animation: crm-spin-ccw  7s linear infinite; }
           .crm-pulse      { animation: crm-pulse      2s ease-in-out infinite; }
           .crm-btn:hover  { box-shadow: 0 0 20px rgba(0,242,234,0.55); }
+          .crm-fog        { animation: crm-fog-drift 6s ease-in-out infinite; }
         `}</style>
 
+        <div className="crm-fog" style={{
+          position: 'absolute', width: '700px', height: '700px', pointerEvents: 'none',
+          background: 'radial-gradient(circle, rgba(138,92,245,0.10) 0%, transparent 65%)',
+          filter: 'blur(60px)',
+        }} />
+
         <motion.div
-          initial={{ opacity: 0, scale: 0.9, y: 20 }}
-          animate={{ opacity: 1, scale: 1,   y: 0  }}
-          exit={{    opacity: 0, scale: 0.96, y: 12 }}
-          transition={{ type: 'spring', damping: 22, stiffness: 220 }}
+          ref={cardRef}
+          initial={{ opacity: 0, scale: 0.55, y: 20, filter: 'blur(18px)' }}
+          animate={
+            claiming
+              ? { opacity: 0, scale: 0.85, y: 20, filter: 'blur(4px)' }
+              : { opacity: 1, scale: 1,    y: 0,  filter: 'blur(0px)' }
+          }
+          exit={{ opacity: 0, scale: 0.96, y: 12, filter: 'blur(8px)' }}
+          transition={
+            claiming
+              ? { duration: 0.35, ease: 'easeOut' }
+              : { delay: 0.35, duration: 0.85, ease: [0.16, 1, 0.3, 1] }
+          }
           style={{
             position: 'relative',
             width: '360px',
@@ -201,20 +281,21 @@ export default function CoinRewardModal({
           {/* CTA */}
           <button
             className="crm-btn"
-            onClick={onDismiss}
+            onClick={handleClaim}
+            disabled={claiming}
             style={{
               width: '100%', height: '48px', border: 'none', borderRadius: '12px',
               background: '#00f2ea', color: '#003735',
               fontFamily: 'Space Grotesk, sans-serif', fontSize: '16px', fontWeight: 600,
-              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              gap: '8px', transition: 'box-shadow 0.2s',
+              cursor: claiming ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: '8px', transition: 'box-shadow 0.2s', opacity: claiming ? 0.7 : 1,
             }}
           >
             <span>Claim Reward</span>
             <i className="ti ti-arrow-right" style={{ fontSize: '18px' }} />
           </button>
         </motion.div>
-      </div>
+      </motion.div>
     </AnimatePresence>
   );
 }
