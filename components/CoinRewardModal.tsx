@@ -72,6 +72,21 @@ export default function CoinRewardModal({
     onClaim(cardRef.current.getBoundingClientRect());
   }
 
+  // The card is centered via flexbox, so its resting transform is (0,0). To make
+  // it visibly emerge from the chat panel — the source of the message + bot
+  // acknowledgment that caused this reward — its *entrance* starts translated to
+  // that panel's on-screen position instead of appearing at rest in the center.
+  // No sourceRect (e.g. panel unmounted, or a caller that doesn't supply one) —
+  // falls back to the original center-materialize entrance.
+  const sourceOffset = (() => {
+    if (!reward.sourceRect || typeof window === 'undefined') return null;
+    const r = reward.sourceRect;
+    return {
+      x: (r.left + r.width / 2)  - window.innerWidth  / 2,
+      y: (r.top  + r.height / 2) - window.innerHeight / 2,
+    };
+  })();
+
   return (
     <AnimatePresence>
       <motion.div
@@ -141,11 +156,15 @@ export default function CoinRewardModal({
 
         <motion.div
           ref={cardRef}
-          initial={{ opacity: 0, scale: 0.55, y: 20, filter: 'blur(18px)' }}
+          initial={
+            sourceOffset
+              ? { opacity: 0, scale: 0.2,  x: sourceOffset.x, y: sourceOffset.y, filter: 'blur(12px)' }
+              : { opacity: 0, scale: 0.55, x: 0,               y: 20,            filter: 'blur(18px)' }
+          }
           animate={
             claiming
               ? { opacity: 0, scale: 0.85, y: 20, filter: 'blur(4px)' }
-              : { opacity: 1, scale: 1,    y: 0,  filter: 'blur(0px)' }
+              : { opacity: 1, scale: 1,    x: 0,  y: 0, filter: 'blur(0px)' }
           }
           exit={{ opacity: 0, scale: 0.96, y: 12, filter: 'blur(8px)' }}
           transition={

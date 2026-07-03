@@ -51,6 +51,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
   const [showSummaryReview, setShowSummaryReview] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const chatPanelRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -105,10 +106,14 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
     const timer = setTimeout(() => {
       const isFinalGoal = planetVoice.completionReady;
       const isGoalCompletion = award.eventType === 'goal_completion';
+      // Anchor the entrance animation to the chat panel — the student's message and
+      // the bot's acknowledgment live there, so the reward should visibly emerge from
+      // that conversation rather than materialize out of nowhere at screen center.
       triggerReward({
         awarded:          true,
         amount:           award.amount,
         newBalance:       award.newBalance,
+        sourceRect:       chatPanelRef.current?.getBoundingClientRect(),
         eventType:        award.eventType as 'goal_completion' | 'first_vote' | 'planet_complete' | 'mission_complete' | 'bonus_mission',
         titleOverride:    isGoalCompletion
           ? (isFinalGoal ? 'Planet Explored!' : 'Goal Reached')
@@ -410,7 +415,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
         </div>
 
         {/* ── Right — Chat + Notebook panel ── */}
-        <aside className="panel w-[380px] flex-shrink-0 flex flex-col overflow-hidden" style={{ position: 'relative' }}>
+        <aside ref={chatPanelRef} className="panel w-[380px] flex-shrink-0 flex flex-col overflow-hidden" style={{ position: 'relative' }}>
           {/* Atmospheric depth — nebula tint + animated left-edge strip */}
           <div className="absolute inset-0 pointer-events-none z-0" style={{
             background: 'radial-gradient(ellipse 100% 60% at 50% 0%, rgba(155,92,255,0.04) 0%, transparent 60%)',

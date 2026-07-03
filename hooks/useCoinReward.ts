@@ -9,6 +9,9 @@ export interface CoinRewardResult {
   titleOverride?:    string;
   subtitleOverride?: string;
   onDismiss?:        () => void;
+  /** Rect of the element the reward should visually emerge from (e.g. the chat panel).
+   *  Undefined falls back to the modal's default center-materialize entrance. */
+  sourceRect?:       DOMRect;
 }
 
 interface CoinRewardContextValue {
