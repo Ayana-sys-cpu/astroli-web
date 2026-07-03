@@ -69,6 +69,7 @@ interface TranslationPayload {
 async function translatePayload(payload: TranslationPayload): Promise<TranslationPayload> {
   const prompt = `You are a professional Hebrew translator for an educational platform for Israeli students aged 13–15.
 Translate the following JSON from English to Hebrew. Keep JSON keys in English — only translate the values.
+Transliterate every person's name into Hebrew (e.g. "Antoine Lavoisier" → "אנטואן לבואזייה", "James Joule" → "ג'יימס ג'אול"). Never leave a name in Latin script.
 Preserve all formatting, line breaks (\\n), and HTML tags exactly.
 Return ONLY valid JSON with no explanation.
 
@@ -114,6 +115,7 @@ export async function translateTeachingGoals(planetIds: string[]): Promise<void>
 
   const prompt = `You are a professional Hebrew translator for an educational platform for Israeli students aged 13–15.
 Translate the following teaching-goal descriptions from English to Hebrew. Keep the JSON keys (ids) exactly as given — only translate the values.
+Transliterate every person's name into Hebrew (e.g. "Antoine Lavoisier" → "אנטואן לבואזייה", "James Joule" → "ג'יימס ג'אול"). Never leave a name in Latin script.
 Return ONLY valid JSON with no explanation: an object mapping each id to its Hebrew translation.
 
 ${JSON.stringify(Object.fromEntries(untranslated.map(g => [g.id, g.description])), null, 2)}`;
