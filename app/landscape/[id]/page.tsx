@@ -13,6 +13,7 @@ import { usePlanetVoice } from '@/hooks/usePlanetVoice';
 import { useCoinReward } from '@/hooks/useCoinReward';
 import PlanetVoicePanel from '@/components/PlanetVoicePanel';
 import PlanetSummaryScreen from '@/components/PlanetSummaryScreen';
+import StoreButton from '@/components/StoreButton';
 import { t, type Lang } from '@/lib/i18n';
 import { type SummaryInsight } from '@/hooks/usePlanetVoice';
 import type { MissionTerm } from '@/lib/orin-guide-types';
@@ -272,6 +273,8 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
             {figureDisplayName} {t('isPresenting', missionLang)}
           </span>
         )}
+        <div className="flex items-center gap-2.5">
+        <StoreButton />
         <div className="relative" ref={menuRef}>
           <button
             className="flex items-center gap-2 group"
@@ -299,6 +302,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
               </button>
             </div>
           )}
+        </div>
         </div>
       </header>
 
