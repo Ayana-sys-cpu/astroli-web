@@ -117,6 +117,9 @@ export async function GET(req: NextRequest) {
         .filter(g => discoveredGoalIds.has(g.id))
         .map(g => {
           const gtx = lang === 'he' ? ((g.translations as Record<string, any>)?.he ?? {}) : {};
+          if (lang === 'he' && !gtx.description) {
+            console.warn(`[planet-summaries] missing he translation for teaching goal ${g.id} (planet ${session.planet_id}) — falling back to English`);
+          }
           return {
             insightText:     (gtx.description as string | undefined) ?? g.description,
             studentAddition: studentAdditionByGoalId[g.id] ?? null,

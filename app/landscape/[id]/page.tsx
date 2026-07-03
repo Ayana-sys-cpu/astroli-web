@@ -90,32 +90,45 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
   // Show the reward modal when the bot awards coins server-side.
   // The award itself is now durable (written to coin_reward_log by the bot route),
   // so the client just needs to display the modal when a new award arrives.
+  //
+  // The popup is deliberately held back until the student has had time to read
+  // the figure's acknowledgment line — otherwise it renders in the same paint as
+  // the bot's message and the "wait for the bot" fix is invisible in practice.
+  // Delay scales with that message's length, same formula as the Orin reveal above.
   useEffect(() => {
     const award = planetVoice.coinAward;
     if (!award?.awarded) return;
-    const isFinalGoal = planetVoice.completionReady;
-    const isGoalCompletion = award.eventType === 'goal_completion';
-    triggerReward({
-      awarded:          true,
-      amount:           award.amount,
-      newBalance:       award.newBalance,
-      eventType:        award.eventType as 'goal_completion' | 'first_vote' | 'planet_complete' | 'mission_complete' | 'bonus_mission',
-      titleOverride:    isGoalCompletion
-        ? (isFinalGoal ? 'Planet Explored!' : 'Goal Reached')
-        : undefined,
-      subtitleOverride: isGoalCompletion
-        ? (isFinalGoal
-            ? "You've uncovered every secret on this planet."
-            : 'Keep exploring the universe.')
-        : undefined,
-      // The planet is already recorded complete server-side by this point
-      // (finalizePlanetCompletion runs before this response was returned) —
-      // dismissing the popup just opens the read-only summary, the same
-      // data-fetch handleViewDiscovery already uses correctly elsewhere.
-      onDismiss: (isGoalCompletion && isFinalGoal)
-        ? () => handleViewDiscovery()
-        : undefined,
-    });
+
+    const lastFigureMsg = [...planetVoice.messages].reverse().find(m => m.speaker === 'figure');
+    const readDelay = Math.min(3200, 1400 + (lastFigureMsg?.content.length ?? 0) * 18);
+
+    const timer = setTimeout(() => {
+      const isFinalGoal = planetVoice.completionReady;
+      const isGoalCompletion = award.eventType === 'goal_completion';
+      triggerReward({
+        awarded:          true,
+        amount:           award.amount,
+        newBalance:       award.newBalance,
+        eventType:        award.eventType as 'goal_completion' | 'first_vote' | 'planet_complete' | 'mission_complete' | 'bonus_mission',
+        titleOverride:    isGoalCompletion
+          ? (isFinalGoal ? 'Planet Explored!' : 'Goal Reached')
+          : undefined,
+        subtitleOverride: isGoalCompletion
+          ? (isFinalGoal
+              ? "You've uncovered every secret on this planet."
+              : 'Keep exploring the universe.')
+          : undefined,
+        // The planet is already recorded complete server-side by this point
+        // (finalizePlanetCompletion runs before this response was returned) —
+        // dismissing the popup just opens the read-only summary, the same
+        // data-fetch handleViewDiscovery already uses correctly elsewhere.
+        onDismiss: (isGoalCompletion && isFinalGoal)
+          ? () => handleViewDiscovery()
+          : undefined,
+      });
+    }, readDelay);
+
+    return () => clearTimeout(timer);
   }, [planetVoice.coinAward, planetVoice.completionReady, triggerReward]);
 
   function handleSend() {
