@@ -20,7 +20,6 @@ export interface PlanetCharacter {
   knowledge_cutoff: string;
   portrait_url: string | null;
   listening_video_url: string | null;
-  thinking_video_url: string | null;
 }
 
 export interface PlanetVoiceMessage {

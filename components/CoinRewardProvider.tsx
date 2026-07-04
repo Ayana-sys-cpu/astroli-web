@@ -36,6 +36,11 @@ export default function CoinRewardProvider({ children }: { children: React.React
   const triggerReward = useCallback((result: CoinRewardResult) => {
     if (!result.awarded) return;
     setBalance(result.newBalance);
+    // The pill's visible count must reflect the real balance the instant it's
+    // awarded, not only once the student clicks "Claim" on the popup — the
+    // claim/burst flow below is purely a delight animation, never a gate on
+    // when the number itself is correct.
+    setPillBalance(result.newBalance);
     setQueue(prev => [...prev, result]);
   }, []);
 

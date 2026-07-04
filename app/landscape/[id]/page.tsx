@@ -347,9 +347,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
           {/* Figure — fills the full panel */}
           {character?.listening_video_url ? (
             <video
-              src={planetVoice.thinking && character.thinking_video_url
-                ? character.thinking_video_url
-                : character.listening_video_url}
+              src={character.listening_video_url}
               className="absolute inset-0 w-full h-full object-cover object-top"
               autoPlay loop muted playsInline
             />

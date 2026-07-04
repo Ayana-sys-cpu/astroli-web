@@ -18,7 +18,9 @@ interface CoinRewardContextValue {
   triggerReward: (result: CoinRewardResult) => void;
   balance: number | null;
   setBalance: (balance: number) => void;
-  /** Value the balance pill should display — lags `balance` until the claim animation's count-up catches up to it. */
+  /** Value the balance pill should display. Updates the instant a reward is awarded,
+   *  independent of whether the student clicks "Claim" — the claim/burst flow only
+   *  replays a count-up animation over an already-correct value, it never gates it. */
   pillBalance: number | null;
   /** True while the balance pill should play its shake/scale/glow reaction. */
   pillPulse: boolean;

@@ -6,7 +6,7 @@ import PlanetVoicePanel from '@/components/PlanetVoicePanel';
 const character = {
   id: 'c1', planet_id: 'planet-1', name: 'Galileo', mode: 'real' as const,
   bio: '', era: '', location: '', voice_profile: '', teaching_goal: '',
-  knowledge_cutoff: '', portrait_url: null, listening_video_url: null, thinking_video_url: null,
+  knowledge_cutoff: '', portrait_url: null, listening_video_url: null,
 };
 
 const baseProps = {
