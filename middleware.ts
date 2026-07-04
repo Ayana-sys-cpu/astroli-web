@@ -10,6 +10,7 @@ const PUBLIC_API_ROUTES = new Set([
   '/api/vote-counts',
   '/api/winner',
   '/api/test/routing-check', // shadow session runner — auth via Bearer service role key
+  '/api/leads',          // marketing landing page trial signup — no session exists yet
 ]);
 
 /**
