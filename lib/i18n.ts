@@ -290,6 +290,14 @@ const strings = {
     en: 'Your mission is underway.',
     he: 'המשימה שלך בעיצומה.',
   },
+  badgeMissionComplete: {
+    en: '✦ COMPLETE',
+    he: '✦ הושלם',
+  },
+  bodyLiveMissionComplete: {
+    en: 'All {total} planets explored on {title}.',
+    he: 'כל {total} הכוכבים נחקרו ב{title}.',
+  },
   bodyVoting: {
     en: 'Your class is choosing the next mission. Cast your vote.',
     he: 'הכיתה שלך בוחרת את המשימה הבאה. הצבע.',

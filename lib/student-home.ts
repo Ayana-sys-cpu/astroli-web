@@ -10,6 +10,7 @@ export interface HomeJourney {
   missionTitle?:           string;
   planetsExplored?:        number;
   planetsTotal?:           number;
+  studentMissionCompleted?: boolean;
   voteSessionId?:          string | null;
   voteEndsAt?:             string | null;
   completedMissionsCount?: number;
@@ -59,15 +60,20 @@ export function buildHomeJourney(input: BuildHomeJourneyInput): HomeJourney {
   };
 
   switch (status) {
-    case 'live':
+    case 'live': {
       if (!input.activeMission) return base;
+      const allExplored =
+        (input.activeMission.planetsTotal ?? 0) > 0 &&
+        (input.activeMission.planetsExplored ?? 0) >= (input.activeMission.planetsTotal ?? 0);
       return {
         ...base,
-        activeMissionId: input.activeMission.id,
-        missionTitle:    input.activeMission.title,
-        planetsExplored: input.activeMission.planetsExplored,
-        planetsTotal:    input.activeMission.planetsTotal,
+        activeMissionId:         input.activeMission.id,
+        missionTitle:            input.activeMission.title,
+        planetsExplored:         input.activeMission.planetsExplored,
+        planetsTotal:            input.activeMission.planetsTotal,
+        studentMissionCompleted: allExplored || undefined,
       };
+    }
     case 'voting':
       return {
         ...base,

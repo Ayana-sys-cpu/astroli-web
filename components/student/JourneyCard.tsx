@@ -25,13 +25,15 @@ const ACCENT: Record<HomeJourney['status'], Accent> = {
   idle:    { text: 'rgba(255,255,255,0.3)',  border: 'rgba(255,255,255,0.06)', glow: 'rgba(255,255,255,0)', glowSoft: 'rgba(255,255,255,0)', badgeBg: 'rgba(255,255,255,0.04)', ctaBg: 'transparent', ctaFg: 'rgba(255,255,255,0.3)' },
 };
 
-function badgeLabel(status: HomeJourney['status'], lang: Lang): string {
+function badgeLabel(journey: HomeJourney, lang: Lang): string {
+  if (journey.status === 'live' && journey.studentMissionCompleted) return t('badgeMissionComplete', lang);
   const key = { live: 'badgeLive', voting: 'badgeVoting', pending: 'badgePending', done: 'badgeDone', idle: 'badgeIdle' } as const;
-  return t(key[status], lang);
+  return t(key[journey.status], lang);
 }
 
-function ctaLabel(status: HomeJourney['status'], lang: Lang): string {
-  switch (status) {
+function ctaLabel(journey: HomeJourney, lang: Lang): string {
+  if (journey.status === 'live' && journey.studentMissionCompleted) return t('ctaRevisitJourney', lang);
+  switch (journey.status) {
     case 'live':    return t('ctaContinueMission', lang);
     case 'voting':  return t('ctaVoteNow', lang);
     case 'pending': return t('ctaViewResults', lang);
@@ -41,6 +43,13 @@ function ctaLabel(status: HomeJourney['status'], lang: Lang): string {
 }
 
 function bodyText(journey: HomeJourney, lang: Lang): string {
+  if (journey.status === 'live' && journey.studentMissionCompleted) {
+    return journey.missionTitle
+      ? t('bodyLiveMissionComplete', lang)
+          .replace('{total}', String(journey.planetsTotal ?? 0))
+          .replace('{title}', journey.missionTitle)
+      : t('bodyLiveFallback', lang);
+  }
   switch (journey.status) {
     case 'live':
       return journey.missionTitle
@@ -59,7 +68,8 @@ function bodyText(journey: HomeJourney, lang: Lang): string {
 
 export default function JourneyCard({ journey, onClick }: JourneyCardProps) {
   const lang: Lang  = journey.language ?? 'en';
-  const accent      = ACCENT[journey.status];
+  const accentKey   = (journey.status === 'live' && journey.studentMissionCompleted) ? 'done' : journey.status;
+  const accent      = ACCENT[accentKey];
   const clickable   = journey.status !== 'idle';
 
   return (
@@ -89,7 +99,7 @@ export default function JourneyCard({ journey, onClick }: JourneyCardProps) {
           className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold tracking-[0.16em] uppercase whitespace-nowrap"
           style={{ color: accent.text, background: accent.badgeBg, border: `1px solid ${accent.border}` }}
         >
-          {badgeLabel(journey.status, lang)}
+          {badgeLabel(journey, lang)}
         </div>
       </div>
 
@@ -122,7 +132,7 @@ export default function JourneyCard({ journey, onClick }: JourneyCardProps) {
             border:     accent.ctaBg === 'transparent' ? `1px solid ${accent.border}` : 'none',
           }}
         >
-          {ctaLabel(journey.status, lang)}
+          {ctaLabel(journey, lang)}
         </div>
       )}
     </button>
