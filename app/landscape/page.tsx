@@ -97,14 +97,15 @@ function LandscapeContent() {
               if (!missionStatus) {
                 isFirstVisit.current = true;
                 setShowOverlay(true);
-              } else {
-                setReady(true);
               }
               setMission(mission);
               fetch(`/api/student/planet-progress?missionId=${mission.id}`)
                 .then(r => r.json())
-                .then(({ progress }) => { if (progress) setPlanetProgress(progress); })
-                .catch(() => {});
+                .then(({ progress }) => {
+                  if (progress) setPlanetProgress(progress);
+                  if (missionStatus) setReady(true);
+                })
+                .catch(() => { if (missionStatus) setReady(true); });
             })
             .catch(() => {});
         }
