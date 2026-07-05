@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
 
     const journeyIds = classes.map((c) => c.journey_id);
 
-    const [{ data: missionRows, error: mErr }, { data: stateRows }, { data: openSessions }] = await Promise.all([
+    const [{ data: missionRows, error: mErr }, { data: stateRows }, { data: openSessions }, { data: studentCompletions }] = await Promise.all([
       supabaseAdmin
         .from('missions')
         .select('id, journey_id, question, "order", translations')
@@ -60,6 +60,13 @@ export async function GET(req: NextRequest) {
         .select('class_id, ends_at')
         .in('class_id', classIds)
         .eq('status', 'open'),
+      // Per-student mission completion — set by the bot when all planets done.
+      // Used to show "done" for this student even while the class is still active.
+      supabaseAdmin
+        .from('mission_started_by_student')
+        .select('mission_id, status')
+        .eq('student_id', studentId)
+        .eq('status', 'completed'),
     ]);
 
     if (mErr) throw mErr;
@@ -73,6 +80,7 @@ export async function GET(req: NextRequest) {
 
     const stateByClassAndMission = new Map((stateRows ?? []).map((r) => [`${r.class_id}:${r.mission_id}`, r.state]));
     const voteEndsAtByClass = new Map((openSessions ?? []).map((s) => [s.class_id, s.ends_at]));
+    const studentCompletedMissions = new Set((studentCompletions ?? []).map((s) => s.mission_id));
 
     const journeys = classes.map((c) => {
       const lang = (c as any).language ?? 'en';
@@ -86,10 +94,17 @@ export async function GET(req: NextRequest) {
           const tx: Record<string, any> = lang === 'he'
             ? (((m as any).translations as Record<string, any>)?.he ?? {})
             : {};
+          const classState = stateByClassAndMission.get(`${c.id}:${m.id}`) ?? 'locked';
+          // If this student personally finished all planets while the class
+          // is still active, surface "completed" so mobile shows "done".
+          const effectiveState =
+            classState === 'active' && studentCompletedMissions.has(m.id)
+              ? 'completed'
+              : classState;
           return {
             id: m.id,
             question: tx.question ?? m.question,
-            state: stateByClassAndMission.get(`${c.id}:${m.id}`) ?? 'locked',
+            state: effectiveState,
             order: m.order,
           };
         }),
