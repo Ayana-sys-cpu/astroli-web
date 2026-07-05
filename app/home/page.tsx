@@ -98,7 +98,7 @@ export default function HomePage() {
           >
             <div
               className="w-[34px] h-[34px] rounded-full overflow-hidden flex-shrink-0"
-              style={{ border: '1.5px solid rgba(0,245,212,0.4)' }}
+              style={{ border: '1.5px solid rgba(168,85,247,0.4)' }}
             >
               {avatarUrl
                 ? <img src={avatarUrl} alt={alienName} className="w-full h-full object-cover" />

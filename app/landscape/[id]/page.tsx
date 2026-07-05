@@ -199,7 +199,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <span className="w-5 h-5 rounded-full border-2 border-[#00C4CC]/30 border-t-[#00C4CC] animate-spin" />
+        <span className="w-5 h-5 rounded-full border-2 border-[#a855f7]/30 border-t-[#00C4CC] animate-spin" />
       </div>
     );
   }
@@ -268,8 +268,8 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
           </button>
         </div>
         {figureDisplayName && (
-          <span className="text-[10px] tracking-wide text-[#00C4CC]/60 font-space flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#00C4CC] inline-block" />
+          <span className="text-[10px] tracking-wide text-[#a855f7]/60 font-space flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#a855f7] inline-block" />
             {figureDisplayName} {t('isPresenting', missionLang)}
           </span>
         )}
@@ -282,8 +282,8 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
             onClick={() => setMenuOpen((prev) => !prev)}
           >
             <span className="text-[11px] text-white/40 font-space group-hover:text-white/70 transition-colors">{displayName}</span>
-            <div className="w-6 h-6 rounded-full border border-[#00C4CC]/50 flex items-center justify-center bg-[#001820] group-hover:border-[#00C4CC] transition-colors">
-              <span className="text-[9px] text-[#00C4CC] font-space font-bold">
+            <div className="w-6 h-6 rounded-full border border-[#a855f7]/50 flex items-center justify-center bg-[#001820] group-hover:border-[#a855f7] transition-colors">
+              <span className="text-[9px] text-[#a855f7] font-space font-bold">
                 {firstName[0]?.toUpperCase() ?? 'A'}
               </span>
             </div>
@@ -330,8 +330,8 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
               }} />
               <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-full border border-white/12 bg-black/50 backdrop-blur-sm">
                 <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00C4CC] opacity-60" />
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#00C4CC]" />
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#a855f7] opacity-60" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#a855f7]" />
                 </span>
                 <span className="text-[9px] tracking-[0.18em] text-white/50 font-space uppercase">{t('speakingWith', missionLang)}</span>
               </div>
@@ -460,7 +460,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
               />
             ) : planetVoice.charLoading ? (
               <div className="flex-1 flex items-center justify-center">
-                <span className="w-4 h-4 rounded-full border-2 border-[#00C4CC]/30 border-t-[#00C4CC] animate-spin" />
+                <span className="w-4 h-4 rounded-full border-2 border-[#a855f7]/30 border-t-[#00C4CC] animate-spin" />
               </div>
             ) : (
               <div className="flex-1 flex items-center justify-center">

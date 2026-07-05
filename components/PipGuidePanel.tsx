@@ -23,16 +23,23 @@ const T = {
   tp:    '#e2e8f0',
   ts:    '#8896a8',
   tm:    '#3d4a60',
-  ac:    '#00d4d4',
-  acDim: 'rgba(0,212,212,0.10)',
-  acBdr: 'rgba(0,212,212,0.25)',
+  ac:    '#a855f7',
+  acDim: 'rgba(168,85,247,0.10)',
+  acBdr: 'rgba(168,85,247,0.25)',
 } as const;
 
 // =============================================================================
 // Types
 // =============================================================================
 
-type DockState = 'cta-brief' | 'cta-howto' | 'lock' | 'understand' | 'mission-qa' | 'launch' | 'done';
+type DockState = 'cta-brief' | 'cta-howto' | 'lock' | 'understand' | 'done';
+
+interface ReturnTrigger {
+  type: 'return-planet' | 'return-goals' | 'return-goal' | 'return-no-activity';
+  planetName: string | null;
+  goalText:   string | null;
+  goalCount:  number | null;
+}
 
 export interface LockedPlanetSummary {
   planetId:        string;
@@ -53,6 +60,26 @@ type ChatMsg =
 let _idCounter = 0;
 function uid() { return `msg_${++_idCounter}_${Date.now()}`; }
 
+function applyTemplate(template: string, vars: Record<string, string>): string {
+  return Object.entries(vars).reduce(
+    (str, [k, v]) => str.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v),
+    template,
+  );
+}
+
+function formatReturnMessage(rt: ReturnTrigger, lang: Lang): string {
+  switch (rt.type) {
+    case 'return-planet':
+      return applyTemplate(t('returnPlanet', lang), { planetName: rt.planetName ?? '' });
+    case 'return-goals':
+      return applyTemplate(t('returnMultiGoals', lang), { goalText: rt.goalText ?? '' });
+    case 'return-goal':
+      return applyTemplate(t('returnOneGoal', lang), { goalText: rt.goalText ?? '' });
+    default:
+      return t('returnNoActivity', lang);
+  }
+}
+
 export interface PipGuidePanelProps {
   missionId?: string;
   missionOrder: number;
@@ -69,9 +96,9 @@ function PipOrb({ size = 28 }: { size?: number }) {
   return (
     <div style={{
       width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      background: 'radial-gradient(circle at 35% 35%, #00ffff, #0088aa 60%, #003344)',
-      boxShadow: `0 0 ${size * 0.6}px rgba(0,212,212,0.55)`,
-      border: `1px solid rgba(0,212,212,0.5)`,
+      background: 'radial-gradient(circle at 35% 35%, #e9d5ff, #7c3aed 60%, #2e1065)',
+      boxShadow: `0 0 ${size * 0.6}px rgba(168,85,247,0.55)`,
+      border: `1px solid rgba(168,85,247,0.5)`,
     }} />
   );
 }
@@ -271,7 +298,7 @@ function HowToCard({ planets, firstPlanet, lang }: { planets: OrinPlanet[]; firs
 
       {suggested && (
         <motion.div
-          whileHover={{ borderColor: 'rgba(0,245,212,0.35)', x: 2 }}
+          whileHover={{ borderColor: 'rgba(168,85,247,0.35)', x: 2 }}
           onClick={() => firstPlanet && router.push(`/landscape/${firstPlanet.id}`)}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -286,7 +313,7 @@ function HowToCard({ planets, firstPlanet, lang }: { planets: OrinPlanet[]; firs
             <span style={{ fontSize: 14 }}>{suggested.icon}</span>
             <span style={{ fontSize: 12, color: T.ts, fontWeight: 600 }}>{suggested.name}</span>
           </div>
-          <span style={{ fontSize: 10, color: 'rgba(0,245,212,0.4)', letterSpacing: '0.08em' }}>{t('exploreArrow', lang)}</span>
+          <span style={{ fontSize: 10, color: 'rgba(168,85,247,0.7)', letterSpacing: '0.08em' }}>{t('exploreArrow', lang)}</span>
         </motion.div>
       )}
     </div>
@@ -768,18 +795,57 @@ function DoneDock({ lang }: { lang: Lang }) {
 }
 
 // =============================================================================
+// Celebration overlay — fixed full-viewport, escapes the sidebar container
+// =============================================================================
+
+function CelebrationOverlay({ onDone }: { onDone: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onDone, 2500);
+    return () => clearTimeout(timer);
+  }, [onDone]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.3 }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(5,5,16,0.85)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        backdropFilter: 'blur(4px)',
+      }}
+    >
+      <motion.div
+        initial={{ scale: 1 }}
+        animate={{ scale: [1, 4.5, 4], opacity: [1, 1, 0] }}
+        transition={{ duration: 2.2, ease: 'easeInOut' }}
+        style={{
+          width: 28, height: 28, borderRadius: '50%',
+          background: 'radial-gradient(circle at 35% 35%, #00ffff, #0088aa 60%, #003344)',
+          boxShadow: '0 0 60px rgba(0,212,212,0.9), 0 0 120px rgba(0,212,212,0.5)',
+        }}
+      />
+    </motion.div>
+  );
+}
+
+// =============================================================================
 // PipGuidePanel — sidebar-embedded component (no full-page wrapper or header)
 // CHANGE 4: flex-1 + overflow-y-auto for scrollable content area
 // =============================================================================
 
 export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, onLaunch, language }: PipGuidePanelProps) {
   const lang: Lang = language ?? 'en';
-  const [mission, setMission] = useState<OrinMission | null>(null);
+  const [mission,            setMission]            = useState<OrinMission | null>(null);
+  const [hasConfirmed,       setHasConfirmed]       = useState<boolean | null>(null); // null = loading
+  const [returnTrigger,      setReturnTrigger]      = useState<ReturnTrigger | null>(null);
+  const [showCelebration,    setShowCelebration]    = useState(false);
 
   const [messages,           setMessages]           = useState<ChatMsg[]>([]);
   const [dock,               setDock]               = useState<DockState>('lock');
   const [qaIdx,              setQaIdx]              = useState(0);
-  const [missionQaIdx,       setMissionQaIdx]       = useState(0);
   const [allSummaries,       setAllSummaries]       = useState<LockedPlanetSummary[]>([]);
   const [showAllDiscoveries, setShowAllDiscoveries] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -800,23 +866,56 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
     ]);
   }, []);
 
-  // ── Fetch mission data from DB ─────────────────────────────────────────────
+  // ── Fetch mission data + mission state in parallel ─────────────────────────
   useEffect(() => {
     const langParam = lang === 'he' ? '&lang=he' : '';
-    const url = missionId
+    const missionUrl = missionId
       ? `/api/mission?missionId=${missionId}${langParam}`
       : `/api/mission?order=${missionOrder}${langParam}`;
-    fetch(url)
-      .then((r) => r.json())
-      .then(setMission)
+    const stateUrl = missionId ? `/api/student/mission-state?missionId=${missionId}` : null;
+
+    Promise.all([
+      fetch(missionUrl).then((r) => r.json()),
+      stateUrl ? fetch(stateUrl).then((r) => r.json()).catch(() => null) : Promise.resolve(null),
+    ])
+      .then(([missionData, stateData]) => {
+        setMission(missionData);
+        const confirmed = !!stateData?.confirmedAt;
+        setHasConfirmed(confirmed);
+        if (stateData?.returnTrigger) setReturnTrigger(stateData.returnTrigger);
+        // Pre-load persisted Pip message history (T019)
+        if (stateData?.pipMessages?.length > 0) {
+          setMessages(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            stateData.pipMessages.map((m: any) => ({
+              id:   uid(),
+              role: m.role === 'student' ? 'user' : 'pip',
+              type: 'text',
+              html: m.content,
+            }))
+          );
+        }
+      })
       .catch(console.error);
   }, [missionId, missionOrder, lang]);
 
-  // ── Show opening sequence once mission data has loaded ────────────────────
-  // Opening message only — HowToCard is shown on demand via the dock button.
-  // Cleanup ensures strict-mode double-fire clears first-set timers before second.
+  // ── Show opening sequence once both mission data and state are loaded ──────
+  // Gates on hasConfirmed !== null so we never fire before mission-state resolves.
   useEffect(() => {
-    if (!mission) return;
+    if (!mission || hasConfirmed === null) return;
+
+    if (hasConfirmed) {
+      // Return visitor — show context-aware return message (T015)
+      const html = returnTrigger ? formatReturnMessage(returnTrigger, lang) : t('returnNoActivity', lang);
+      const t1 = setTimeout(() => showTyping(), 300);
+      const t2 = setTimeout(() => {
+        push({ id: uid(), role: 'pip', type: 'text', html });
+        setDock('cta-howto');
+      }, 1400);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
+    }
+
+    // First-time visitor — existing opening flow
     const t1 = setTimeout(() => showTyping(), 300);
     const t2 = setTimeout(() => {
       const firstName = getFirstName();
@@ -830,7 +929,7 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
     }, 1600);
     return () => { clearTimeout(t1); clearTimeout(t2); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mission]);
+  }, [mission, hasConfirmed]);
 
   async function handleViewDiscoveries() {
     try {

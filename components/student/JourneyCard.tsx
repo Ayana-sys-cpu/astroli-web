@@ -18,10 +18,10 @@ interface Accent {
 }
 
 const ACCENT: Record<HomeJourney['status'], Accent> = {
-  live:    { text: '#5ef0d8', border: 'rgba(0,245,212,0.35)',  glow: 'rgba(0,245,212,0.16)',  glowSoft: 'rgba(0,245,212,0.06)',  badgeBg: 'rgba(0,245,212,0.12)',  ctaBg: '#00F5D4', ctaFg: '#06201c' },
-  voting:  { text: '#ff7fc4', border: 'rgba(255,0,128,0.35)',  glow: 'rgba(255,0,128,0.16)',  glowSoft: 'rgba(255,0,128,0.06)',  badgeBg: 'rgba(255,0,128,0.13)',  ctaBg: '#FF0080', ctaFg: '#fff' },
-  pending: { text: '#cd9bff', border: 'rgba(160,32,240,0.32)', glow: 'rgba(160,32,240,0.14)', glowSoft: 'rgba(160,32,240,0.05)', badgeBg: 'rgba(160,32,240,0.13)', ctaBg: 'transparent', ctaFg: '#cd9bff' },
-  done:    { text: 'rgba(255,255,255,0.5)',  border: 'rgba(255,255,255,0.1)',  glow: 'rgba(255,255,255,0)', glowSoft: 'rgba(255,255,255,0)', badgeBg: 'rgba(255,255,255,0.06)', ctaBg: 'transparent', ctaFg: 'rgba(255,255,255,0.45)' },
+  live:    { text: '#d8b4fe', border: 'rgba(168,85,247,0.50)',  glow: 'rgba(168,85,247,0.20)',  glowSoft: 'rgba(168,85,247,0.08)',  badgeBg: 'rgba(168,85,247,0.15)',  ctaBg: '#7c3aed', ctaFg: '#fff' },
+  voting:  { text: '#ff7fc4', border: 'rgba(255,0,128,0.35)',   glow: 'rgba(255,0,128,0.16)',   glowSoft: 'rgba(255,0,128,0.06)',   badgeBg: 'rgba(255,0,128,0.13)',   ctaBg: '#FF0080', ctaFg: '#fff' },
+  pending: { text: '#c4b5fd', border: 'rgba(139,92,246,0.28)',  glow: 'rgba(139,92,246,0.10)',  glowSoft: 'rgba(139,92,246,0.04)',  badgeBg: 'rgba(139,92,246,0.10)',  ctaBg: 'transparent', ctaFg: '#c4b5fd' },
+  done:    { text: '#5ef0d8', border: 'rgba(0,245,212,0.35)',   glow: 'rgba(0,245,212,0.16)',   glowSoft: 'rgba(0,245,212,0.06)',   badgeBg: 'rgba(0,245,212,0.12)',   ctaBg: 'transparent', ctaFg: '#5ef0d8' },
   idle:    { text: 'rgba(255,255,255,0.3)',  border: 'rgba(255,255,255,0.06)', glow: 'rgba(255,255,255,0)', glowSoft: 'rgba(255,255,255,0)', badgeBg: 'rgba(255,255,255,0.04)', ctaBg: 'transparent', ctaFg: 'rgba(255,255,255,0.3)' },
 };
 
