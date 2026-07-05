@@ -22,22 +22,148 @@ const RARITY_BORDER: Record<StoreItem['rarity'], string> = {
   cosmic:  'rgba(212,160,23,0.8)',
 };
 
-function ItemCard({
-  item, balance, isOwned, isEquipped, onEquip, onPurchase,
-}: {
-  item:       StoreItem;
-  balance:    number;
-  isOwned:    boolean;
-  isEquipped: boolean;
-  onEquip:    (id: string) => Promise<void>;
-  onPurchase: (id: string) => Promise<void>;
-}) {
-  const [hovered,      setHovered]      = useState(false);
-  const [buying,       setBuying]       = useState(false);
-  const [equipPending, setEquipPending] = useState(false);
+// ── ConfirmModal ──────────────────────────────────────────────────────────────
 
+function ConfirmModal({
+  item,
+  balance,
+  categoryWarningItem,
+  onCancel,
+  onConfirm,
+}: {
+  item:                 StoreItem;
+  balance:              number;
+  categoryWarningItem:  StoreItem | null;
+  onCancel:             () => void;
+  onConfirm:            (id: string) => Promise<void>;
+}) {
+  const [buying, setBuying] = useState(false);
+
+  async function handleConfirm() {
+    if (buying) return;
+    setBuying(true);
+    try {
+      await onConfirm(item.id);
+    } finally {
+      setBuying(false);
+    }
+  }
+
+  const balanceAfter = balance - (item.price ?? 0);
+
+  return (
+    <div
+      onClick={onCancel}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 200,
+        background: 'rgba(6,6,18,0.75)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '320px', borderRadius: '18px',
+          background: '#1a0a3a',
+          border: '1px solid rgba(124,58,237,0.35)',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Item preview */}
+        <div style={{ padding: '24px 24px 0', textAlign: 'center' }}>
+          <img
+            src={item.image}
+            alt={item.name}
+            style={{ width: '88px', height: '88px', objectFit: 'contain', display: 'block', margin: '0 auto 12px' }}
+          />
+          <div style={{ fontSize: '16px', fontWeight: 500, color: '#fff', marginBottom: '4px' }}>
+            {item.name}
+          </div>
+          <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '14px' }}>
+            <span>
+              Cost: <span style={{ color: '#fde68a', fontWeight: 500 }}>★ {item.price}</span>
+            </span>
+            <span>
+              After: <span style={{ color: balanceAfter >= 0 ? 'rgba(255,255,255,0.7)' : '#f87171', fontWeight: 500 }}>★ {balanceAfter}</span>
+            </span>
+          </div>
+        </div>
+
+        {/* Category warning */}
+        {categoryWarningItem && (
+          <div style={{
+            margin: '14px 20px 0',
+            padding: '10px 12px',
+            background: 'rgba(212,160,23,0.1)',
+            border: '1px solid rgba(212,160,23,0.3)',
+            borderRadius: '10px',
+            fontSize: '12px', color: '#fde68a', lineHeight: 1.5,
+          }}>
+            <i className="ti ti-info-circle" style={{ marginRight: '5px', fontSize: '13px' }} />
+            You already own <strong>{categoryWarningItem.name}</strong> in this category. Only one {CATEGORY_LABELS[item.category].toLowerCase().replace(/s$/, '')} can be equipped at a time — you can swap anytime.
+          </div>
+        )}
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: '10px', padding: '16px 20px' }}>
+          <button
+            onClick={onCancel}
+            style={{
+              flex: 1, padding: '9px', borderRadius: '10px',
+              border: '1px solid rgba(255,255,255,0.12)',
+              background: 'transparent', color: 'rgba(255,255,255,0.6)',
+              fontSize: '13px', fontWeight: 500, cursor: 'pointer',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={buying}
+            style={{
+              flex: 1, padding: '9px', borderRadius: '10px',
+              border: 'none',
+              background: buying ? 'rgba(124,58,237,0.4)' : '#7c3aed',
+              color: '#fff',
+              fontSize: '13px', fontWeight: 500,
+              cursor: buying ? 'default' : 'pointer',
+            }}
+          >
+            {buying ? '…' : 'Buy now'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── ItemCard ──────────────────────────────────────────────────────────────────
+
+function ItemCard({
+  item, balance, isOwned, isEquipped, onEquip, onBuyIntent,
+}: {
+  item:        StoreItem;
+  balance:     number;
+  isOwned:     boolean;
+  isEquipped:  boolean;
+  onEquip:     (id: string) => Promise<void>;
+  onBuyIntent: (item: StoreItem) => void;
+}) {
+  const [equipPending, setEquipPending] = useState(false);
   const canAfford = item.price !== null && balance >= item.price;
-  const borderColor = isEquipped ? '#7c3aed' : RARITY_BORDER[item.rarity];
+  const isLocked  = !isOwned && !canAfford;
+
+  const borderColor = isEquipped
+    ? '#7c3aed'
+    : isOwned
+    ? 'rgba(20,184,166,0.5)'
+    : RARITY_BORDER[item.rarity];
+
+  const bgColor = isEquipped
+    ? 'rgba(124,58,237,0.12)'
+    : isOwned
+    ? 'rgba(20,184,166,0.06)'
+    : 'rgba(255,255,255,0.03)';
 
   async function handleEquip() {
     if (!isOwned || equipPending) return;
@@ -45,86 +171,105 @@ function ItemCard({
     try { await onEquip(item.id); } finally { setEquipPending(false); }
   }
 
-  async function handlePurchase(e: React.MouseEvent) {
-    e.stopPropagation();
-    if (!canAfford || buying || !item.revealed) return;
-    setBuying(true);
-    try { await onPurchase(item.id); } finally { setBuying(false); }
+  function handleClick() {
+    if (!item.revealed) return;
+    if (isOwned) { handleEquip(); return; }
+    if (canAfford) { onBuyIntent(item); }
   }
 
-  // Unrevealed limited mystery item
+  // Unrevealed mystery item
   if (!item.revealed) {
     return (
       <div style={{
         borderRadius: '14px', padding: '28px 16px 24px', textAlign: 'center',
         border: `2px solid ${RARITY_BORDER.cosmic}`,
         background: 'rgba(255,255,255,0.02)',
-        opacity: 0.8, userSelect: 'none',
+        opacity: 0.7, userSelect: 'none',
       }}>
-        <i className="ti ti-lock" style={{ fontSize: '48px', color: 'rgba(212,160,23,0.6)', display: 'block', marginBottom: '10px' }} />
-        <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>???</span>
+        <i className="ti ti-lock" style={{ fontSize: '48px', color: 'rgba(212,160,23,0.5)', display: 'block', marginBottom: '10px' }} />
+        <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.35)' }}>???</span>
       </div>
     );
   }
 
   return (
     <div
-      onClick={isOwned ? handleEquip : undefined}
-      onMouseEnter={() => { if (!isOwned) setHovered(true); }}
-      onMouseLeave={() => { if (!isOwned) setHovered(false); }}
+      onClick={!isLocked ? handleClick : undefined}
       style={{
         position: 'relative', borderRadius: '14px', padding: '28px 16px 24px',
         textAlign: 'center',
-        cursor: isOwned ? 'pointer' : 'default',
+        cursor: isLocked ? 'default' : 'pointer',
         border: `2px solid ${borderColor}`,
-        background: isEquipped ? 'rgba(124,58,237,0.12)' : 'rgba(255,255,255,0.03)',
-        opacity: isOwned ? 1 : 0.78,
+        background: bgColor,
+        opacity: isLocked ? 0.55 : 1,
         transition: 'border-color 0.12s, opacity 0.15s',
         userSelect: 'none', overflow: 'hidden',
       }}
     >
+      {/* Equipped badge */}
+      {isEquipped && (
+        <span style={{
+          position: 'absolute', top: '8px', right: '8px',
+          background: 'rgba(124,58,237,0.25)', border: '1px solid rgba(167,139,250,0.5)',
+          borderRadius: '6px', padding: '2px 7px',
+          fontSize: '10px', fontWeight: 500, color: '#c4b5fd',
+        }}>
+          equipped
+        </span>
+      )}
+
+      {/* Owned badge */}
+      {isOwned && !isEquipped && (
+        <span style={{
+          position: 'absolute', top: '8px', right: '8px',
+          background: 'rgba(20,184,166,0.18)', border: '1px solid rgba(20,184,166,0.45)',
+          borderRadius: '6px', padding: '2px 7px',
+          fontSize: '10px', fontWeight: 500, color: '#2dd4bf',
+        }}>
+          owned
+        </span>
+      )}
+
       <img
         src={item.image}
         alt={item.name}
         style={{ width: '170px', height: '170px', objectFit: 'contain', display: 'block', margin: '0 auto 14px' }}
       />
-      <span style={{ fontSize: '14px', color: isOwned ? 'rgba(255,255,255,0.72)' : 'rgba(255,255,255,0.55)', lineHeight: 1.3, display: 'block' }}>
+      <span style={{
+        fontSize: '14px',
+        color: isOwned ? 'rgba(255,255,255,0.82)' : 'rgba(255,255,255,0.55)',
+        lineHeight: 1.3, display: 'block',
+      }}>
         {item.name}
       </span>
-      {isEquipped && (
-        <span style={{ fontSize: '11px', color: '#2dd4bf', fontWeight: 500, marginTop: '6px', display: 'block' }}>
-          ✓ on
+
+      {/* Price pill (unowned only) */}
+      {!isOwned && item.price !== null && (
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: '3px',
+          marginTop: '8px',
+          padding: '3px 10px', borderRadius: '20px',
+          fontSize: '11px', fontWeight: 500,
+          background: canAfford ? 'rgba(212,160,23,0.15)' : 'rgba(255,255,255,0.04)',
+          border: `1px solid ${canAfford ? 'rgba(212,160,23,0.4)' : 'rgba(255,255,255,0.1)'}`,
+          color: canAfford ? '#fde68a' : 'rgba(255,255,255,0.35)',
+        }}>
+          {!canAfford && <i className="ti ti-lock" style={{ fontSize: '10px' }} />}
+          ★ {item.price}
         </span>
       )}
 
-      {/* Hover purchase overlay for locked items */}
-      {!isOwned && (hovered || buying) && (
-        <div style={{
-          position: 'absolute', inset: 0, borderRadius: '12px',
-          background: 'rgba(6,6,18,0.94)',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px',
-        }}>
-          <span style={{ fontSize: '14px', color: '#fde68a', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <i className="ti ti-star-filled" style={{ fontSize: '12px', color: '#D4A017' }} />
-            {item.price}
-          </span>
-          <button
-            onClick={handlePurchase}
-            style={{
-              border: 'none', borderRadius: '9px', padding: '6px 16px',
-              fontSize: '12px', fontWeight: 500,
-              cursor: canAfford && !buying ? 'pointer' : 'default',
-              background: canAfford ? '#7c3aed' : 'rgba(255,255,255,0.08)',
-              color: canAfford ? '#fff' : 'rgba(255,255,255,0.3)',
-            }}
-          >
-            {buying ? '…' : canAfford ? 'Unlock' : 'Need more ★'}
-          </button>
-        </div>
+      {/* Owned equip hint */}
+      {isOwned && !isEquipped && (
+        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', marginTop: '6px', display: 'block' }}>
+          click to equip
+        </span>
       )}
     </div>
   );
 }
+
+// ── Skeleton ──────────────────────────────────────────────────────────────────
 
 function Skeleton() {
   return (
@@ -141,10 +286,13 @@ function Skeleton() {
   );
 }
 
+// ── Store ─────────────────────────────────────────────────────────────────────
+
 export default function Store() {
   const [activeCategory, setActiveCategory] = useState<Category>('capes');
   const [storeState,     setStoreState]     = useState<StoreState | null>(null);
   const [loading,        setLoading]        = useState(true);
+  const [confirmingItem, setConfirmingItem] = useState<StoreItem | null>(null);
   const { balance: sharedBalance, setBalance: setSharedBalance } = useCoinReward();
 
   useEffect(() => {
@@ -167,6 +315,13 @@ export default function Store() {
         .filter(Boolean) as StoreItem[]
     : [];
 
+  // Category warning: first owned item in the same category as the item being confirmed
+  const categoryWarningItem: StoreItem | null = confirmingItem && storeState
+    ? CATALOGUE.find(
+        i => storeState.owned.includes(i.id) && i.category === confirmingItem.category
+      ) ?? null
+    : null;
+
   async function handleEquip(itemId: string) {
     const res = await fetch('/api/store/equip', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -187,9 +342,10 @@ export default function Store() {
       const { newBalance, equipped } = await res.json();
       setStoreState(prev => prev ? { balance: newBalance, owned: [...prev.owned, itemId], equipped } : prev);
       setSharedBalance(newBalance);
+      setConfirmingItem(null);
     } else if (res.status === 409) {
-      // Already owned — refresh.
       fetch('/api/store/state').then(r => r.json()).then(setStoreState).catch(() => {});
+      setConfirmingItem(null);
     }
   }
 
@@ -197,9 +353,20 @@ export default function Store() {
     <>
       <style>{`@keyframes skPulse{0%,100%{opacity:.4}50%{opacity:.7}}`}</style>
 
+      {/* Purchase confirmation modal */}
+      {confirmingItem && (
+        <ConfirmModal
+          item={confirmingItem}
+          balance={displayBalance}
+          categoryWarningItem={categoryWarningItem}
+          onCancel={() => setConfirmingItem(null)}
+          onConfirm={handlePurchase}
+        />
+      )}
+
       <div style={{ display: 'flex', width: '100%', flex: 1, minHeight: 0 }}>
 
-        {/* ── Sidebar ── full height ──────────────────────── */}
+        {/* ── Sidebar ──────────────────────────────────────── */}
         <div style={{
           width: '160px', flexShrink: 0,
           borderRight: '1px solid rgba(124,58,237,0.15)',
@@ -234,10 +401,10 @@ export default function Store() {
           })}
         </div>
 
-        {/* ── Content area ──────────────────────────────── */}
+        {/* ── Content area ─────────────────────────────────── */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-          {/* Header row */}
+          {/* Header */}
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: '18px 24px',
@@ -293,7 +460,7 @@ export default function Store() {
                     isOwned={storeState?.owned.includes(item.id) ?? false}
                     isEquipped={storeState?.equipped[item.category] === item.id}
                     onEquip={handleEquip}
-                    onPurchase={handlePurchase}
+                    onBuyIntent={setConfirmingItem}
                   />
                 ))}
               </div>
