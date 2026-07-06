@@ -1,20 +1,10 @@
 'use client';
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import StarField from '@/components/StarField';
 import TopBar from '@/components/TopBar';
 import Store from '@/components/Store';
 
 export default function StorePage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    fetch('/api/store/state').then(r => {
-      if (r.status === 401) router.replace('/dev-login');
-    }).catch(() => {});
-  }, [router]);
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
