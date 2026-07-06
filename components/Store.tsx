@@ -10,12 +10,6 @@ import {
 import type { Category, StoreItem } from '@/lib/store-catalogue';
 import { useCoinReward } from '@/hooks/useCoinReward';
 import { getAvatarVideoUrl } from '@/lib/avatar-video';
-import { MOCK_STUDENT_USER } from '@/lib/dev/mock-student-user';
-
-const STUDENT_HEADERS = {
-  'Content-Type': 'application/json',
-  'x-student-id': MOCK_STUDENT_USER.studentId,
-};
 
 interface StoreState {
   balance: number;
@@ -305,7 +299,7 @@ export default function Store() {
   const { balance: sharedBalance, setBalance: setSharedBalance } = useCoinReward();
 
   useEffect(() => {
-    fetch('/api/store/state', { headers: STUDENT_HEADERS })
+    fetch('/api/store/state')
       .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); })
       .then((data: StoreState) => { setStoreState(data); setLoading(false); })
       .catch(() => setLoading(false));
@@ -339,7 +333,7 @@ export default function Store() {
 
   async function handleEquip(itemId: string) {
     const res = await fetch('/api/store/equip', {
-      method: 'POST', headers: STUDENT_HEADERS,
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ itemId }),
     });
     if (res.ok) {
@@ -350,7 +344,7 @@ export default function Store() {
 
   async function handlePurchase(itemId: string) {
     const res = await fetch('/api/store/purchase', {
-      method: 'POST', headers: STUDENT_HEADERS,
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ itemId }),
     });
     if (res.ok) {
