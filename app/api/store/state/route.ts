@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   const studentId = await resolveStudentIdFromRequest(req);
   if (!studentId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-  const [{ data: balRow }, { data: invRows }] = await Promise.all([
+  const [{ data: balRow }, { data: invRows, error: invError }] = await Promise.all([
     supabaseAdmin
       .from('student_coin_balances')
       .select('balance')
@@ -19,6 +19,9 @@ export async function GET(req: NextRequest) {
       .select('item_id, category, is_equipped')
       .eq('student_id', studentId),
   ]);
+
+  if (invError) console.error('[store/state] inventory query error:', invError);
+  console.log('[store/state] studentId:', studentId, 'invRows:', invRows);
 
   const owned = (invRows ?? []).map((r: { item_id: string }) => r.item_id);
 
