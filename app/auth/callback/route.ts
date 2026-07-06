@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
   // ── User record lookup ────────────────────────────────────────────────────
   const { data: userRecord, error: userError } = await supabaseAdmin
     .from('users')
-    .select('user_id')
+    .select('id')
     .eq('email', email)
     .maybeSingle();
 
@@ -79,8 +79,8 @@ export async function GET(req: NextRequest) {
 
   // ── Stamp user_metadata (mirrors the Google SSO path) ────────────────────
   const metadata = isTeacher
-    ? { role: 'teacher', teacher_id: userRecord.user_id, student_id: null }
-    : { role: 'student',  student_id: userRecord.user_id, teacher_id: null };
+    ? { role: 'teacher', teacher_id: userRecord.id, student_id: null }
+    : { role: 'student',  student_id: userRecord.id, teacher_id: null };
 
   await supabaseAdmin.auth.admin.updateUserById(authUserId, {
     user_metadata: metadata,
@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
   await supabaseAdmin
     .from('users')
     .update({ auth_user_id: authUserId })
-    .eq('user_id', userRecord.user_id);
+    .eq('user_id', userRecord.id);
 
   return NextResponse.redirect(`${origin}${isTeacher ? '/teacher' : '/syncing'}`);
 }
