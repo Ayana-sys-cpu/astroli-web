@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       { onConflict: 'student_id' },
     );
 
-  await supabaseAdmin
+  const { error: insertError } = await supabaseAdmin
     .from('student_inventory')
     .insert({
       student_id:  studentId,
@@ -69,6 +69,11 @@ export async function POST(req: NextRequest) {
       category:    item.category,
       is_equipped: true,
     });
+
+  if (insertError) {
+    console.error('[store/purchase] inventory insert failed:', insertError);
+    return NextResponse.json({ error: 'purchase_not_persisted' }, { status: 500 });
+  }
 
   const { data: invRows } = await supabaseAdmin
     .from('student_inventory')

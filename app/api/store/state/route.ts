@@ -21,7 +21,6 @@ export async function GET(req: NextRequest) {
   ]);
 
   if (invError) console.error('[store/state] inventory query error:', invError);
-  console.log('[store/state] studentId:', studentId, 'invRows:', invRows);
 
   const owned = (invRows ?? []).map((r: { item_id: string }) => r.item_id);
 
