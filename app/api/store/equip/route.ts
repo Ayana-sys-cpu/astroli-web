@@ -36,11 +36,11 @@ export async function POST(req: NextRequest) {
       .eq('student_id', studentId)
       .eq('item_id', itemId);
   } else {
+    // Single-slot: unequip everything across all categories before equipping this item
     await supabaseAdmin
       .from('student_inventory')
       .update({ is_equipped: false })
       .eq('student_id', studentId)
-      .eq('category', item.category)
       .eq('is_equipped', true);
 
     await supabaseAdmin

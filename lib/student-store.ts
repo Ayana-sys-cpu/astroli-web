@@ -13,6 +13,7 @@
 const K = {
   FIRST_NAME:       'astroli_first_name',
   BASE_AVATAR:      'astroli_base_avatar_url',
+  AVATAR_URL:       'astroli_avatar_url',
   ONBOARDING:       'astroli_onboarding_complete',
   INTEREST:         'astroli_interest',
   ALIEN_NAME:       'astroli_alien_name',
@@ -30,12 +31,14 @@ function ls(): Storage | null {
 export interface StudentRecord {
   firstName:     string;
   baseAvatarUrl: string | null;
+  avatarUrl?:    string | null;
 }
 
 export function saveStudent(r: StudentRecord): void {
   const s = ls(); if (!s) return;
   s.setItem(K.FIRST_NAME, r.firstName);
   if (r.baseAvatarUrl) s.setItem(K.BASE_AVATAR, r.baseAvatarUrl);
+  if (r.avatarUrl)     s.setItem(K.AVATAR_URL, r.avatarUrl);
 }
 
 // ── Read ─────────────────────────────────────────────────────────────────────
@@ -44,7 +47,16 @@ export function loadStudent(): StudentRecord | null {
   const s = ls(); if (!s) return null;
   const firstName = s.getItem(K.FIRST_NAME);
   if (!firstName) return null;
-  return { firstName, baseAvatarUrl: s.getItem(K.BASE_AVATAR) };
+  return {
+    firstName,
+    baseAvatarUrl: s.getItem(K.BASE_AVATAR),
+    avatarUrl:     s.getItem(K.AVATAR_URL),
+  };
+}
+
+/** Returns the effective avatar URL — custom avatar if set, otherwise base avatar. */
+export function getEffectiveAvatarUrl(): string | null {
+  return ls()?.getItem(K.AVATAR_URL) ?? ls()?.getItem(K.BASE_AVATAR) ?? null;
 }
 
 export function getFirstName(): string {

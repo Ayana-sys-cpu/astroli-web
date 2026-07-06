@@ -130,6 +130,28 @@ const strings = {
     he: 'מונחים מרכזיים',
   },
 
+  // ── Pip Smart Return — celebration & return messages ────────────────────────
+  celebrationMessage: {
+    en: "Good. Now go find the truth — I'm here if you need me.",
+    he: 'יאללה. עכשיו לך לגלות את האמת — אני כאן אם תצטרך.',
+  },
+  returnNoActivity: {
+    en: "I'm happy you're back! I knew you'd return. There's still so much to discover.",
+    he: 'שמחתי שחזרת! ידעתי שתחזור. עוד הרבה מה לגלות.',
+  },
+  returnOneGoal: {
+    en: 'You understood that {{goalText}} — that\'s not simple! Keep going.',
+    he: 'הבנת ש{{goalText}} — זה לא פשוט! תמשיך.',
+  },
+  returnMultiGoals: {
+    en: "You made a real breakthrough — {{goalText}}. You're building genuine understanding.",
+    he: 'עשית פריצת דרך אמיתית — {{goalText}}. אתה בונה הבנה אמיתית.',
+  },
+  returnPlanet: {
+    en: "Wow! We finally closed {{planetName}}! I didn't know someone could understand this so deeply. Where do we go next?",
+    he: 'וואו! סגרנו את {{planetName}}! לא ידעתי שאפשר להבין את זה כל כך עמוק. לאן ממשיכים?',
+  },
+
   // ── AvatarBot ───────────────────────────────────────────────────────────────
   alienScout: {
     en: 'Your Alien Scout',

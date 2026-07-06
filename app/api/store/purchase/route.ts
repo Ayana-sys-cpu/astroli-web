@@ -47,11 +47,11 @@ export async function POST(req: NextRequest) {
 
   const newBalance = currentBalance - item.price;
 
+  // Single-slot: unequip everything across all categories before equipping new item
   await supabaseAdmin
     .from('student_inventory')
     .update({ is_equipped: false })
     .eq('student_id', studentId)
-    .eq('category', item.category)
     .eq('is_equipped', true);
 
   await supabaseAdmin

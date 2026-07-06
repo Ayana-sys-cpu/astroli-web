@@ -406,7 +406,7 @@ function MessageBubble({ msg, firstPlanet, lang }: { msg: ChatMsg; firstPlanet?:
 // All Discoveries overlay
 // =============================================================================
 
-export function AllDiscoveriesView({ summaries, onClose, lang }: { summaries: LockedPlanetSummary[]; onClose: () => void; lang: Lang }) {
+export function AllDiscoveriesView({ summaries, pipHistory, onClose, lang }: { summaries: LockedPlanetSummary[]; pipHistory?: { html: string }[]; onClose: () => void; lang: Lang }) {
   const router = useRouter();
   return (
     <motion.div
@@ -481,6 +481,33 @@ export function AllDiscoveriesView({ summaries, onClose, lang }: { summaries: Lo
           </div>
         ))
       )}
+
+      {/* Pip conversation history (T020) */}
+      {pipHistory && pipHistory.length > 0 && (
+        <div style={{ marginTop: 8 }}>
+          <div style={{
+            fontSize: 9, fontWeight: 800, color: T.ts,
+            textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 10,
+          }}>
+            {lang === 'he' ? 'מה פיפ אמר לי' : 'What Pip told me'}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {pipHistory.map((m, idx) => (
+              <div key={idx} style={{
+                background: T.s2, border: `1px solid ${T.b1}`,
+                borderRadius: '4px 14px 14px 14px', padding: '12px 14px',
+                display: 'flex', gap: 10, alignItems: 'flex-start',
+              }}>
+                <PipOrb size={20} />
+                <p
+                  style={{ fontSize: 12, color: T.ts, lineHeight: 1.65, margin: 0 }}
+                  dangerouslySetInnerHTML={{ __html: m.html }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -520,7 +547,7 @@ function CtaBriefDock({ onGenerate, lang }: { onGenerate: () => void; lang: Lang
   );
 }
 
-function CtaHowtoDock({ onShowHowTo, onSend, onViewDiscoveries, lang }: { onShowHowTo: () => void; onSend: (text: string) => void; onViewDiscoveries: () => void; lang: Lang }) {
+function CtaHowtoDock({ onShowHowTo, onSend, lang }: { onShowHowTo: () => void; onSend: (text: string) => void; lang: Lang }) {
   const [hovered, setHovered] = useState(false);
   const [val, setVal] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -535,25 +562,6 @@ function CtaHowtoDock({ onShowHowTo, onSend, onViewDiscoveries, lang }: { onShow
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {/* Discovery button — always visible */}
-      <button
-        onClick={onViewDiscoveries}
-        style={{
-          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '12px 16px',
-          background: 'rgba(155,92,255,0.08)',
-          border: '1.5px solid rgba(155,92,255,0.35)',
-          borderRadius: 12, cursor: 'pointer', transition: 'all 0.15s',
-        }}
-        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(155,92,255,0.15)'; }}
-        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(155,92,255,0.08)'; }}
-      >
-        <div style={{ textAlign: 'left' }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#c084fc' }}>{t('whatIDiscoveredAll', lang)}</div>
-        </div>
-        <span style={{ fontSize: 14, color: '#c084fc' }}>✦</span>
-      </button>
-
       <button
         onClick={onShowHowTo}
         onMouseEnter={() => setHovered(true)}
@@ -685,105 +693,6 @@ function UnderstandDock({ onGotIt, onSend, lang }: { onGotIt: () => void; onSend
   );
 }
 
-function MissionQaDock({ onAccept, onSend, lang }: { onAccept: () => void; onSend: (text: string) => void; lang: Lang }) {
-  const [val, setVal] = useState('');
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  useAutoResizeTextarea(inputRef, val);
-
-  const send = () => {
-    if (!val.trim()) return;
-    onSend(val.trim());
-    setVal('');
-    inputRef.current?.focus();
-  };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{
-        display: 'flex', gap: 8, alignItems: 'flex-end',
-        background: T.s2, border: `1px solid ${T.b1}`,
-        borderRadius: 12, padding: '10px 4px 10px 14px',
-      }}>
-        <textarea
-          ref={inputRef}
-          rows={1}
-          value={val}
-          onChange={(e) => setVal(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-          placeholder={t('askAnythingMission', lang)}
-          style={{
-            flex: 1, background: 'none', border: 'none', outline: 'none',
-            resize: 'none', overflowY: 'auto',
-            fontSize: 13, lineHeight: 1.4, color: T.tp,
-            // @ts-ignore — caretColor is valid CSS
-            caretColor: T.ac,
-          }}
-        />
-        <button
-          onClick={send}
-          disabled={!val.trim()}
-          style={{
-            padding: '9px 14px', borderRadius: 8, border: 'none',
-            cursor: val.trim() ? 'pointer' : 'default',
-            background: val.trim() ? T.ac : T.b2,
-            color: val.trim() ? '#000' : T.tm,
-            fontSize: 13, fontWeight: 800, transition: 'all 0.15s', flexShrink: 0,
-          }}
-        >→</button>
-      </div>
-
-      <button
-        onClick={onAccept}
-        style={{
-          width: '100%', padding: '13px 18px', borderRadius: 12,
-          background: T.acDim, border: `1.5px solid ${T.acBdr}`,
-          color: T.ac, fontSize: 14, fontWeight: 800, cursor: 'pointer',
-          transition: 'all 0.15s',
-        }}
-        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,212,212,0.15)'; }}
-        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = T.acDim; }}
-      >
-        {t('gotItAccept', lang)}
-      </button>
-    </div>
-  );
-}
-
-function LaunchDock({ onLaunch, lang }: { onLaunch: () => void; lang: Lang }) {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 14 }}>
-      <button
-        onClick={onLaunch}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        style={{
-          width: '100%', padding: '17px', borderRadius: 14, border: 'none',
-          background: 'linear-gradient(135deg, #0ea5a5 0%, #9d4edd 100%)',
-          color: '#fff', fontSize: 16, fontWeight: 900, cursor: 'pointer',
-          letterSpacing: '0.04em', position: 'relative', overflow: 'hidden',
-          transform: hovered ? 'translateY(-1px)' : 'none',
-          boxShadow: hovered
-            ? '0 6px 24px rgba(0,212,212,0.3), 0 6px 24px rgba(157,78,221,0.3)'
-            : 'none',
-          transition: 'all 0.2s',
-        }}
-      >
-        <motion.div
-          style={{
-            position: 'absolute', top: 0, left: 0, bottom: 0, width: '60%',
-            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent)',
-            pointerEvents: 'none',
-          }}
-          animate={{ x: ['-100%', '280%'] }}
-          transition={{ duration: 2.5, repeat: Infinity, ease: 'linear', delay: 0.3 }}
-        />
-        <span style={{ position: 'relative', zIndex: 1 }}>{t('launchMission', lang)}</span>
-      </button>
-    </div>
-  );
-}
-
 function DoneDock({ lang }: { lang: Lang }) {
   return (
     <div style={{ textAlign: 'center', padding: '10px 0' }}>
@@ -859,6 +768,15 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
     setMessages((prev) => [...prev.filter((m) => m.type !== 'typing'), msg]);
   }, []);
 
+  const savePip = useCallback((content: string, triggerType: string) => {
+    if (!missionId) return;
+    fetch('/api/student/pip-messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ missionId, messages: [{ role: 'pip', content, triggerType }] }),
+    });
+  }, [missionId]);
+
   const showTyping = useCallback(() => {
     setMessages((prev) => [
       ...prev.filter((m) => m.type !== 'typing'),
@@ -907,9 +825,11 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
     if (hasConfirmed) {
       // Return visitor — show context-aware return message (T015)
       const html = returnTrigger ? formatReturnMessage(returnTrigger, lang) : t('returnNoActivity', lang);
+      const triggerType = returnTrigger ? `return-${returnTrigger.type}` : 'return-no-activity';
       const t1 = setTimeout(() => showTyping(), 300);
       const t2 = setTimeout(() => {
         push({ id: uid(), role: 'pip', type: 'text', html });
+        savePip(html, triggerType);
         setDock('cta-howto');
       }, 1400);
       return () => { clearTimeout(t1); clearTimeout(t2); };
@@ -925,11 +845,12 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
         .replace(/\[student name\]/gi, firstName)
         .replace(/\n/g, '<br>');
       push({ id: uid(), role: 'pip', type: 'text', html });
+      savePip(html, 'opening');
       setDock('cta-howto');
     }, 1600);
     return () => { clearTimeout(t1); clearTimeout(t2); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mission, hasConfirmed]);
+  }, [mission, hasConfirmed, savePip]);
 
   async function handleViewDiscoveries() {
     try {
@@ -950,7 +871,9 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
       push({ id: uid(), role: 'pip', type: 'brief', items: mission!.worldBriefItems, summary: mission!.worldBriefSummary });
       setTimeout(showTyping, 300);
       setTimeout(() => {
-        push({ id: uid(), role: 'pip', type: 'text', html: t('takeYourTime', lang) });
+        const briefText = t('takeYourTime', lang);
+        push({ id: uid(), role: 'pip', type: 'text', html: briefText });
+        savePip(briefText, 'brief');
         setDock('understand');
       }, 1300);
     }, 1700);
@@ -977,70 +900,40 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
     setTimeout(showTyping, 400);
     setTimeout(() => {
       push({ id: uid(), role: 'pip', type: 'text', html: ans });
+      savePip(ans, 'qa');
     }, 1900);
   }
 
   function handleGotIt() {
-    setDock('lock');
-    push({ id: uid(), role: 'user', type: 'chip', icon: '✓', text: t('gotIt', lang) });
-    setTimeout(showTyping, 400);
+    // Show celebration overlay; after it fades, push message + save to DB (T010)
+    setShowCelebration(true);
+    const celebrationText = t('celebrationMessage', lang);
     setTimeout(() => {
-      push({
-        id:        uid(),
-        role:      'pip',
-        type:      'mission',
-        chapter:   mission!.chapter,
-        title:     mission!.projectTitle,
-        objective: mission!.projectObjective,
-        terms:     mission!.allTerms.length > 0 ? mission!.allTerms : undefined,
-      });
-    }, 1400);
-    setTimeout(showTyping, 2700);
-    setTimeout(() => {
-      push({ id: uid(), role: 'pip', type: 'text', html: t('thatsYourMission', lang) });
-      setDock('mission-qa');
-    }, 4000);
-  }
-
-  function handleMissionQA(text: string) {
-    push({ id: uid(), role: 'user', type: 'text', html: text });
-    const ans = mission!.missionQaAnswers[missionQaIdx % mission!.missionQaAnswers.length];
-    setMissionQaIdx((q) => q + 1);
-    setTimeout(showTyping, 400);
-    setTimeout(() => {
-      push({ id: uid(), role: 'pip', type: 'text', html: ans });
-    }, 1900);
-  }
-
-  function handleAcceptMission() {
-    setDock('lock');
-    push({ id: uid(), role: 'user', type: 'chip', icon: '✓', text: t('acceptMissionChip', lang) });
-    setTimeout(showTyping, 400);
-    setTimeout(() => {
-      push({ id: uid(), role: 'pip', type: 'text', html: t('readyBuild', lang) });
-      setDock('launch');
-    }, 1600);
-  }
-
-  function handleLaunch() {
-    setDock('lock');
-    push({ id: uid(), role: 'user', type: 'chip', icon: '🚀', text: t('launchMissionChip', lang) });
-    setTimeout(showTyping, 400);
-    setTimeout(() => {
-      push({ id: uid(), role: 'pip', type: 'text', html: t('missionBegins', lang) });
+      setShowCelebration(false);
+      push({ id: uid(), role: 'pip', type: 'text', html: celebrationText });
       setDock('done');
-      if (onLaunch) setTimeout(onLaunch, 2000);
-    }, 1700);
+      setHasConfirmed(true);
+      if (missionId) {
+        fetch('/api/student/mission-state', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ missionId }),
+        });
+        fetch('/api/student/pip-messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ missionId, messages: [{ role: 'pip', content: celebrationText, triggerType: 'celebration' }] }),
+        });
+      }
+    }, 2500);
   }
 
   function renderDock() {
     switch (dock) {
-      case 'cta-brief':  return null; /* hidden for now — keep for future use */
-      case 'cta-howto':  return <CtaHowtoDock onShowHowTo={handleShowHowTo} onSend={handleHowToSend} onViewDiscoveries={handleViewDiscoveries} lang={lang} />;
+      case 'cta-brief':  return null;
+      case 'cta-howto':  return <CtaHowtoDock onShowHowTo={handleShowHowTo} onSend={handleHowToSend} lang={lang} />;
       case 'lock':       return <LockDock />;
-      case 'understand':  return <UnderstandDock onGotIt={handleGotIt} onSend={handleQA} lang={lang} />;
-      case 'mission-qa': return <MissionQaDock onAccept={handleAcceptMission} onSend={handleMissionQA} lang={lang} />;
-      case 'launch':     return <LaunchDock onLaunch={handleLaunch} lang={lang} />;
+      case 'understand': return <UnderstandDock onGotIt={handleGotIt} onSend={handleQA} lang={lang} />;
       case 'done':       return <DoneDock lang={lang} />;
     }
   }
@@ -1058,11 +951,17 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
     // flex column fills the sidebar, content area scrolls; relative for AllDiscoveriesView overlay
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden relative" dir={lang === 'he' ? 'rtl' : 'ltr'}>
 
+      {/* Celebration overlay — fixed, escapes sidebar bounds (T009) */}
+      <AnimatePresence>
+        {showCelebration && <CelebrationOverlay onDone={() => setShowCelebration(false)} />}
+      </AnimatePresence>
+
       {/* All Discoveries overlay */}
       <AnimatePresence>
         {showAllDiscoveries && (
           <AllDiscoveriesView
             summaries={allSummaries}
+            pipHistory={messages.filter((m) => m.role === 'pip' && m.type === 'text') as { html: string }[]}
             onClose={() => setShowAllDiscoveries(false)}
             lang={lang}
           />
@@ -1088,7 +987,24 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
       </div>
 
       {/* Dock — stays pinned at bottom */}
-      <div className="border-t border-white/5 p-3 flex-shrink-0">
+      <div className="border-t border-white/5 p-3 flex-shrink-0 flex flex-col gap-2">
+        {/* Discovery button — always visible in every dock state (T021) */}
+        <button
+          onClick={handleViewDiscoveries}
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '12px 16px',
+            background: 'rgba(155,92,255,0.08)',
+            border: '1.5px solid rgba(155,92,255,0.35)',
+            borderRadius: 12, cursor: 'pointer', transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(155,92,255,0.15)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(155,92,255,0.08)'; }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#c084fc' }}>{t('whatIDiscoveredAll', lang)}</div>
+          <span style={{ fontSize: 14, color: '#c084fc' }}>✦</span>
+        </button>
+
         <AnimatePresence mode="wait">
           <motion.div
             key={dock}

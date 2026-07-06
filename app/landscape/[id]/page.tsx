@@ -41,6 +41,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
   const [isAvatarThinking, setIsAvatarThinking] = useState(false);
   const { triggerReward } = useCoinReward();
   const [shownMsgCount, setShownMsgCount] = useState(0);
+  const [showAvatarCelebration, setShowAvatarCelebration] = useState(false);
   const thinkingStartTime = useRef(0);
   const processedMsgCount = useRef(0);
   const isThinkingRef = useRef(false);
@@ -124,12 +125,10 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
               ? "You've uncovered every secret on this planet."
               : 'Keep exploring the universe.')
           : undefined,
-        // The planet is already recorded complete server-side by this point
-        // (finalizePlanetCompletion runs before this response was returned) —
-        // dismissing the popup just opens the read-only summary, the same
-        // data-fetch handleViewDiscovery already uses correctly elsewhere.
+        // Planet is already recorded complete server-side — on dismiss show the
+        // avatar celebration, which then hands off to the summary screen.
         onDismiss: (isGoalCompletion && isFinalGoal)
-          ? () => handleViewDiscovery()
+          ? () => setShowAvatarCelebration(true)
           : undefined,
       });
     }, readDelay);
@@ -487,6 +486,59 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
 
         </aside>
       </div>
+
+      {/* ── Avatar celebration popup (planet complete) ─────────────────── */}
+      {showAvatarCelebration && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 500,
+            background: 'rgba(6,6,18,0.85)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <div style={{
+            width: '320px', borderRadius: '22px',
+            background: '#1a0a3a',
+            border: '1px solid rgba(6,214,160,0.35)',
+            overflow: 'hidden', textAlign: 'center',
+          }}>
+            {/* Avatar video */}
+            <div style={{ background: '#0d0d1a', padding: '24px 24px 0' }}>
+              <video
+                src="/avatars/base/base-03.mp4"
+                autoPlay loop muted playsInline
+                style={{
+                  width: '180px', height: '180px',
+                  objectFit: 'cover', borderRadius: '50%',
+                  border: '3px solid rgba(6,214,160,0.5)',
+                  display: 'block', margin: '0 auto',
+                }}
+              />
+            </div>
+            {/* Text */}
+            <div style={{ padding: '20px 24px' }}>
+              <div style={{ fontSize: '22px', marginBottom: '6px' }}>🌟</div>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff', marginBottom: '6px' }}>
+                Planet Explored!
+              </div>
+              <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.5, marginBottom: '20px' }}>
+                Orin is proud of you! You&apos;ve uncovered every secret on this planet.
+              </div>
+              <button
+                onClick={() => { setShowAvatarCelebration(false); handleViewDiscovery(); }}
+                style={{
+                  width: '100%', padding: '12px', borderRadius: '12px',
+                  border: 'none', background: '#06D6A0',
+                  color: '#0d0d1a', fontSize: '14px', fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                See my discoveries →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </motion.div>
   );

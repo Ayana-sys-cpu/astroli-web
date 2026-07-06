@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   CATALOGUE,
   CATALOGUE_BY_ID,
@@ -9,6 +9,7 @@ import {
 } from '@/lib/store-catalogue';
 import type { Category, StoreItem } from '@/lib/store-catalogue';
 import { useCoinReward } from '@/hooks/useCoinReward';
+import { getAvatarVideoUrl } from '@/lib/avatar-video';
 
 interface StoreState {
   balance: number;
@@ -100,7 +101,7 @@ function ConfirmModal({
             fontSize: '12px', color: '#fde68a', lineHeight: 1.5,
           }}>
             <i className="ti ti-info-circle" style={{ marginRight: '5px', fontSize: '13px' }} />
-            You already own <strong>{categoryWarningItem.name}</strong> in this category. Only one {CATEGORY_LABELS[item.category].toLowerCase().replace(/s$/, '')} can be equipped at a time — you can swap anytime.
+            <strong>{categoryWarningItem.name}</strong> is currently equipped. Only one item can be equipped at a time — you can swap anytime.
           </div>
         )}
 
@@ -293,6 +294,8 @@ export default function Store() {
   const [storeState,     setStoreState]     = useState<StoreState | null>(null);
   const [loading,        setLoading]        = useState(true);
   const [confirmingItem, setConfirmingItem] = useState<StoreItem | null>(null);
+  const [previewItemId,  setPreviewItemId]  = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const { balance: sharedBalance, setBalance: setSharedBalance } = useCoinReward();
 
   useEffect(() => {
@@ -306,20 +309,26 @@ export default function Store() {
 
   const categoryItems = CATALOGUE.filter(item => item.category === activeCategory);
 
-  const equippedItems = storeState
-    ? CATEGORIES
-        .map(cat => {
-          const id = storeState.equipped[cat];
-          return id ? CATALOGUE_BY_ID[id] : null;
-        })
-        .filter(Boolean) as StoreItem[]
+  // Single-slot: at most one item equipped across all categories
+  const equippedItemId: string | null = storeState
+    ? (CATEGORIES.map(c => storeState.equipped[c]).find(Boolean) ?? null)
+    : null;
+
+  const equippedItems: StoreItem[] = equippedItemId && CATALOGUE_BY_ID[equippedItemId]
+    ? [CATALOGUE_BY_ID[equippedItemId]]
     : [];
 
-  // Category warning: first owned item in the same category as the item being confirmed
-  const categoryWarningItem: StoreItem | null = confirmingItem && storeState
-    ? CATALOGUE.find(
-        i => storeState.owned.includes(i.id) && i.category === confirmingItem.category
-      ) ?? null
+  // Video shown in avatar preview: hover preview takes priority over equipped
+  const avatarVideoUrl = getAvatarVideoUrl(previewItemId ?? equippedItemId);
+
+  // Reload video whenever the src changes
+  useEffect(() => {
+    videoRef.current?.load();
+  }, [avatarVideoUrl]);
+
+  // Warning: show the currently equipped item (any category) when purchasing
+  const categoryWarningItem: StoreItem | null = confirmingItem && equippedItemId
+    ? (CATALOGUE_BY_ID[equippedItemId] ?? null)
     : null;
 
   async function handleEquip(itemId: string) {
@@ -448,20 +457,56 @@ export default function Store() {
             </div>
           )}
 
+          {/* Avatar video preview */}
+          <div style={{
+            padding: '12px 24px 0', flexShrink: 0,
+            display: 'flex', alignItems: 'center', gap: '14px',
+          }}>
+            <div style={{
+              width: '80px', height: '80px', borderRadius: '12px', overflow: 'hidden', flexShrink: 0,
+              border: '1.5px solid rgba(124,58,237,0.35)',
+              background: '#0d0d1a',
+            }}>
+              <video
+                ref={videoRef}
+                src={avatarVideoUrl}
+                autoPlay loop muted playsInline
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            </div>
+            <div>
+              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '3px' }}>
+                Orin
+              </div>
+              <div style={{ fontSize: '12px', color: equippedItemId ? '#c4b5fd' : 'rgba(255,255,255,0.25)' }}>
+                {previewItemId && CATALOGUE_BY_ID[previewItemId]
+                  ? `Preview: ${CATALOGUE_BY_ID[previewItemId].name}`
+                  : equippedItemId && CATALOGUE_BY_ID[equippedItemId]
+                  ? `Equipped: ${CATALOGUE_BY_ID[equippedItemId].name}`
+                  : 'No item equipped'}
+              </div>
+            </div>
+          </div>
+
           {/* Item grid */}
-          <div style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
+          <div style={{ flex: 1, padding: '16px 24px 24px', overflowY: 'auto' }}>
             {loading ? <Skeleton /> : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
                 {categoryItems.map(item => (
-                  <ItemCard
+                  <div
                     key={item.id}
-                    item={item}
-                    balance={displayBalance}
-                    isOwned={storeState?.owned.includes(item.id) ?? false}
-                    isEquipped={storeState?.equipped[item.category] === item.id}
-                    onEquip={handleEquip}
-                    onBuyIntent={setConfirmingItem}
-                  />
+                    onMouseEnter={() => (storeState?.owned.includes(item.id)) ? setPreviewItemId(item.id) : undefined}
+                    onMouseLeave={() => setPreviewItemId(null)}
+                  >
+                    <ItemCard
+                      item={item}
+                      balance={displayBalance}
+                      isOwned={storeState?.owned.includes(item.id) ?? false}
+                      isEquipped={equippedItemId === item.id}
+                      onEquip={handleEquip}
+                      onBuyIntent={setConfirmingItem}
+                    />
+                  </div>
                 ))}
               </div>
             )}

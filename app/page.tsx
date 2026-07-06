@@ -115,7 +115,7 @@ export default function LoginPage() {
       // interest page never bypasses onboarding based on outdated local state.
       if (data.isNewStudent) clearSession();
 
-      saveStudent({ firstName: data.firstName, baseAvatarUrl: data.baseAvatarUrl ?? null });
+      saveStudent({ firstName: data.firstName, baseAvatarUrl: data.baseAvatarUrl ?? null, avatarUrl: data.avatarUrl ?? null });
       if (data.alienName)     saveAlienName(data.alienName);
       if (data.baseAvatarUrl) saveBaseAvatarUrl(data.baseAvatarUrl);
       if (!data.isNewStudent) markOnboardingComplete();

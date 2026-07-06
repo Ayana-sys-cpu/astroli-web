@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { getBotName, loadStudent, getFirstName } from '@/lib/student-store';
+import { getBotName, getFirstName, getEffectiveAvatarUrl } from '@/lib/student-store';
 import { getSessionStudentId } from '@/lib/session';
 import { t, type Lang } from '@/lib/i18n';
 
@@ -64,7 +64,7 @@ export default function AvatarBot() {
 
   useEffect(() => {
     setBotName(getBotName());
-    setAvatarUrl(loadStudent()?.baseAvatarUrl ?? null);
+    setAvatarUrl(getEffectiveAvatarUrl());
   }, []);
 
   const screen  = screenFromPath(pathname);
