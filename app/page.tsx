@@ -31,12 +31,45 @@ function getSupabaseBrowserClient() {
   return _ssrClient;
 }
 
+// Sets a lightweight root-domain cookie so astroli.ai can detect an active session
+// without needing access to the Supabase auth token (which stays scoped to app.astroli.ai).
+function setSessionIndicator() {
+  const domain = process.env.NEXT_PUBLIC_COOKIE_DOMAIN;
+  const domainAttr = domain ? `; domain=${domain}` : '';
+  document.cookie = `astroli_session=1; path=/${domainAttr}; max-age=1209600; samesite=lax${location.protocol === 'https:' ? '; secure' : ''}`;
+}
+
+function clearSessionIndicator() {
+  const domain = process.env.NEXT_PUBLIC_COOKIE_DOMAIN;
+  const domainAttr = domain ? `; domain=${domain}` : '';
+  document.cookie = `astroli_session=; path=/${domainAttr}; max-age=0`;
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [gisReady, setGisReady] = useState(false);
   const [linesReady, setLinesReady] = useState(false);
+  // true while we check for an existing session (avoids flash of login form)
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  // If the user already has a valid session, skip the login form entirely.
+  useEffect(() => {
+    let cancelled = false;
+    getSupabaseBrowserClient().auth.getSession().then(({ data: { session } }) => {
+      if (cancelled) return;
+      if (session) {
+        const role = session.user.user_metadata?.role;
+        router.replace(role === 'teacher' ? '/teacher' : '/syncing');
+      } else {
+        setCheckingSession(false);
+      }
+    }).catch(() => {
+      if (!cancelled) setCheckingSession(false);
+    });
+    return () => { cancelled = true; };
+  }, [router]);
 
   useEffect(() => {
     const t = setTimeout(() => setLinesReady(true), 400);
@@ -101,6 +134,9 @@ export default function LoginPage() {
         }
       }
 
+      // Mark session active on the root domain so astroli.ai can detect it.
+      setSessionIndicator();
+
       if (data.role === 'teacher') {
         saveTeacher({ name: data.name });
         saveCourses(data.courses ?? []);
@@ -149,6 +185,10 @@ export default function LoginPage() {
     });
     client.requestCode();
   };
+
+  // Show nothing while we check for an existing session — prevents the login form
+  // from flashing before an automatic redirect fires.
+  if (checkingSession) return null;
 
   return (
     <motion.div
