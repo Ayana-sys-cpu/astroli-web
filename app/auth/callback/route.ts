@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
   await supabaseAdmin
     .from('users')
     .update({ auth_user_id: authUserId })
-    .eq('user_id', userRecord.id);
+    .eq('id', userRecord.id);
 
   return NextResponse.redirect(`${origin}${isTeacher ? '/teacher' : '/syncing'}`);
 }

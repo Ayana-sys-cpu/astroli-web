@@ -107,11 +107,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to save student' }, { status: 503 });
   }
   const data = await res.json();
-  if (!Array.isArray(data) || !data[0]?.user_id) {
+  if (!Array.isArray(data) || !data[0]?.id) {
     console.error('[POST /api/student] Unexpected Supabase response shape:', data);
     return NextResponse.json({ error: 'Failed to save student' }, { status: 503 });
   }
-  const userId: string = data[0].user_id;
+  const userId: string = data[0].id;
 
   // Generate alien identity and persist it. Fire-and-forget the Supabase
   // write but await the name so we can return it to the client immediately.
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
   ]);
 
   fetch(
-    `${SUPABASE_URL}users?user_id=eq.${encodeURIComponent(userId)}`,
+    `${SUPABASE_URL}users?id=eq.${encodeURIComponent(userId)}`,
     {
       method: 'PATCH',
       headers: { ...supabaseHeaders(), Prefer: 'return=minimal' },
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
     enrollStudentInJourneys(userId, accessToken).catch(() => {});
   }
 
-  // Alias user_id as student_id — client code (onboarding pages) reads this field.
+  // Alias id as student_id — client code (onboarding pages) reads this field.
   return NextResponse.json({ student_id: userId, alien_name: alienName, base_avatar_url: baseAvatarUrl });
 }
 
@@ -242,6 +242,6 @@ export async function GET(req: NextRequest) {
 
   const rows = await res.json();
   const row = rows?.[0] ?? null;
-  if (row) row.student_id = row.user_id;
+  if (row) row.student_id = row.id;
   return NextResponse.json(row);
 }
