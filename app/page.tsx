@@ -7,6 +7,7 @@ import StarField from '@/components/StarField';
 import { saveStudent, markOnboardingComplete, saveAlienName, saveBaseAvatarUrl, clearSession } from '@/lib/student-store';
 import { saveTeacher, saveCourses } from '@/lib/teacher-store';
 import { createBrowserClient } from '@supabase/ssr';
+import type { Session } from '@supabase/supabase-js';
 
 const LINES: [number, number, number, number][] = [
   [8, 18, 28, 40], [28, 40, 50, 22], [50, 22, 72, 38],
@@ -57,8 +58,9 @@ export default function LoginPage() {
   // If the user already has a valid session, skip the login form entirely.
   useEffect(() => {
     let cancelled = false;
-    getSupabaseBrowserClient().auth.getSession().then(({ data: { session } }) => {
+    getSupabaseBrowserClient().auth.getSession().then((result: { data: { session: Session | null } }) => {
       if (cancelled) return;
+      const session = result.data.session;
       if (session) {
         const role = session.user.user_metadata?.role;
         router.replace(role === 'teacher' ? '/teacher' : '/syncing');
