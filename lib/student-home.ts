@@ -6,6 +6,7 @@ export interface HomeJourney {
   teacherName:             string | null;
   status:                  JourneyStatus;
   language?:               'en' | 'he';
+  isFamilyClass?:          boolean;
   activeMissionId?:        string;
   missionTitle?:           string;
   planetsExplored?:        number;
@@ -37,6 +38,7 @@ export interface BuildHomeJourneyInput {
   className:               string;
   teacherName:             string | null;
   language?:               'en' | 'he';
+  isFamilyClass?:          boolean;
   missionStates:           MissionStateLike[];
   openVoteSession:         OpenVoteSessionInfo | null;
   activeMission:           ActiveMissionInfo | null;
@@ -52,10 +54,11 @@ export interface BuildHomeJourneyInput {
 export function buildHomeJourney(input: BuildHomeJourneyInput): HomeJourney {
   const status = deriveJourneyStatus(input.missionStates, Boolean(input.openVoteSession));
   const base: HomeJourney = {
-    classId:     input.classId,
-    className:   input.className,
-    teacherName: input.teacherName,
-    language:    input.language,
+    classId:        input.classId,
+    className:      input.className,
+    teacherName:    input.teacherName,
+    language:       input.language,
+    isFamilyClass:  input.isFamilyClass || undefined,
     status,
   };
 

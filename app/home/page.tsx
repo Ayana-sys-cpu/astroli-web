@@ -56,7 +56,12 @@ export default function HomePage() {
   };
 
   const handleCardClick = (journey: HomeJourney) => {
-    if (journey.status === 'idle') return;
+    if (journey.status === 'idle') {
+      if (journey.isFamilyClass) {
+        router.push(`/family/missions?classId=${journey.classId}`);
+      }
+      return;
+    }
     if (journey.status === 'live' || journey.status === 'done') {
       router.push(`/landscape?classId=${journey.classId}`);
     } else {

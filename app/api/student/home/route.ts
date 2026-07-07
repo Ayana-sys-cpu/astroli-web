@@ -26,7 +26,7 @@ export async function GET() {
 
   const { data: classes } = await supabaseAdmin
     .from('classes')
-    .select('id, title, journey_id, teacher_id, language')
+    .select('id, title, journey_id, teacher_id, language, type')
     .in('id', classIds);
 
   if (!classes || classes.length === 0) {
@@ -121,10 +121,11 @@ export async function GET() {
     const openVoteSessionRow = voteSessionByClass.get(c.id) ?? null;
 
     return buildHomeJourney({
-      classId:     c.id,
-      className:   c.title,
-      teacherName: teacherNameById.get(c.teacher_id) ?? null,
-      language:    classLanguage,
+      classId:       c.id,
+      className:     c.title,
+      teacherName:   teacherNameById.get(c.teacher_id) ?? null,
+      language:      classLanguage,
+      isFamilyClass: (c as any).type === 'family',
       missionStates,
       openVoteSession: openVoteSessionRow
         ? { id: (openVoteSessionRow as any).id, endsAt: (openVoteSessionRow as any).ends_at }

@@ -97,6 +97,89 @@ async function handlePOST(req: NextRequest) {
 
   const isTeacher = whitelist !== null;
 
+  // ── 3b-pre. Parent whitelist check ────────────────────────────────────────
+  // Only reached when isTeacher is false. Fail closed on DB error.
+  if (!isTeacher) {
+    const { data: parentWhitelist, error: parentWhitelistError } = await supabaseAdmin
+      .from('authorized_parents')
+      .select('email')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (parentWhitelistError) {
+      console.error('[identify] parent whitelist lookup error:', parentWhitelistError);
+      return NextResponse.json({ error: 'Service temporarily unavailable' }, { status: 503 });
+    }
+
+    if (parentWhitelist !== null) {
+      // ── Parent path ──────────────────────────────────────────────────────
+      const { data: parent, error: parentUpsertError } = await supabaseAdmin
+        .from('users')
+        .upsert(
+          { email, role: 'parent', full_name: name ?? '', first_name: nameParts[0] ?? '' },
+          { onConflict: 'email' },
+        )
+        .select('id')
+        .single();
+
+      if (parentUpsertError || !parent) {
+        console.error('[identify] upsert parent error:', parentUpsertError);
+        return NextResponse.json({ error: 'Failed to save parent' }, { status: 503 });
+      }
+
+      const authResult = await upsertAuthUserAndToken(email, {
+        role:       'parent',
+        parent_id:  parent.id,
+        student_id: null,
+        teacher_id: null,
+      });
+
+      if (!authResult) {
+        console.error('[identify] upsertAuthUserAndToken failed for parent:', email);
+        return NextResponse.json({ error: 'Failed to create auth session' }, { status: 503 });
+      }
+
+      await supabaseAdmin.from('users').update({ auth_user_id: authResult.authUserId }).eq('id', parent.id);
+
+      // Determine onboarding state so client knows where to route
+      const { data: childLink } = await supabaseAdmin
+        .from('parent_child_link').select('child_id').eq('parent_id', parent.id).maybeSingle();
+      const { data: familyClass } = await supabaseAdmin
+        .from('classes').select('id').eq('teacher_id', parent.id).eq('type', 'family').maybeSingle();
+
+      return NextResponse.json({
+        role:       'parent',
+        userId:     parent.id,
+        googleId,
+        email,
+        name,
+        authToken:  authResult.authToken,
+        hasChild:   childLink !== null,
+        hasJourney: familyClass !== null,
+      });
+    }
+
+    // ── Waitlist path (non-approved, non-teacher, non-existing-parent) ─────
+    // Check if already an existing parent or student before waitlisting
+    const { data: existingUser } = await supabaseAdmin
+      .from('users')
+      .select('role')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (!existingUser || existingUser.role === 'parent') {
+      // Insert into waitlist (ON CONFLICT DO NOTHING — no duplicate entries)
+      await supabaseAdmin
+        .from('parent_waitlist')
+        .upsert({ email, name: name ?? '' }, { onConflict: 'email', ignoreDuplicates: true });
+
+      return NextResponse.json(
+        { role: 'waitlisted', message: 'Astroli is currently in limited early access.' },
+        { status: 403 },
+      );
+    }
+  }
+
   // ── 3a. Teacher path ───────────────────────────────────────────────────────
   if (isTeacher) {
     // Classroom API for course syncing only — role is already decided by the whitelist.

@@ -63,7 +63,9 @@ export default function LoginPage() {
       const session = result.data.session;
       if (session) {
         const role = session.user.user_metadata?.role;
-        router.replace(role === 'teacher' ? '/teacher' : '/syncing');
+        if (role === 'teacher') router.replace('/teacher');
+        else if (role === 'parent') router.replace('/parent/dashboard');
+        else router.replace('/syncing');
       } else {
         setCheckingSession(false);
       }
@@ -143,6 +145,22 @@ export default function LoginPage() {
         saveTeacher({ name: data.name });
         saveCourses(data.courses ?? []);
         router.push('/teacher');
+        return;
+      }
+
+      if (data.role === 'parent') {
+        if (!data.hasChild) {
+          router.push('/parent/onboarding');
+        } else if (!data.hasJourney) {
+          router.push('/parent/onboarding?step=journey');
+        } else {
+          router.push('/parent/dashboard');
+        }
+        return;
+      }
+
+      if (data.role === 'waitlisted') {
+        router.push('/auth/waitlist');
         return;
       }
 
