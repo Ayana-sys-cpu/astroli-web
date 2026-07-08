@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Script from 'next/script';
 import { createBrowserClient } from '@supabase/ssr';
@@ -29,8 +29,10 @@ export default function AcceptInviteContent() {
   const token  = params.get('token');
 
   const [gisReady,  setGisReady]  = useState(false);
-  const [status,    setStatus]    = useState<'loading' | 'signing-in' | 'error'>('loading');
+  // 'loading' — GIS not ready yet; 'ready' — show Sign in button; 'signing-in' — in progress; 'error'
+  const [status,    setStatus]    = useState<'loading' | 'ready' | 'signing-in' | 'error'>('loading');
   const [errorMsg,  setErrorMsg]  = useState<string | null>(null);
+  const tokenClientRef = useRef<{ requestAccessToken: () => void } | null>(null);
 
   // Check for already-loaded GIS (e.g. cached from a prior page visit)
   useEffect(() => {
@@ -45,9 +47,10 @@ export default function AcceptInviteContent() {
     }
     if (!gisReady) return;
 
-    setStatus('signing-in');
-
-    const tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
+    // Initialise the token client but do NOT call requestAccessToken() here.
+    // Calling it from useEffect (not from a user gesture) causes browsers to
+    // block the popup. We store it in a ref and trigger it from the button click.
+    tokenClientRef.current = (window as any).google.accounts.oauth2.initTokenClient({
       client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
       scope:     'email profile',
       callback:  async (resp: { access_token?: string; error?: string }) => {
@@ -102,8 +105,16 @@ export default function AcceptInviteContent() {
       },
     });
 
-    tokenClient.requestAccessToken();
+    setStatus('ready');
   }, [token, gisReady, router]);
+
+  const handleSignIn = () => {
+    if (!tokenClientRef.current) return;
+    setStatus('signing-in');
+    tokenClientRef.current.requestAccessToken();
+  };
+
+  const canRetry = status === 'error' && tokenClientRef.current !== null;
 
   if (status === 'error') {
     return (
@@ -115,6 +126,11 @@ export default function AcceptInviteContent() {
             <p className="text-sm text-muted-foreground">
               Ask your parent to send a new invite from their dashboard.
             </p>
+          )}
+          {canRetry && (
+            <button onClick={handleSignIn} className="btn-teal mt-2">
+              Try again with Google
+            </button>
           )}
         </div>
       </main>
@@ -130,10 +146,26 @@ export default function AcceptInviteContent() {
       />
       <main className="min-h-screen flex flex-col items-center justify-center px-4 text-center">
         <div className="max-w-md space-y-4">
-          <div className="w-6 h-6 rounded-full border-2 border-white/30 border-t-white animate-spin mx-auto" />
-          <p className="text-muted-foreground">
-            {status === 'loading' ? 'Loading…' : 'Signing you in…'}
-          </p>
+          {status === 'loading' && (
+            <>
+              <div className="w-6 h-6 rounded-full border-2 border-white/30 border-t-white animate-spin mx-auto" />
+              <p className="text-muted-foreground">Loading…</p>
+            </>
+          )}
+          {status === 'ready' && (
+            <>
+              <p className="text-muted-foreground">Your invite is ready.</p>
+              <button onClick={handleSignIn} className="btn-teal">
+                Continue with Google
+              </button>
+            </>
+          )}
+          {status === 'signing-in' && (
+            <>
+              <div className="w-6 h-6 rounded-full border-2 border-white/30 border-t-white animate-spin mx-auto" />
+              <p className="text-muted-foreground">Signing you in…</p>
+            </>
+          )}
         </div>
       </main>
     </>

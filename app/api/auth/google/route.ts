@@ -247,6 +247,22 @@ export async function POST(req: NextRequest) {
       .from('users').select('role').eq('email', email).maybeSingle();
 
     if (!existingUser || existingUser.role === 'parent') {
+      // Before waitlisting, check for a pending invite. If the student received
+      // an invite link but landed here via the main login instead (e.g. their
+      // browser blocked the Google popup on the accept-invite page), send them
+      // back to the accept-invite page rather than to the waitlist.
+      const { data: pendingInvite } = await supabaseAdmin
+        .from('child_invites')
+        .select('token')
+        .eq('child_email', email)
+        .is('accepted_at', null)
+        .gt('expires_at', new Date().toISOString())
+        .maybeSingle();
+
+      if (pendingInvite) {
+        return NextResponse.json({ role: 'invited', inviteToken: pendingInvite.token });
+      }
+
       await supabaseAdmin
         .from('parent_waitlist')
         .upsert({ email, name: name ?? '' }, { onConflict: 'email', ignoreDuplicates: true });

@@ -159,6 +159,11 @@ export default function LoginPage() {
       return;
     }
 
+    if (data.role === 'invited') {
+      router.push(`/auth/accept-invite?token=${data.inviteToken}`);
+      return;
+    }
+
     // ── Student path ────────────────────────────────────────────────────────
     // If the server treats this as a new student, wipe any stale localStorage
     // (e.g. onboarding_complete flag from a deleted account or a previous user
