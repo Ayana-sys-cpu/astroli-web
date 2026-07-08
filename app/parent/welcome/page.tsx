@@ -76,15 +76,33 @@ export default function ParentWelcomePage() {
   const ctaDestination = loggedIn ? '/parent/onboarding' : '/';
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12">
+    <main className="bg-grid min-h-screen flex flex-col items-center justify-center px-6 py-12">
       {/* Split Panel Card */}
-      <div className="w-full max-w-3xl overflow-hidden rounded-2xl border border-white/8 bg-card shadow-2xl flex min-h-[360px]">
+      <div
+        className="w-full max-w-3xl overflow-hidden rounded-2xl flex min-h-[380px] relative"
+        style={{
+          background: '#080808',
+          border: '1px solid rgba(255,255,255,0.07)',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.8)',
+        }}
+      >
+        {/* Gradient top stripe — magenta → purple → teal, matches app's glass-panel */}
+        <div
+          className="absolute top-0 left-0 right-0 h-px pointer-events-none z-10"
+          style={{ background: 'linear-gradient(90deg, #FF0080, #8B00FF, #00F5D4)', opacity: 0.7 }}
+        />
+
         {/* Left — text */}
         <div className="flex flex-1 flex-col justify-between gap-8 p-10">
           <div className="space-y-3">
-            <p className="text-[9px] font-bold uppercase tracking-widest text-primary">{eyebrow}</p>
-            <h1 className="text-2xl font-bold leading-snug">{headline}</h1>
-            <p className="text-sm leading-relaxed text-muted-foreground">{copy}</p>
+            <p
+              className="font-space text-[9px] font-bold uppercase"
+              style={{ color: '#00F5D4', letterSpacing: '0.22em' }}
+            >
+              {eyebrow}
+            </p>
+            <h1 className="font-space text-2xl font-bold leading-snug text-white">{headline}</h1>
+            <p className="font-inter text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.5)' }}>{copy}</p>
           </div>
 
           {/* Footer: dots + nav */}
@@ -94,11 +112,16 @@ export default function ParentWelcomePage() {
                 <button
                   key={i}
                   onClick={() => setSlide(i)}
-                  className={
-                    i === slide
-                      ? 'h-1.5 w-5 rounded-full bg-primary transition-all'
-                      : 'h-1.5 w-1.5 rounded-full bg-muted-foreground/25 transition-all'
-                  }
+                  className="transition-all duration-200"
+                  style={{
+                    height: '6px',
+                    width: i === slide ? '20px' : '6px',
+                    borderRadius: '9999px',
+                    background: i === slide ? '#00F5D4' : 'rgba(255,255,255,0.15)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: 0,
+                  }}
                 />
               ))}
             </div>
@@ -107,14 +130,16 @@ export default function ParentWelcomePage() {
               {slide === 0 ? (
                 <button
                   onClick={() => router.push(ctaDestination)}
-                  className="text-xs text-muted-foreground underline underline-offset-4"
+                  className="font-inter text-xs underline underline-offset-4 transition-colors"
+                  style={{ color: 'rgba(255,255,255,0.35)', background: 'none', border: 'none', cursor: 'pointer' }}
                 >
                   Skip
                 </button>
               ) : (
                 <button
                   onClick={() => setSlide(slide - 1)}
-                  className="text-xs text-muted-foreground underline underline-offset-4"
+                  className="font-inter text-xs underline underline-offset-4 transition-colors"
+                  style={{ color: 'rgba(255,255,255,0.35)', background: 'none', border: 'none', cursor: 'pointer' }}
                 >
                   ← Back
                 </button>
@@ -123,14 +148,16 @@ export default function ParentWelcomePage() {
               {slide < SLIDES.length - 1 ? (
                 <button
                   onClick={() => setSlide(slide + 1)}
-                  className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground"
+                  className="btn-teal font-space"
+                  style={{ width: 'auto', padding: '9px 20px', fontSize: '11px', letterSpacing: '0.1em' }}
                 >
                   Next →
                 </button>
               ) : (
                 <button
                   onClick={() => router.push(ctaDestination)}
-                  className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground"
+                  className="btn-teal font-space"
+                  style={{ width: 'auto', padding: '9px 20px', fontSize: '11px', letterSpacing: '0.1em' }}
                 >
                   Set it up free →
                 </button>
@@ -140,7 +167,10 @@ export default function ParentWelcomePage() {
         </div>
 
         {/* Right — screenshot */}
-        <div className="relative w-96 flex-shrink-0 overflow-hidden border-l border-white/8 bg-black/60">
+        <div
+          className="relative w-96 flex-shrink-0 overflow-hidden"
+          style={{ borderLeft: '1px solid rgba(255,255,255,0.07)' }}
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             key={screenshot}
@@ -149,7 +179,12 @@ export default function ParentWelcomePage() {
             className="absolute inset-0 h-full w-full object-cover"
             style={{ objectPosition }}
           />
-          <div className="pointer-events-none absolute inset-0 rounded-r-2xl ring-1 ring-inset ring-white/10" />
+          {/* Subtle left-side fade so screenshot blends into card */}
+          <div
+            className="pointer-events-none absolute inset-y-0 left-0 w-8"
+            style={{ background: 'linear-gradient(to right, #080808, transparent)' }}
+          />
+          <div className="pointer-events-none absolute inset-0 rounded-r-2xl ring-1 ring-inset ring-white/5" />
         </div>
       </div>
     </main>
