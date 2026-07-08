@@ -20,19 +20,22 @@ const SLIDES = [
     eyebrow: 'Explore',
     headline: 'Multiple planets, one big idea',
     copy: 'Your child picks a learning mission and explores it across interactive planets — each one a different angle on the same idea.',
-    screenshot: '/marketing/landscape.png',
+    screenshot: '/marketing/landscape-planets.png',
+    objectPosition: 'left top',
   },
   {
     eyebrow: 'Guide',
     headline: 'An AI guide, just for them',
     copy: 'Each planet has an AI companion that adapts to how your child thinks — asking questions, encouraging, never just handing over the answer.',
-    screenshot: '/marketing/landscape.png',
+    screenshot: '/marketing/landscape-pip.png',
+    objectPosition: 'center top',
   },
   {
     eyebrow: 'Track',
     headline: 'You stay in the loop',
     copy: 'You choose the journey. Your child works independently at their own pace. Your dashboard shows their progress as it happens.',
-    screenshot: '/marketing/teacher.png',
+    screenshot: '/marketing/teacher-cropped.png',
+    objectPosition: 'center top',
   },
 ];
 
@@ -67,7 +70,7 @@ export default function ParentWelcomePage() {
 
   if (checking) return null;
 
-  const { eyebrow, headline, copy, screenshot } = SLIDES[slide];
+  const { eyebrow, headline, copy, screenshot, objectPosition } = SLIDES[slide];
   // After sign-in a parent with no child is already authenticated — send them
   // directly to onboarding rather than back to the sign-in page.
   const ctaDestination = loggedIn ? '/parent/onboarding' : '/';
@@ -137,13 +140,14 @@ export default function ParentWelcomePage() {
         </div>
 
         {/* Right — screenshot */}
-        <div className="relative w-72 flex-shrink-0 overflow-hidden border-l border-white/8 bg-muted/20">
+        <div className="relative w-96 flex-shrink-0 overflow-hidden border-l border-white/8 bg-black/60">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             key={screenshot}
             src={screenshot}
             alt=""
-            className="absolute inset-0 h-full w-full object-cover object-top"
+            className="absolute inset-0 h-full w-full object-cover"
+            style={{ objectPosition }}
           />
           <div className="pointer-events-none absolute inset-0 rounded-r-2xl ring-1 ring-inset ring-white/10" />
         </div>
