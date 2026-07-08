@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic';
 
 import { useEffect, useState } from 'react';
+import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 
@@ -16,7 +17,7 @@ function getBrowserClient() {
   return _client;
 }
 
-export default function AcceptInvitePage() {
+function AcceptInvitePageContent() {
   const router = useRouter();
   const params = useSearchParams();
   const token = params.get('token');
@@ -111,4 +112,8 @@ export default function AcceptInvitePage() {
       </div>
     </main>
   );
+}
+
+export default function AcceptInvitePage() {
+  return <Suspense fallback={null}><AcceptInvitePageContent /></Suspense>;
 }

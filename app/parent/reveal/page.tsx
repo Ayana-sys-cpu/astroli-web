@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic';
 
 import { useRouter } from 'next/navigation';
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 function buildFrames(childName: string, journeyTitle: string) {
@@ -29,7 +30,7 @@ function buildFrames(childName: string, journeyTitle: string) {
   ];
 }
 
-export default function ParentRevealPage() {
+function ParentRevealPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -68,4 +69,8 @@ export default function ParentRevealPage() {
       </div>
     </main>
   );
+}
+
+export default function ParentRevealPage() {
+  return <Suspense fallback={null}><ParentRevealPageContent /></Suspense>;
 }

@@ -2,13 +2,14 @@
 export const dynamic = 'force-dynamic';
 
 import { useEffect, useState } from 'react';
+import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import StarField from '@/components/StarField';
 
 type Mission = { id: string; title: string; state: string; order: number };
 
-export default function FamilyMissionsPage() {
+function FamilyMissionsPageContent() {
   const router     = useRouter();
   const params     = useSearchParams();
   const classId    = params.get('classId') ?? '';
@@ -149,4 +150,9 @@ export default function FamilyMissionsPage() {
       </div>
     </motion.div>
   );
+}
+
+
+export default function FamilyMissionsPage() {
+  return <Suspense fallback={null}><FamilyMissionsPageContent /></Suspense>;
 }

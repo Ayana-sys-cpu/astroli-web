@@ -2,11 +2,12 @@
 export const dynamic = 'force-dynamic';
 
 import { useEffect, useState } from 'react';
+import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 type Journey = { id: string; title: string; description: string; missionCount: number };
 
-export default function ParentOnboardingPage() {
+function ParentOnboardingPageContent() {
   const router     = useRouter();
   const params     = useSearchParams();
   const initialStep = params.get('step') === 'journey' ? 'journey' : 'invite';
@@ -234,4 +235,8 @@ export default function ParentOnboardingPage() {
       </div>
     </main>
   );
+}
+
+export default function ParentOnboardingPage() {
+  return <Suspense fallback={null}><ParentOnboardingPageContent /></Suspense>;
 }

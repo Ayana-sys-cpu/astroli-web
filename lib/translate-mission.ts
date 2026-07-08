@@ -6,7 +6,11 @@
 import OpenAI from 'openai';
 import { supabaseAdmin } from './supabase-server';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+let _openai: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return _openai;
+}
 
 interface MissionRow {
   id: string;
@@ -75,7 +79,7 @@ Return ONLY valid JSON with no explanation.
 
 ${JSON.stringify(payload, null, 2)}`;
 
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [{ role: 'user', content: prompt }],
     response_format: { type: 'json_object' },
@@ -120,7 +124,7 @@ Return ONLY valid JSON with no explanation: an object mapping each id to its Heb
 
 ${JSON.stringify(Object.fromEntries(untranslated.map(g => [g.id, g.description])), null, 2)}`;
 
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [{ role: 'user', content: prompt }],
     response_format: { type: 'json_object' },
