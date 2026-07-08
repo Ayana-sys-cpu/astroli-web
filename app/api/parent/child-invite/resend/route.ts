@@ -59,7 +59,7 @@ export async function POST() {
 
   const { error: emailError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
     lastInvite.child_email,
-    { redirectTo: acceptUrl },
+    { redirectTo: acceptUrl, data: { inviteToken: newInvite.token } },
   );
 
   if (emailError) {

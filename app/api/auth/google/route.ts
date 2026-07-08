@@ -251,13 +251,19 @@ export async function POST(req: NextRequest) {
       // an invite link but landed here via the main login instead (e.g. their
       // browser blocked the Google popup on the accept-invite page), send them
       // back to the accept-invite page rather than to the waitlist.
-      const { data: pendingInvite } = await supabaseAdmin
+      // Use array query + limit(1) instead of maybeSingle() — there may be
+      // multiple pending rows (one per resend), and maybeSingle() silently
+      // returns null when it finds more than one, causing a false waitlist hit.
+      const { data: pendingInvites } = await supabaseAdmin
         .from('child_invites')
         .select('token')
         .eq('child_email', email)
         .is('accepted_at', null)
         .gt('expires_at', new Date().toISOString())
-        .maybeSingle();
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      const pendingInvite = pendingInvites?.[0] ?? null;
 
       if (pendingInvite) {
         return NextResponse.json({ role: 'invited', inviteToken: pendingInvite.token });
