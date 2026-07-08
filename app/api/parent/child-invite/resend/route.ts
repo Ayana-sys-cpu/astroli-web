@@ -9,7 +9,7 @@
 //           404 — no pending invite found
 
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase-server';
+import { supabaseAdmin, supabaseAnon } from '@/lib/supabase-server';
 import { requireAuth } from '@/lib/auth';
 import { resolveParentId } from '@/lib/parent-auth';
 
@@ -22,10 +22,10 @@ export async function POST() {
     return NextResponse.json({ error: 'Forbidden: parent session required' }, { status: 403 });
   }
 
-  // Find the most recent pending/expired invite for this parent
+  // Find the most recent pending invite for this parent
   const { data: lastInvite } = await supabaseAdmin
     .from('child_invites')
-    .select('id, child_email, token')
+    .select('id, child_email, token, created_at')
     .eq('parent_id', parentId)
     .is('accepted_at', null)
     .order('created_at', { ascending: false })
@@ -34,6 +34,12 @@ export async function POST() {
 
   if (!lastInvite) {
     return NextResponse.json({ error: 'No pending invite found' }, { status: 404 });
+  }
+
+  // Rate-limit: refuse resend within 60 seconds of the last one
+  const secondsSinceLast = (Date.now() - new Date(lastInvite.created_at).getTime()) / 1000;
+  if (secondsSinceLast < 60) {
+    return NextResponse.json({ error: 'Please wait a moment before resending.' }, { status: 429 });
   }
 
   // Insert a new invite row (fresh token + new 48h expiry)
@@ -51,15 +57,22 @@ export async function POST() {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3001';
   const acceptUrl = `${baseUrl}/auth/accept-invite?token=${newInvite.token}`;
 
-  const { error: emailError } = await supabaseAdmin.auth.admin.generateLink({
-    type:    'invite',
-    email:   lastInvite.child_email,
-    options: { redirectTo: acceptUrl },
-  });
+  const { error: emailError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+    lastInvite.child_email,
+    { redirectTo: acceptUrl },
+  );
 
   if (emailError) {
-    console.error('[child-invite/resend] generateLink error:', emailError);
-    // Invite row is created — resend can be retried
+    if ((emailError as any).status === 422) {
+      // User already confirmed — fall back to magic link.
+      const { error: otpError } = await supabaseAnon.auth.signInWithOtp({
+        email:   lastInvite.child_email,
+        options: { shouldCreateUser: false, emailRedirectTo: acceptUrl },
+      });
+      if (otpError) console.error('[child-invite/resend] OTP fallback error:', otpError);
+    } else {
+      console.error('[child-invite/resend] invite email error:', emailError);
+    }
   }
 
   return NextResponse.json({ ok: true });

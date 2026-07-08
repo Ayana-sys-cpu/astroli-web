@@ -13,6 +13,13 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import type { Database } from './supabase';
 
+// ── Anon client — for user-facing auth flows (signInWithOtp, etc.) ───────────
+export const supabaseAnon = createClient<Database>(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } },
+);
+
 // ── Admin client (service-role key — bypasses RLS) ────────────────────────────
 // Initialised once per serverless instance. Never expose this to the browser.
 export const supabaseAdmin = createClient<Database>(

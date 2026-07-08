@@ -45,7 +45,6 @@ export async function requireAuth(): Promise<AuthResult> {
 export async function resolveStudentId(user: User): Promise<string | null> {
   const fromMeta = user.user_metadata?.student_id as string | undefined;
   if (fromMeta) {
-    console.log('[resolveStudentId] fast-path student_id:', fromMeta);
     return fromMeta;
   }
 

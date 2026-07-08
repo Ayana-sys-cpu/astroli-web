@@ -87,6 +87,7 @@
         <tr><td>Area of interest</td><td>Personalizing your learning journey</td></tr>
         <tr><td>Learning progress (mission completions, journey status)</td><td>Tracking and displaying your achievements</td></tr>
         <tr><td>Authentication tokens</td><td>Keeping you securely signed in (stored on-device in iOS Secure Storage)</td></tr>
+        <tr><td>Google Classroom course list (teachers only): course name, section, ID</td><td>Letting a teacher connect their existing Google Classroom courses to Astroli journeys</td></tr>
       </tbody>
     </table>
     <p>We do <strong>not</strong> collect location data, contacts, microphone audio (except optionally for avatar photo capture), or any device identifiers for advertising.</p>
@@ -107,6 +108,7 @@
       <li><strong>Your teacher / school</strong> — Your learning progress may be visible to your assigned teacher through the Astroli teacher dashboard.</li>
       <li><strong>Supabase</strong> — Our database and authentication infrastructure provider. Supabase stores your account data in secure, encrypted cloud infrastructure. <a href="https://supabase.com/privacy" target="_blank">Supabase Privacy Policy →</a></li>
       <li><strong>Google Sign-In / Apple Sign-In</strong> — Used only to verify your identity. We receive only your name and email from these services. We do not receive or store your Google or Apple passwords.</li>
+      <li><strong>Google Classroom API (teachers only)</strong> — With a teacher's consent during sign-in, we request read-only access to their course list (<code>classroom.courses.readonly</code>) to show which of their existing Google Classroom courses can be connected to an Astroli journey. We do not access student rosters, grades, assignments, or coursework through this API, and the access token is used once at sign-in and discarded — it is never stored.</li>
       <li><strong>Legal requirements</strong> — We may disclose data if required by law, court order, or to protect the safety of our users.</li>
     </ul>
     <p>We do not share personal data with any advertising networks, data brokers, or third-party analytics services.</p>

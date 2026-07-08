@@ -20,6 +20,7 @@ export async function GET() {
   const { data: journeys, error } = await supabaseAdmin
     .from('journeys')
     .select('id, title, description')
+    .eq('is_template', true)
     .order('title');
 
   if (error) {

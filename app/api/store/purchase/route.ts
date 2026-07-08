@@ -47,20 +47,7 @@ export async function POST(req: NextRequest) {
 
   const newBalance = currentBalance - item.price;
 
-  // Single-slot: unequip everything across all categories before equipping new item
-  await supabaseAdmin
-    .from('student_inventory')
-    .update({ is_equipped: false })
-    .eq('student_id', studentId)
-    .eq('is_equipped', true);
-
-  await supabaseAdmin
-    .from('student_coin_balances')
-    .upsert(
-      { student_id: studentId, balance: newBalance, updated_at: new Date().toISOString() },
-      { onConflict: 'student_id' },
-    );
-
+  // Insert the inventory row first — if this fails nothing else has changed yet.
   const { error: insertError } = await supabaseAdmin
     .from('student_inventory')
     .insert({
@@ -74,6 +61,22 @@ export async function POST(req: NextRequest) {
     console.error('[store/purchase] inventory insert failed:', insertError);
     return NextResponse.json({ error: 'purchase_not_persisted' }, { status: 500 });
   }
+
+  // Only reach here when the item was successfully inserted.
+  // Single-slot: unequip any previously equipped item, then deduct balance.
+  await supabaseAdmin
+    .from('student_inventory')
+    .update({ is_equipped: false })
+    .eq('student_id', studentId)
+    .eq('is_equipped', true)
+    .neq('item_id', itemId);
+
+  await supabaseAdmin
+    .from('student_coin_balances')
+    .upsert(
+      { student_id: studentId, balance: newBalance, updated_at: new Date().toISOString() },
+      { onConflict: 'student_id' },
+    );
 
   const { data: invRows } = await supabaseAdmin
     .from('student_inventory')

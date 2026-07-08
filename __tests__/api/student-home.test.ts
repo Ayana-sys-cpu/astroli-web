@@ -16,7 +16,7 @@ const TABLES: Record<string, any[]> = {
   class_mission_state:  [{ class_id: 'class-1', mission_id: 'mission-1', state: 'active' }],
   vote_sessions:        [],
   planets:              [{ id: 'planet-1', mission_id: 'mission-1' }, { id: 'planet-2', mission_id: 'mission-1' }],
-  planet_summaries:     [{ planet_id: 'planet-1', status: 'completed' }],
+  planet_session_state: [{ planet_id: 'planet-1', completed: true }],
 };
 
 vi.mock('@/lib/supabase-server', () => ({

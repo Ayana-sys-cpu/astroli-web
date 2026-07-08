@@ -12,7 +12,7 @@
 //           422 — child email belongs to an existing teacher or school student
 
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase-server';
+import { supabaseAdmin, supabaseAnon } from '@/lib/supabase-server';
 import { requireAuth } from '@/lib/auth';
 import { resolveParentId } from '@/lib/parent-auth';
 import { z, parseBody } from '@/lib/validate';
@@ -72,23 +72,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to create invite' }, { status: 500 });
   }
 
-  // Send invite email via Supabase magic link pointed at our accept-invite page.
-  // The token is embedded in the URL; Supabase Auth just handles email delivery.
+  // Send invite email via Supabase — inviteUserByEmail actually delivers the email,
+  // unlike generateLink which only returns a URL without sending anything.
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3001';
   const acceptUrl = `${baseUrl}/auth/accept-invite?token=${invite.token}`;
 
-  const { error: emailError } = await supabaseAdmin.auth.admin.generateLink({
-    type:    'invite',
-    email:   childEmail,
-    options: {
-      redirectTo: acceptUrl,
-      data:       { childName, inviteToken: invite.token },
-    },
+  const { error: emailError } = await supabaseAdmin.auth.admin.inviteUserByEmail(childEmail, {
+    redirectTo: acceptUrl,
+    data:       { childName, inviteToken: invite.token },
   });
 
   if (emailError) {
-    console.error('[parent/child-invite] generateLink email error:', emailError);
-    // Don't fail the whole request — the invite row is created and resend is available
+    if ((emailError as any).status === 422) {
+      // User already confirmed — inviteUserByEmail refuses them. Fall back to magic link.
+      const { error: otpError } = await supabaseAnon.auth.signInWithOtp({
+        email:   childEmail,
+        options: { shouldCreateUser: false, emailRedirectTo: acceptUrl },
+      });
+      if (otpError) console.error('[parent/child-invite] OTP fallback error:', otpError);
+    } else {
+      console.error('[parent/child-invite] invite email error:', emailError);
+    }
   }
 
   return NextResponse.json({ ok: true, inviteId: invite.id });

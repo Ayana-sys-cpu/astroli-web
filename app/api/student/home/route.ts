@@ -106,7 +106,7 @@ export async function GET() {
     if (activeMissionId) {
       const mission = missions.find((m: any) => m.id === activeMissionId);
       const tx = classLanguage === 'he' ? ((mission?.translations as Record<string, Record<string, string>> | null)?.he ?? {}) : {};
-      const rawTitle = mission?.question ?? mission?.project_title ?? 'Mission';
+      const rawTitle = mission?.project_title ?? mission?.question ?? 'Mission';
       const title = tx.question ?? tx.project_title ?? rawTitle;
       const planetIds = planetsByMission.get(activeMissionId) ?? [];
       activeMission = {

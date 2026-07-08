@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { Suspense, useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
@@ -7,7 +7,7 @@ import OrinOrb from '@/components/OrinOrb';
 import { getPlanetMeta } from '@/lib/planet-meta';
 import { PLANET_EXPERIENCE } from '@/lib/planet-experience';
 import { useOrinChat } from '@/hooks/useOrinChat';
-import { getFirstName, clearSession } from '@/lib/student-store';
+import { getFirstName, clearSession, loadStudent } from '@/lib/student-store';
 import { supabaseSignOut, getSessionStudentId } from '@/lib/session';
 import { usePlanetVoice } from '@/hooks/usePlanetVoice';
 import { useCoinReward } from '@/hooks/useCoinReward';
@@ -31,7 +31,7 @@ interface Planet {
 }
 
 
-export default function PlanetPage({ params }: { params: { id: string } }) {
+function PlanetPageContent({ params }: { params: { id: string } }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const classId = searchParams.get('classId');
@@ -42,6 +42,7 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
   const { triggerReward } = useCoinReward();
   const [shownMsgCount, setShownMsgCount] = useState(0);
   const [showAvatarCelebration, setShowAvatarCelebration] = useState(false);
+  const [baseAvatarUrl] = useState(() => loadStudent()?.baseAvatarUrl ?? null);
   const thinkingStartTime = useRef(0);
   const processedMsgCount = useRef(0);
   const isThinkingRef = useRef(false);
@@ -502,18 +503,31 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
             border: '1px solid rgba(6,214,160,0.35)',
             overflow: 'hidden', textAlign: 'center',
           }}>
-            {/* Avatar video */}
+            {/* Avatar video or image */}
             <div style={{ background: '#0d0d1a', padding: '24px 24px 0' }}>
-              <video
-                src="/avatars/base/base-03.mp4"
-                autoPlay loop muted playsInline
-                style={{
-                  width: '180px', height: '180px',
-                  objectFit: 'cover', borderRadius: '50%',
-                  border: '3px solid rgba(6,214,160,0.5)',
-                  display: 'block', margin: '0 auto',
-                }}
-              />
+              {baseAvatarUrl ? (
+                <img
+                  src={baseAvatarUrl}
+                  alt="Your avatar"
+                  style={{
+                    width: '180px', height: '180px',
+                    objectFit: 'cover', borderRadius: '50%',
+                    border: '3px solid rgba(6,214,160,0.5)',
+                    display: 'block', margin: '0 auto',
+                  }}
+                />
+              ) : (
+                <video
+                  src="/avatars/base/base-03.mp4"
+                  autoPlay loop muted playsInline
+                  style={{
+                    width: '180px', height: '180px',
+                    objectFit: 'cover', borderRadius: '50%',
+                    border: '3px solid rgba(6,214,160,0.5)',
+                    display: 'block', margin: '0 auto',
+                  }}
+                />
+              )}
             </div>
             {/* Text */}
             <div style={{ padding: '20px 24px' }}>
@@ -541,5 +555,13 @@ export default function PlanetPage({ params }: { params: { id: string } }) {
       )}
 
     </motion.div>
+  );
+}
+
+export default function PlanetPage({ params }: { params: { id: string } }) {
+  return (
+    <Suspense>
+      <PlanetPageContent params={params} />
+    </Suspense>
   );
 }
