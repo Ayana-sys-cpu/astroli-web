@@ -58,7 +58,7 @@ export default function LoginPage() {
   // If the user already has a valid session, skip the login form entirely.
   useEffect(() => {
     let cancelled = false;
-    getSupabaseBrowserClient().auth.getSession().then((result: { data: { session: Session | null } }) => {
+    getSupabaseBrowserClient().auth.getSession().then(async (result: { data: { session: Session | null } }) => {
       if (cancelled) return;
       const session = result.data.session;
       if (session) {
