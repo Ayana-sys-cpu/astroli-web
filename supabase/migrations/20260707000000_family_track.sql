@@ -108,3 +108,20 @@ ALTER TABLE authorized_parents  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE parent_waitlist     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE parent_child_link   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE child_invites       ENABLE ROW LEVEL SECURITY;
+
+-- -----------------------------------------------------------------------------
+-- Grants — must match authorized_teachers for service_role to query these tables.
+-- Without these, PostgREST returns 403 even for the service role.
+-- -----------------------------------------------------------------------------
+GRANT SELECT                         ON authorized_parents TO anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON authorized_parents TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON authorized_parents TO service_role;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON parent_waitlist    TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON parent_waitlist    TO service_role;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON parent_child_link  TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON parent_child_link  TO service_role;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON child_invites      TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON child_invites      TO service_role;

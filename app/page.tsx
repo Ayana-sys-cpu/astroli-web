@@ -117,6 +117,96 @@ export default function LoginPage() {
   // Authorization code flow — the code is exchanged server-side for an access
   // token so it never touches the browser. One round-trip replaces the old
   // identify + student-status + registration chain.
+  // Shared routing logic — called by both the code flow and the token-flow fallback.
+  const applyAuthResponse = async (data: any) => {
+    if (data.authToken) {
+      const { error: otpError } = await getSupabaseBrowserClient().auth.verifyOtp({
+        token_hash: data.authToken,
+        type: 'email',
+      });
+      if (otpError) {
+        console.error('[login] verifyOtp failed:', otpError.message);
+        throw new Error(`Session setup failed: ${otpError.message}`);
+      }
+    }
+
+    setSessionIndicator();
+
+    if (data.role === 'teacher') {
+      saveTeacher({ name: data.name });
+      saveCourses(data.courses ?? []);
+      router.push('/teacher');
+      return;
+    }
+
+    if (data.role === 'parent') {
+      if (!data.hasChild) {
+        router.push('/parent/welcome');
+      } else if (!data.hasJourney) {
+        router.push('/parent/onboarding?step=journey');
+      } else {
+        router.push('/parent/dashboard');
+      }
+      return;
+    }
+
+    if (data.role === 'waitlisted') {
+      router.push('/auth/waitlist');
+      return;
+    }
+
+    // ── Student path ────────────────────────────────────────────────────────
+    // If the server treats this as a new student, wipe any stale localStorage
+    // (e.g. onboarding_complete flag from a deleted account or a previous user
+    // on the same device) before writing fresh values. This ensures the
+    // interest page never bypasses onboarding based on outdated local state.
+    if (data.isNewStudent) clearSession();
+
+    saveStudent({ firstName: data.firstName, baseAvatarUrl: data.baseAvatarUrl ?? null, avatarUrl: data.avatarUrl ?? null });
+    if (data.alienName)     saveAlienName(data.alienName);
+    if (data.baseAvatarUrl) saveBaseAvatarUrl(data.baseAvatarUrl);
+    if (!data.isNewStudent) markOnboardingComplete();
+
+    router.push(data.isNewStudent ? '/onboarding/reveal' : '/syncing');
+  };
+
+  // Token-flow fallback — used when GOOGLE_CLIENT_SECRET is absent (local dev).
+  const handleGoogleToken = async (accessToken: string) => {
+    try {
+      const res = await fetch('/api/auth/identify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessToken }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        if (err.role === 'waitlisted') { router.push('/auth/waitlist'); return; }
+        throw new Error(`Auth failed (${res.status}): ${err.error ?? 'unknown'}`);
+      }
+      await applyAuthResponse(await res.json());
+    } catch (err) {
+      console.error('[login]', err);
+      setError("Couldn't sign you in. Check your connection and try again.");
+      setLoading(false);
+    }
+  };
+
+  const triggerTokenFlow = () => {
+    const client = (window as any).google.accounts.oauth2.initTokenClient({
+      client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+      scope: 'email profile https://www.googleapis.com/auth/classroom.courses.readonly',
+      callback: (resp: any) => {
+        if (resp.error || !resp.access_token) {
+          setError("Couldn't sign you in. Please try again.");
+          setLoading(false);
+          return;
+        }
+        handleGoogleToken(resp.access_token);
+      },
+    });
+    client.requestAccessToken();
+  };
+
   const handleGoogleCode = async (code: string) => {
     try {
       const res = await fetch('/api/auth/google', {
@@ -124,64 +214,22 @@ export default function LoginPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code }),
       });
+
+      // GOOGLE_CLIENT_SECRET not configured on this server — fall back to the
+      // token flow (identify route). This happens in local dev; production always
+      // has the secret set.
+      if (res.status === 503) {
+        triggerTokenFlow();
+        return;
+      }
+
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         if (err.role === 'waitlisted') { router.push('/auth/waitlist'); return; }
         throw new Error(`Auth failed (${res.status}): ${err.error ?? 'unknown'}`);
       }
-      const data = await res.json();
 
-      // Establish the Supabase session in cookies before any page navigation.
-      if (data.authToken) {
-        const { error: otpError } = await getSupabaseBrowserClient().auth.verifyOtp({
-          token_hash: data.authToken,
-          type: 'email',
-        });
-        if (otpError) {
-          console.error('[login] verifyOtp failed:', otpError.message);
-          throw new Error(`Session setup failed: ${otpError.message}`);
-        }
-      }
-
-      // Mark session active on the root domain so astroli.ai can detect it.
-      setSessionIndicator();
-
-      if (data.role === 'teacher') {
-        saveTeacher({ name: data.name });
-        saveCourses(data.courses ?? []);
-        router.push('/teacher');
-        return;
-      }
-
-      if (data.role === 'parent') {
-        if (!data.hasChild) {
-          router.push('/parent/onboarding');
-        } else if (!data.hasJourney) {
-          router.push('/parent/onboarding?step=journey');
-        } else {
-          router.push('/parent/dashboard');
-        }
-        return;
-      }
-
-      if (data.role === 'waitlisted') {
-        router.push('/auth/waitlist');
-        return;
-      }
-
-      // ── Student path ──────────────────────────────────────────────────────
-      // If the server treats this as a new student, wipe any stale localStorage
-      // (e.g. onboarding_complete flag from a deleted account or a previous user
-      // on the same device) before writing fresh values. This ensures the
-      // interest page never bypasses onboarding based on outdated local state.
-      if (data.isNewStudent) clearSession();
-
-      saveStudent({ firstName: data.firstName, baseAvatarUrl: data.baseAvatarUrl ?? null, avatarUrl: data.avatarUrl ?? null });
-      if (data.alienName)     saveAlienName(data.alienName);
-      if (data.baseAvatarUrl) saveBaseAvatarUrl(data.baseAvatarUrl);
-      if (!data.isNewStudent) markOnboardingComplete();
-
-      router.push(data.isNewStudent ? '/onboarding/reveal' : '/syncing');
+      await applyAuthResponse(await res.json());
     } catch (err) {
       console.error('[login]', err);
       setError("Couldn't sign you in. Check your connection and try again.");
@@ -195,6 +243,7 @@ export default function LoginPage() {
     setError(null);
     // Authorization code flow — Google returns a one-time code, not a token.
     // The code is exchanged server-side in /api/auth/google using GOOGLE_CLIENT_SECRET.
+    // Falls back to token flow (triggerTokenFlow) when the secret is absent (local dev).
     const client = (window as any).google.accounts.oauth2.initCodeClient({
       client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
       scope: 'email profile https://www.googleapis.com/auth/classroom.courses.readonly',

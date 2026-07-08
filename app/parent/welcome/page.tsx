@@ -34,28 +34,47 @@ export default function ParentWelcomePage() {
   const router = useRouter();
   const [slide, setSlide] = useState(0);
   const [checking, setChecking] = useState(true);
+  const [loggedIn, setLoggedIn] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    getSupabaseBrowserClient()
-      .auth.getSession()
-      .then(({ data: { session } }: { data: { session: import('@supabase/supabase-js').Session | null } }) => {
-        if (cancelled) return;
-        if (session?.user.user_metadata?.role === 'parent') {
-          router.replace('/parent/dashboard');
-        } else {
+    const supabase = getSupabaseBrowserClient();
+    supabase.auth.getSession().then(async ({ data: { session } }: { data: { session: import('@supabase/supabase-js').Session | null } }) => {
+      if (cancelled) return;
+      if (session?.user.user_metadata?.role === 'parent') {
+        // Only redirect to dashboard if the parent has already set up a child.
+        // A parent arriving here right after first sign-in should see the tour.
+        const parentId = session.user.user_metadata?.parent_id as string | undefined;
+        if (parentId) {
+          const { data: childLink } = await supabase
+            .from('parent_child_link')
+            .select('child_id')
+            .eq('parent_id', parentId)
+            .maybeSingle();
+          if (!cancelled && childLink) {
+            router.replace('/parent/dashboard');
+            return;
+          }
+        }
+        if (!cancelled) {
+          setLoggedIn(true);
           setChecking(false);
         }
-      })
-      .catch(() => {
+      } else {
         if (!cancelled) setChecking(false);
-      });
+      }
+    }).catch(() => {
+      if (!cancelled) setChecking(false);
+    });
     return () => { cancelled = true; };
   }, [router]);
 
   if (checking) return null;
 
   const { headline, copy } = SLIDES[slide];
+  // After sign-in a parent with no child is already authenticated — send them
+  // directly to onboarding rather than back to the sign-in page.
+  const ctaDestination = loggedIn ? '/parent/onboarding' : '/';
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-4">
@@ -83,7 +102,7 @@ export default function ParentWelcomePage() {
         <div className="flex items-center justify-between gap-4">
           {slide === 0 ? (
             <button
-              onClick={() => router.push('/')}
+              onClick={() => router.push(ctaDestination)}
               className="text-sm text-muted-foreground underline underline-offset-4"
             >
               Skip
@@ -106,7 +125,7 @@ export default function ParentWelcomePage() {
             </button>
           ) : (
             <button
-              onClick={() => router.push('/')}
+              onClick={() => router.push(ctaDestination)}
               className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
             >
               Set it up for free →
