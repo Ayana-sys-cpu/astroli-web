@@ -89,12 +89,30 @@ export default function LoginPage() {
     return () => clearTimeout(t);
   }, []);
 
-  // Surface friendly errors that arrive via redirect from /auth/callback
+  // Surface friendly errors that arrive via redirect from /auth/callback (query
+  // string) OR directly from Supabase's /verify on a bad link (URL fragment).
+  // When a magic/invite link is expired, already used, or superseded by a newer
+  // send, Supabase redirects to the Site URL with #error=access_denied&
+  // error_code=otp_expired&error_description=... — a fragment the server never
+  // sees, so we must read it here on the client.
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('error');
+    const query = new URLSearchParams(window.location.search);
+    const hash  = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+
+    const code     = query.get('error');
+    const hashErr  = hash.get('error') || hash.get('error_code');
+
+    if (hashErr) {
+      // otp_expired / access_denied — the emailed link is no longer valid. The
+      // most common real cause is clicking an older invite email after a newer
+      // one was sent (each resend invalidates the previous link).
+      setError('That invite link has expired or was already used. Ask your parent to resend, then open the most recent email and click it once.');
+      window.history.replaceState({}, '', window.location.pathname);
+      return;
+    }
+
     if (!code) return;
-    if (code === 'invalid_link')      setError('That sign-in link is invalid or has expired.');
+    if (code === 'invalid_link')       setError('That sign-in link is invalid or has expired. Ask your parent to send a fresh invite.');
     else if (code === 'service_error') setError('Service temporarily unavailable. Please try again.');
     else if (code === 'not_registered') setError("This email isn't linked to an Astroli account. Sign up via your parent's invite.");
     // Clean the param from the URL so a refresh doesn't re-display the error

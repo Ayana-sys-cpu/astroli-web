@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
+import { saveStudent, saveAlienName, saveBaseAvatarUrl, markOnboardingComplete, clearSession } from '@/lib/student-store';
 
 // Singleton browser client — reads/writes the Supabase session via cookies so
 // server route handlers (getUser) can see it on the follow-up API calls.
@@ -15,6 +16,14 @@ function getBrowserClient() {
     );
   }
   return _client;
+}
+
+// Root-domain indicator cookie so astroli.ai can detect an active session
+// without reading the Supabase auth token (scoped to app.astroli.ai).
+function setSessionIndicator() {
+  const domain = process.env.NEXT_PUBLIC_COOKIE_DOMAIN;
+  const domainAttr = domain ? `; domain=${domain}` : '';
+  document.cookie = `astroli_session=1; path=/${domainAttr}; max-age=1209600; samesite=lax${location.protocol === 'https:' ? '; secure' : ''}`;
 }
 
 /**
@@ -33,8 +42,12 @@ function getBrowserClient() {
  *   2. Browser-initiated PKCE (dev-login) → tokens arrive as ?code=…
  *      We exchange it in the browser, where the PKCE code_verifier lives.
  *
- * Once a session is persisted to cookies, invite links go straight to
- * /auth/accept-invite; everything else is finalised server-side.
+ * For invite links we complete acceptance RIGHT HERE using the access token we
+ * already hold from the fragment (passed as a Bearer token). We deliberately do
+ * NOT hop to /auth/accept-invite and re-read the session with getSession(): on
+ * production that second read could hang on the auth Web Lock after setSession,
+ * leaving the student stuck on a spinner. Doing the work here — with the token
+ * in hand — removes that failure mode entirely.
  */
 export default function CallbackContent() {
   const router = useRouter();
@@ -74,6 +87,7 @@ export default function CallbackContent() {
       }
 
       // ── Establish the session ──────────────────────────────────────────
+      let bearer = accessToken ?? undefined;
       if (accessToken && refreshToken) {
         const { error } = await supabase.auth.setSession({
           access_token: accessToken,
@@ -85,21 +99,60 @@ export default function CallbackContent() {
           return;
         }
       } else if (code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
           console.error('[auth/callback] exchangeCodeForSession failed:', error.message);
           router.replace('/?error=invalid_link');
           return;
         }
+        bearer = data.session?.access_token;
       } else {
         // Neither fragment tokens nor a PKCE code — nothing to sign in with.
         router.replace('/?error=invalid_link');
         return;
       }
 
-      // ── Invite link → straight to acceptance (no DB round-trip here) ───
+      // ── Invite link → accept it here with the token in hand ────────────
       if (invite) {
-        router.replace(`/auth/accept-invite?token=${invite}`);
+        try {
+          const res = await fetch('/api/auth/accept-invite', {
+            method:  'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
+            },
+            body: JSON.stringify({ token: invite }),
+          });
+
+          // Already accepted — the account exists; continue as a returning student.
+          if (res.status === 409) {
+            markOnboardingComplete();
+            router.replace('/syncing');
+            return;
+          }
+
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            console.error('[auth/callback] accept-invite failed:', res.status, data);
+            router.replace('/?error=invalid_link');
+            return;
+          }
+
+          setSessionIndicator();
+          if (data.isNewStudent) clearSession();
+          saveStudent({
+            firstName:     data.firstName,
+            baseAvatarUrl: data.baseAvatarUrl ?? null,
+            avatarUrl:     null,
+          });
+          if (data.alienName)     saveAlienName(data.alienName);
+          if (data.baseAvatarUrl) saveBaseAvatarUrl(data.baseAvatarUrl);
+          if (!data.isNewStudent) markOnboardingComplete();
+
+          router.replace(data.isNewStudent ? '/onboarding/reveal' : '/syncing');
+        } catch {
+          router.replace('/?error=service_error');
+        }
         return;
       }
 
