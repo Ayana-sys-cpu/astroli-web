@@ -75,10 +75,15 @@ export async function POST(req: NextRequest) {
   // Send invite email via Supabase — inviteUserByEmail actually delivers the email,
   // unlike generateLink which only returns a URL without sending anything.
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3001';
-  const acceptUrl = `${baseUrl}/auth/accept-invite?token=${invite.token}`;
+  // Route through /auth/callback so the PKCE code is exchanged server-side and
+  // the session is established before the student reaches /auth/accept-invite.
+  // The invite token is carried in user_metadata (data.inviteToken) for the
+  // inviteUserByEmail path, and in the URL (?invite=) for the OTP fallback.
+  const callbackUrl   = `${baseUrl}/auth/callback`;
+  const otpCallbackUrl = `${baseUrl}/auth/callback?invite=${invite.token}`;
 
   const { error: emailError } = await supabaseAdmin.auth.admin.inviteUserByEmail(childEmail, {
-    redirectTo: acceptUrl,
+    redirectTo: callbackUrl,
     data:       { childName, inviteToken: invite.token },
   });
 
@@ -87,7 +92,7 @@ export async function POST(req: NextRequest) {
       // User already confirmed — inviteUserByEmail refuses them. Fall back to magic link.
       const { error: otpError } = await supabaseAnon.auth.signInWithOtp({
         email:   childEmail,
-        options: { shouldCreateUser: false, emailRedirectTo: acceptUrl },
+        options: { shouldCreateUser: false, emailRedirectTo: otpCallbackUrl },
       });
       if (otpError) console.error('[parent/child-invite] OTP fallback error:', otpError);
     } else {

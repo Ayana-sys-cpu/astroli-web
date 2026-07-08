@@ -50,6 +50,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [infoMsg, setInfoMsg] = useState<string | null>(null);
   const [gisReady, setGisReady] = useState(false);
   const [linesReady, setLinesReady] = useState(false);
   // true while we check for an existing session (avoids flash of login form)
@@ -160,7 +161,13 @@ export default function LoginPage() {
     }
 
     if (data.role === 'invited') {
-      router.push(`/auth/accept-invite?token=${data.inviteToken}`);
+      setLoading(false);
+      if (data.emailSent) {
+        setInfoMsg("We've sent a sign-in link to your email. Click it to join Astroli!");
+      } else {
+        // OTP send failed — fall back to direct redirect (student will need session from email link)
+        router.push(`/auth/accept-invite?token=${data.inviteToken}`);
+      }
       return;
     }
 
@@ -435,6 +442,16 @@ export default function LoginPage() {
               style={{ color: '#FF6B6B' }}
             >
               {error}
+            </motion.p>
+          )}
+          {infoMsg && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-xs text-center font-inter"
+              style={{ color: '#00F5D4' }}
+            >
+              {infoMsg}
             </motion.p>
           )}
         </motion.div>

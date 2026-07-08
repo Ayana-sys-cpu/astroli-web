@@ -26,7 +26,7 @@
 // =============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase-server';
+import { supabaseAdmin, supabaseAnon } from '@/lib/supabase-server';
 import { parseBody, AuthCodeSchema } from '@/lib/validate';
 import { enrollStudentInJourneys } from '@/lib/enroll-student';
 
@@ -266,7 +266,22 @@ export async function POST(req: NextRequest) {
       const pendingInvite = pendingInvites?.[0] ?? null;
 
       if (pendingInvite) {
-        return NextResponse.json({ role: 'invited', inviteToken: pendingInvite.token });
+        // Send a magic link so the student authenticates via email rather than
+        // being redirected to a page where they'd have no Supabase session yet.
+        // The link routes through /auth/callback which exchanges the code and
+        // then redirects to /auth/accept-invite, where the flow auto-completes.
+        const baseUrl     = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3001';
+        const callbackUrl = `${baseUrl}/auth/callback?invite=${pendingInvite.token}`;
+        const { error: otpErr } = await supabaseAnon.auth.signInWithOtp({
+          email,
+          options: { emailRedirectTo: callbackUrl },
+        });
+        if (otpErr) {
+          console.error('[google] OTP send for invite failed:', otpErr);
+          // Fall back to redirect so the student isn't left stranded.
+          return NextResponse.json({ role: 'invited', inviteToken: pendingInvite.token });
+        }
+        return NextResponse.json({ role: 'invited', emailSent: true });
       }
 
       await supabaseAdmin
@@ -368,7 +383,8 @@ export async function POST(req: NextRequest) {
   let baseAvatarUrl = (existing?.base_avatar_url ?? student.base_avatar_url) as string | null;
 
   if (isNewStudent) {
-    [alienName, baseAvatarUrl] = await Promise.all([generateAlienName(), Promise.resolve(pickAvatarUrl())]);
+    alienName     = 'Orin';
+    baseAvatarUrl = '/avatars/base/base-03.png';
     // Persist immediately — the PATCH from the reveal page was unreliable
     // because the session cookie is not always established by the time the
     // client-side fetch fires (middleware blocks unauthenticated requests).

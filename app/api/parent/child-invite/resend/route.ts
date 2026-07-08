@@ -55,11 +55,12 @@ export async function POST() {
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3001';
-  const acceptUrl = `${baseUrl}/auth/accept-invite?token=${newInvite.token}`;
+  const callbackUrl    = `${baseUrl}/auth/callback`;
+  const otpCallbackUrl = `${baseUrl}/auth/callback?invite=${newInvite.token}`;
 
   const { error: emailError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
     lastInvite.child_email,
-    { redirectTo: acceptUrl, data: { inviteToken: newInvite.token } },
+    { redirectTo: callbackUrl, data: { inviteToken: newInvite.token } },
   );
 
   if (emailError) {
@@ -67,7 +68,7 @@ export async function POST() {
       // User already confirmed — fall back to magic link.
       const { error: otpError } = await supabaseAnon.auth.signInWithOtp({
         email:   lastInvite.child_email,
-        options: { shouldCreateUser: false, emailRedirectTo: acceptUrl },
+        options: { shouldCreateUser: false, emailRedirectTo: otpCallbackUrl },
       });
       if (otpError) console.error('[child-invite/resend] OTP fallback error:', otpError);
     } else {

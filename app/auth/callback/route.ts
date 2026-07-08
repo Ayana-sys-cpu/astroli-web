@@ -61,11 +61,13 @@ export async function GET(req: NextRequest) {
   const isTeacher = whitelist !== null;
 
   // ── Invite link shortcut ─────────────────────────────────────────────────
-  // When a parent invites a child via inviteUserByEmail, the invite token is
-  // stored in user_metadata. If this is an invite session and the student has
-  // no users row yet (they haven't completed the accept-invite flow), redirect
-  // them to the accept-invite page so the full onboarding flow can run.
-  const inviteToken = data.session.user.user_metadata?.inviteToken as string | undefined;
+  // Two paths land here with an invite token:
+  //  1. inviteUserByEmail — token is in user_metadata.inviteToken (set via data:)
+  //  2. signInWithOtp fallback — token is in the ?invite= URL param
+  // URL param wins when both are present (it's the freshest token from a resend).
+  const inviteFromUrl  = searchParams.get('invite');
+  const inviteFromMeta = data.session.user.user_metadata?.inviteToken as string | undefined;
+  const inviteToken    = inviteFromUrl || inviteFromMeta;
   if (inviteToken) {
     return NextResponse.redirect(`${origin}/auth/accept-invite?token=${inviteToken}`);
   }

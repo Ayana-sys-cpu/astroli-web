@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
-import { getFirstName, getInterest, markOnboardingComplete, saveBaseAvatarUrl, saveAlienName, getAlienName, getBaseAvatarUrl, generateAlienName, isOnboardingComplete } from '@/lib/student-store';
+import { getFirstName, markOnboardingComplete, saveBaseAvatarUrl, saveAlienName, getAlienName, getBaseAvatarUrl, isOnboardingComplete } from '@/lib/student-store';
 
 export default function RevealPage() {
   const router = useRouter();
@@ -13,15 +13,10 @@ export default function RevealPage() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const firstName = getFirstName();
-  const interest  = getInterest();
-  // Use the identity generated at signup (stored in localStorage by page.tsx).
-  // Fall back to the deterministic algorithm for users who signed up before this change.
-  const alienName  = getAlienName() ?? (interest ? generateAlienName(interest) : 'Xylo-Vex');
+  const alienName  = getAlienName() ?? 'Orin';
   const storedBase = getBaseAvatarUrl();
-  // Avatar URL is always assigned server-side during registration. Fall back
-  // to base-01 only if the localStorage cache was lost (e.g. browser data cleared).
-  const baseUrl    = storedBase ?? '/avatars/base/base-01.png';
-  const webmUrl    = baseUrl.replace('.png', '.webm');
+  const baseUrl    = storedBase ?? '/avatars/base/base-03.png';
+  const videoUrl   = baseUrl.replace('.png', '.mp4');
 
   // Returning users (already onboarded) should never see this screen
   useEffect(() => {
@@ -117,7 +112,7 @@ export default function RevealPage() {
         <AnimatePresence>
           {displayUrl && (
             <motion.video
-              src={webmUrl}
+              src={videoUrl}
               autoPlay
               loop
               muted
