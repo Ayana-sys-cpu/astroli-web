@@ -65,7 +65,11 @@ export default function LoginPage() {
         const role = session.user.user_metadata?.role;
         if (role === 'teacher') router.replace('/teacher');
         else if (role === 'parent') router.replace('/parent/dashboard');
-        else router.replace('/syncing');
+        else if (role === 'student') router.replace('/syncing');
+        else {
+          await getSupabaseBrowserClient().auth.signOut();
+          setCheckingSession(false);
+        }
       } else {
         setCheckingSession(false);
       }
@@ -122,6 +126,7 @@ export default function LoginPage() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        if (err.role === 'waitlisted') { router.push('/auth/waitlist'); return; }
         throw new Error(`Auth failed (${res.status}): ${err.error ?? 'unknown'}`);
       }
       const data = await res.json();

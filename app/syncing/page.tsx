@@ -38,7 +38,7 @@ export default function SyncingPage() {
         if (r.status === 401 || r.status === 403) return { __redirect: '/' };
         return r.json();
       })
-      .catch(() => ({ hasActiveJourney: false, hasActiveVote: false }));
+      .catch(() => ({ __redirect: '/' }));
 
     Promise.all([delay, journeyCheck]).then(([, data]) => {
       if (!alive) return;
