@@ -127,10 +127,18 @@ async function handlePOST(req: NextRequest) {
         return NextResponse.json({ error: 'Failed to save parent' }, { status: 503 });
       }
 
+      // Query child/journey state BEFORE generating the auth token so we can
+      // embed has_child in user_metadata — mirrors the google route.
+      const [{ data: childLink }, { data: familyClass }] = await Promise.all([
+        supabaseAdmin.from('parent_child_link').select('child_id').eq('parent_id', parent.id).maybeSingle(),
+        supabaseAdmin.from('classes').select('id').eq('teacher_id', parent.id).eq('type', 'family').maybeSingle(),
+      ]);
+
       const authResult = await upsertAuthUserAndToken(email, {
         role:       'parent',
         student_id: null,
         teacher_id: null,
+        has_child:  childLink !== null,
       } as any);
 
       if (!authResult) {
@@ -139,12 +147,6 @@ async function handlePOST(req: NextRequest) {
       }
 
       await supabaseAdmin.from('users').update({ auth_user_id: authResult.authUserId }).eq('id', parent.id);
-
-      // Determine onboarding state so client knows where to route
-      const { data: childLink } = await supabaseAdmin
-        .from('parent_child_link').select('child_id').eq('parent_id', parent.id).maybeSingle();
-      const { data: familyClass } = await supabaseAdmin
-        .from('classes').select('id').eq('teacher_id', parent.id).eq('type', 'family').maybeSingle();
 
       return NextResponse.json({
         role:       'parent',

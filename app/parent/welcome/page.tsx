@@ -38,34 +38,24 @@ export default function ParentWelcomePage() {
 
   useEffect(() => {
     let cancelled = false;
-    const supabase = getSupabaseBrowserClient();
-    supabase.auth.getSession().then(async ({ data: { session } }: { data: { session: import('@supabase/supabase-js').Session | null } }) => {
-      if (cancelled) return;
-      if (session?.user.user_metadata?.role === 'parent') {
-        // Only redirect to dashboard if the parent has already set up a child.
-        // A parent arriving here right after first sign-in should see the tour.
-        const parentId = session.user.user_metadata?.parent_id as string | undefined;
-        if (parentId) {
-          const { data: childLink } = await supabase
-            .from('parent_child_link')
-            .select('child_id')
-            .eq('parent_id', parentId)
-            .maybeSingle();
-          if (!cancelled && childLink) {
+    getSupabaseBrowserClient()
+      .auth.getSession()
+      .then(({ data: { session } }: { data: { session: import('@supabase/supabase-js').Session | null } }) => {
+        if (cancelled) return;
+        if (session?.user.user_metadata?.role === 'parent') {
+          // has_child is written into user_metadata at login time — no DB call needed.
+          // Returning parents who already set up a child go straight to dashboard.
+          if (session.user.user_metadata?.has_child === true) {
             router.replace('/parent/dashboard');
             return;
           }
-        }
-        if (!cancelled) {
           setLoggedIn(true);
-          setChecking(false);
         }
-      } else {
+        setChecking(false);
+      })
+      .catch(() => {
         if (!cancelled) setChecking(false);
-      }
-    }).catch(() => {
-      if (!cancelled) setChecking(false);
-    });
+      });
     return () => { cancelled = true; };
   }, [router]);
 

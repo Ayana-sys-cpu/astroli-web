@@ -64,7 +64,12 @@ export default function LoginPage() {
       if (session) {
         const role = session.user.user_metadata?.role;
         if (role === 'teacher') router.replace('/teacher');
-        else if (role === 'parent') router.replace('/parent/dashboard');
+        else if (role === 'parent') {
+          // has_child is written into user_metadata at login time by both auth routes.
+          // Parents without a child see the welcome tour; those with a child go to dashboard.
+          const hasChild = session.user.user_metadata?.has_child === true;
+          router.replace(hasChild ? '/parent/dashboard' : '/parent/welcome');
+        }
         else if (role === 'student') router.replace('/syncing');
         else {
           await getSupabaseBrowserClient().auth.signOut();
