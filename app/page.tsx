@@ -66,9 +66,8 @@ export default function LoginPage() {
         if (role === 'teacher') router.replace('/teacher');
         else if (role === 'parent') {
           // has_child is written into user_metadata at login time by both auth routes.
-          // Parents without a child see the welcome tour; those with a child go to dashboard.
           const hasChild = session.user.user_metadata?.has_child === true;
-          router.replace(hasChild ? '/parent/dashboard' : '/parent/welcome');
+          router.replace(hasChild ? '/parent/dashboard' : '/parent/onboarding');
         }
         else if (role === 'student') router.replace('/syncing');
         else {
@@ -146,7 +145,7 @@ export default function LoginPage() {
 
     if (data.role === 'parent') {
       if (!data.hasChild) {
-        router.push('/parent/welcome');
+        router.push('/parent/onboarding');
       } else if (!data.hasJourney) {
         router.push('/parent/onboarding?step=journey');
       } else {
