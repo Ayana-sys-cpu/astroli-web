@@ -75,13 +75,12 @@ export async function POST(req: NextRequest) {
   // Send invite email via Supabase — inviteUserByEmail actually delivers the email,
   // unlike generateLink which only returns a URL without sending anything.
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3001';
-  // Route through /auth/callback so the PKCE code is exchanged server-side and
-  // the session is established before the student reaches /auth/accept-invite.
-  // The invite token travels in TWO places for redundancy:
-  //   1. ?invite=TOKEN in the redirectTo URL (read by /auth/callback via searchParams)
-  //   2. data.inviteToken stored in user_metadata (backup for inviteUserByEmail path)
-  // Using the same URL for both inviteUserByEmail and the OTP fallback keeps the
-  // callback route's logic simple: inviteFromUrl always wins.
+  // Route through /auth/callback (a CLIENT page). Admin invite / server magic
+  // links use the IMPLICIT flow — Supabase returns the session in the URL
+  // *fragment* (#access_token=…), which only a client component can read. The
+  // callback page persists the session via setSession(), then forwards to
+  // /auth/accept-invite. The invite token rides in ?invite=TOKEN (survives the
+  // fragment redirect); user_metadata.inviteToken is a secondary backup.
   const callbackUrl = `${baseUrl}/auth/callback?invite=${invite.token}`;
 
   const { error: emailError } = await supabaseAdmin.auth.admin.inviteUserByEmail(childEmail, {
