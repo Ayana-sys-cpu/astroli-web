@@ -73,84 +73,79 @@ export default function ParentWelcomePage() {
   const ctaDestination = loggedIn ? '/parent/onboarding' : '/';
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-4 py-12">
-      {/* App Preview Card */}
-      <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-white/8 bg-card shadow-2xl">
-        {/* Browser chrome */}
-        <div className="flex items-center gap-1.5 border-b border-white/8 bg-muted/40 px-3.5 py-2.5">
-          <span className="h-2 w-2 rounded-full bg-red-400/70" />
-          <span className="h-2 w-2 rounded-full bg-yellow-400/70" />
-          <span className="h-2 w-2 rounded-full bg-green-400/70" />
-          <span className="ml-2 flex-1 rounded bg-white/5 px-2 py-0.5 text-center text-[10px] text-muted-foreground">
-            app.astroli.ai
-          </span>
-        </div>
-
-        {/* Screenshot */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          key={screenshot}
-          src={screenshot}
-          alt=""
-          className="block h-48 w-full object-cover object-top"
-        />
-
-        {/* Text body */}
-        <div className="space-y-1.5 px-5 pb-5 pt-4">
-          <p className="text-[9px] font-bold uppercase tracking-widest text-primary">{eyebrow}</p>
-          <h1 className="text-xl font-bold leading-tight">{headline}</h1>
-          <p className="text-sm leading-relaxed text-muted-foreground">{copy}</p>
-        </div>
-
-        {/* Footer: dots + nav */}
-        <div className="flex items-center justify-between px-5 pb-5">
-          <div className="flex items-center gap-1.5">
-            {SLIDES.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setSlide(i)}
-                className={
-                  i === slide
-                    ? 'h-1.5 w-5 rounded-full bg-primary transition-all'
-                    : 'h-1.5 w-1.5 rounded-full bg-muted-foreground/25 transition-all'
-                }
-              />
-            ))}
+    <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12">
+      {/* Split Panel Card */}
+      <div className="w-full max-w-3xl overflow-hidden rounded-2xl border border-white/8 bg-card shadow-2xl flex min-h-[360px]">
+        {/* Left — text */}
+        <div className="flex flex-1 flex-col justify-between gap-8 p-10">
+          <div className="space-y-3">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-primary">{eyebrow}</p>
+            <h1 className="text-2xl font-bold leading-snug">{headline}</h1>
+            <p className="text-sm leading-relaxed text-muted-foreground">{copy}</p>
           </div>
 
-          <div className="flex items-center gap-3">
-            {slide === 0 ? (
-              <button
-                onClick={() => router.push(ctaDestination)}
-                className="text-xs text-muted-foreground underline underline-offset-4"
-              >
-                Skip
-              </button>
-            ) : (
-              <button
-                onClick={() => setSlide(slide - 1)}
-                className="text-xs text-muted-foreground underline underline-offset-4"
-              >
-                ← Back
-              </button>
-            )}
+          {/* Footer: dots + nav */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              {SLIDES.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setSlide(i)}
+                  className={
+                    i === slide
+                      ? 'h-1.5 w-5 rounded-full bg-primary transition-all'
+                      : 'h-1.5 w-1.5 rounded-full bg-muted-foreground/25 transition-all'
+                  }
+                />
+              ))}
+            </div>
 
-            {slide < SLIDES.length - 1 ? (
-              <button
-                onClick={() => setSlide(slide + 1)}
-                className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground"
-              >
-                Next →
-              </button>
-            ) : (
-              <button
-                onClick={() => router.push(ctaDestination)}
-                className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground"
-              >
-                Set it up free →
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              {slide === 0 ? (
+                <button
+                  onClick={() => router.push(ctaDestination)}
+                  className="text-xs text-muted-foreground underline underline-offset-4"
+                >
+                  Skip
+                </button>
+              ) : (
+                <button
+                  onClick={() => setSlide(slide - 1)}
+                  className="text-xs text-muted-foreground underline underline-offset-4"
+                >
+                  ← Back
+                </button>
+              )}
+
+              {slide < SLIDES.length - 1 ? (
+                <button
+                  onClick={() => setSlide(slide + 1)}
+                  className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground"
+                >
+                  Next →
+                </button>
+              ) : (
+                <button
+                  onClick={() => router.push(ctaDestination)}
+                  className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground"
+                >
+                  Set it up free →
+                </button>
+              )}
+            </div>
           </div>
+        </div>
+
+        {/* Right — screenshot */}
+        <div className="relative w-72 flex-shrink-0 overflow-hidden border-l border-white/8 bg-muted/20">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            key={screenshot}
+            src={screenshot}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover object-top"
+          />
+          <div className="pointer-events-none absolute inset-0 rounded-r-2xl ring-1 ring-inset ring-white/10" />
         </div>
       </div>
     </main>
