@@ -15,6 +15,42 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { z, parseBody } from '@/lib/validate';
 
+const ALIEN_PREFIXES = ['Xylo','Kael','Zyr','Vor','Nexo','Ael','Crix','Thal','Grix','Oru','Vex','Nyx','Zara','Phos','Quill'];
+const ALIEN_SUFFIXES = ['-9','-Flux','-Prime','-Zyx','-Omni','-Sol','-Nix','-Ren','-X','-Pulse','-Arc','-Zero'];
+
+function fallbackAlienName(): string {
+  const p = ALIEN_PREFIXES[Math.floor(Math.random() * ALIEN_PREFIXES.length)];
+  const s = ALIEN_SUFFIXES[Math.floor(Math.random() * ALIEN_SUFFIXES.length)];
+  return p + s;
+}
+
+async function generateAlienName(): Promise<string> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return fallbackAlienName();
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 16,
+        messages: [{ role: 'user', content: "Invent one unique sci-fi alien name for a student's avatar companion in a space learning game. One word, 5–10 characters, kid-friendly, memorable, no real words. Reply with ONLY the name." }],
+      }),
+    });
+    if (!res.ok) return fallbackAlienName();
+    const json = await res.json();
+    const n = (json.content?.[0]?.text ?? '').trim().replace(/[^A-Za-z0-9\-]/g, '');
+    return n.length >= 3 && n.length <= 20 ? n : fallbackAlienName();
+  } catch {
+    return fallbackAlienName();
+  }
+}
+
+function pickAvatarUrl(): string {
+  const index = Math.floor(Math.random() * 10) + 1;
+  return `/avatars/base/base-${String(index).padStart(2, '0')}.png`;
+}
+
 const Schema = z.object({
   token:       z.string().uuid('Invalid invite token'),
   accessToken: z.string().min(1, 'Google access token required'),
@@ -81,14 +117,22 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 3. Create child users row
+  // 3. Create child users row — check existence first so we know whether to generate identity
+  const { data: existing } = await supabaseAdmin
+    .from('users')
+    .select('id, first_name, alien_name, base_avatar_url')
+    .eq('email', email)
+    .maybeSingle();
+
+  const isNewStudent = !existing || !existing.alien_name;
+
   const { data: child, error: childError } = await supabaseAdmin
     .from('users')
     .upsert(
       { email, role: 'student', full_name: name ?? '', first_name: nameParts[0] ?? '' },
       { onConflict: 'email' },
     )
-    .select('id')
+    .select('id, first_name, alien_name, base_avatar_url')
     .single();
 
   if (childError || !child) {
@@ -96,11 +140,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to create account' }, { status: 500 });
   }
 
+  const canonicalId = existing?.id ?? child.id;
+
+  // Generate alien identity for new students
+  let alienName     = (existing?.alien_name     ?? child.alien_name)     as string | null;
+  let baseAvatarUrl = (existing?.base_avatar_url ?? child.base_avatar_url) as string | null;
+
+  if (isNewStudent) {
+    [alienName, baseAvatarUrl] = await Promise.all([generateAlienName(), Promise.resolve(pickAvatarUrl())]);
+    await supabaseAdmin
+      .from('users')
+      .update({ alien_name: alienName, base_avatar_url: baseAvatarUrl })
+      .eq('id', canonicalId);
+  }
+
   // 4. Create parent_child_link
   const { error: linkError } = await supabaseAdmin
     .from('parent_child_link')
     .upsert(
-      { parent_id: invite.parent_id, child_id: child.id, role: 'owner' },
+      { parent_id: invite.parent_id, child_id: canonicalId, role: 'owner' },
       { onConflict: 'parent_id,child_id', ignoreDuplicates: true },
     );
 
@@ -118,7 +176,7 @@ export async function POST(req: NextRequest) {
   // 6. Create Supabase auth session for child
   const authResult = await upsertAuthUserAndToken(email, {
     role:       'student',
-    student_id: child.id,
+    student_id: canonicalId,
     teacher_id: null,
     parent_id:  null,
   });
@@ -127,13 +185,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to create session' }, { status: 500 });
   }
 
-  await supabaseAdmin.from('users').update({ auth_user_id: authResult.authUserId }).eq('id', child.id);
+  await supabaseAdmin.from('users').update({ auth_user_id: authResult.authUserId }).eq('id', canonicalId);
 
   return NextResponse.json({
-    role:      'student',
-    userId:    child.id,
+    role:         'student',
+    userId:       canonicalId,
     email,
     name,
-    authToken: authResult.authToken,
+    authToken:    authResult.authToken,
+    isNewStudent,
+    firstName:    (existing?.first_name ?? child.first_name ?? nameParts[0]) as string,
+    alienName,
+    baseAvatarUrl,
   });
 }

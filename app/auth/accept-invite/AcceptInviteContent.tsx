@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Script from 'next/script';
 import { createBrowserClient } from '@supabase/ssr';
+import { saveStudent, saveAlienName, saveBaseAvatarUrl, markOnboardingComplete, clearSession } from '@/lib/student-store';
 
 let _client: ReturnType<typeof createBrowserClient> | null = null;
 function getBrowserClient() {
@@ -15,13 +17,25 @@ function getBrowserClient() {
   return _client;
 }
 
+function setSessionIndicator() {
+  const domain = process.env.NEXT_PUBLIC_COOKIE_DOMAIN;
+  const domainAttr = domain ? `; domain=${domain}` : '';
+  document.cookie = `astroli_session=1; path=/${domainAttr}; max-age=1209600; samesite=lax${location.protocol === 'https:' ? '; secure' : ''}`;
+}
+
 export default function AcceptInviteContent() {
   const router = useRouter();
   const params = useSearchParams();
   const token  = params.get('token');
 
-  const [status,   setStatus]   = useState<'loading' | 'signing-in' | 'error'>('loading');
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [gisReady,  setGisReady]  = useState(false);
+  const [status,    setStatus]    = useState<'loading' | 'signing-in' | 'error'>('loading');
+  const [errorMsg,  setErrorMsg]  = useState<string | null>(null);
+
+  // Check for already-loaded GIS (e.g. cached from a prior page visit)
+  useEffect(() => {
+    if ((window as any).google?.accounts?.oauth2) setGisReady(true);
+  }, []);
 
   useEffect(() => {
     if (!token) {
@@ -29,18 +43,11 @@ export default function AcceptInviteContent() {
       setStatus('error');
       return;
     }
+    if (!gisReady) return;
 
     setStatus('signing-in');
 
-    // Trigger Google OAuth — on return, exchange the code + token
-    const client = (window as any).google?.accounts?.oauth2;
-    if (!client) {
-      setErrorMsg('Google sign-in did not load. Please refresh and try again.');
-      setStatus('error');
-      return;
-    }
-
-    const tokenClient = client.initTokenClient({
+    const tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
       client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
       scope:     'email profile',
       callback:  async (resp: { access_token?: string; error?: string }) => {
@@ -65,7 +72,7 @@ export default function AcceptInviteContent() {
             return;
           }
 
-          // Establish Supabase session then navigate to student home
+          // Establish Supabase session
           if (data.authToken) {
             await getBrowserClient().auth.verifyOtp({
               token_hash: data.authToken,
@@ -73,7 +80,21 @@ export default function AcceptInviteContent() {
             });
           }
 
-          router.replace('/home');
+          setSessionIndicator();
+
+          // Sync student identity into localStorage (mirrors the login page flow)
+          if (data.isNewStudent) clearSession();
+          saveStudent({
+            firstName:     data.firstName,
+            baseAvatarUrl: data.baseAvatarUrl ?? null,
+            avatarUrl:     null,
+          });
+          if (data.alienName)     saveAlienName(data.alienName);
+          if (data.baseAvatarUrl) saveBaseAvatarUrl(data.baseAvatarUrl);
+          if (!data.isNewStudent) markOnboardingComplete();
+
+          // New students get the full onboarding flow (avatar reveal → welcome → home)
+          router.replace(data.isNewStudent ? '/onboarding/reveal' : '/syncing');
         } catch {
           setErrorMsg('Network error — please check your connection and try again.');
           setStatus('error');
@@ -82,7 +103,7 @@ export default function AcceptInviteContent() {
     });
 
     tokenClient.requestAccessToken();
-  }, [token, router]);
+  }, [token, gisReady, router]);
 
   if (status === 'error') {
     return (
@@ -101,13 +122,20 @@ export default function AcceptInviteContent() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-4 text-center">
-      <div className="max-w-md space-y-4">
-        <div className="w-6 h-6 rounded-full border-2 border-white/30 border-t-white animate-spin mx-auto" />
-        <p className="text-muted-foreground">
-          {status === 'loading' ? 'Loading…' : 'Signing you in…'}
-        </p>
-      </div>
-    </main>
+    <>
+      <Script
+        src="https://accounts.google.com/gsi/client"
+        strategy="afterInteractive"
+        onLoad={() => setGisReady(true)}
+      />
+      <main className="min-h-screen flex flex-col items-center justify-center px-4 text-center">
+        <div className="max-w-md space-y-4">
+          <div className="w-6 h-6 rounded-full border-2 border-white/30 border-t-white animate-spin mx-auto" />
+          <p className="text-muted-foreground">
+            {status === 'loading' ? 'Loading…' : 'Signing you in…'}
+          </p>
+        </div>
+      </main>
+    </>
   );
 }
