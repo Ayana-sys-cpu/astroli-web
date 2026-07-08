@@ -503,31 +503,18 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
             border: '1px solid rgba(6,214,160,0.35)',
             overflow: 'hidden', textAlign: 'center',
           }}>
-            {/* Avatar video or image */}
+            {/* Avatar video */}
             <div style={{ background: '#0d0d1a', padding: '24px 24px 0' }}>
-              {baseAvatarUrl ? (
-                <img
-                  src={baseAvatarUrl}
-                  alt="Your avatar"
-                  style={{
-                    width: '180px', height: '180px',
-                    objectFit: 'cover', borderRadius: '50%',
-                    border: '3px solid rgba(6,214,160,0.5)',
-                    display: 'block', margin: '0 auto',
-                  }}
-                />
-              ) : (
-                <video
-                  src="/avatars/base/base-03.mp4"
-                  autoPlay loop muted playsInline
-                  style={{
-                    width: '180px', height: '180px',
-                    objectFit: 'cover', borderRadius: '50%',
-                    border: '3px solid rgba(6,214,160,0.5)',
-                    display: 'block', margin: '0 auto',
-                  }}
-                />
-              )}
+              <video
+                src={baseAvatarUrl?.replace('.png', '.mp4') ?? '/avatars/base/base-03.mp4'}
+                autoPlay loop muted playsInline
+                style={{
+                  width: '180px', height: '180px',
+                  objectFit: 'cover', borderRadius: '50%',
+                  border: '3px solid rgba(6,214,160,0.5)',
+                  display: 'block', margin: '0 auto',
+                }}
+              />
             </div>
             {/* Text */}
             <div style={{ padding: '20px 24px' }}>
