@@ -25,13 +25,29 @@ export async function POST(req: NextRequest) {
   if (!parsed.ok) return parsed.response;
   const { token } = parsed.data;
 
-  // 1. Require authenticated session (established via /auth/callback)
-  // Use getUser() — it verifies the JWT server-side, unlike getSession() which
-  // trusts the cookie value without re-validating the signature.
-  const supabase = createSSRServerClient();
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  // 1. Require an authenticated user (established via /auth/callback).
+  // Two auth sources, tried in order — both verify the JWT server-side:
+  //   a) Authorization: Bearer <access_token> — passed explicitly by the caller
+  //      straight from the just-established session. This is race-proof: it does
+  //      NOT depend on the auth cookie having propagated across the client-side
+  //      navigation from /auth/callback (the source of intermittent failures).
+  //   b) Cookie session — fallback for callers that rely on the SSR cookie.
+  let user = null;
+  const authHeader = req.headers.get('authorization');
+  if (authHeader?.toLowerCase().startsWith('bearer ')) {
+    const bearer = authHeader.slice(7).trim();
+    if (bearer) {
+      const { data } = await supabaseAdmin.auth.getUser(bearer);
+      user = data.user ?? null;
+    }
+  }
+  if (!user) {
+    const supabase = createSSRServerClient();
+    const { data } = await supabase.auth.getUser();
+    user = data.user ?? null;
+  }
 
-  if (userError || !user) {
+  if (!user) {
     return NextResponse.json(
       { error: 'Not authenticated — please click the invite link from your email.' },
       { status: 401 },

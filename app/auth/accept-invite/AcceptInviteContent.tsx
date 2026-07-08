@@ -38,20 +38,28 @@ export default function AcceptInviteContent() {
     }
 
     async function accept() {
-      // Session was established server-side in /auth/callback before we were
-      // redirected here. Just verify it's present before calling the API.
-      const { data: { session } } = await getBrowserClient().auth.getSession();
-
-      if (!session) {
-        setErrorMsg('Please click the invite link from your email to join Astroli.');
-        setStatus('error');
-        return;
+      // The session was established in /auth/callback via setSession(). On a
+      // cross-site email-link navigation the auth cookie can lag a moment behind
+      // this page's freshly-created client, so poll getSession briefly rather
+      // than hard-failing on the first null (the old cause of "no session"
+      // errors). We proceed to the API even if it stays null — the server
+      // verifies the Bearer token / cookie and is the source of truth.
+      let session = null;
+      for (let i = 0; i < 12; i++) {
+        session = (await getBrowserClient().auth.getSession()).data.session;
+        if (session) break;
+        await new Promise(r => setTimeout(r, 250));
       }
 
       try {
         const res = await fetch('/api/auth/accept-invite', {
           method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            // Pass the access token explicitly so acceptance never depends on
+            // the cookie having propagated across the navigation (race-proof).
+            ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          },
           body:    JSON.stringify({ token }),
         });
 
