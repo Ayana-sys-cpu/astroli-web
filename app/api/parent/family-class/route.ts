@@ -85,19 +85,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to create class' }, { status: 500 });
   }
 
-  // Enroll child in the family class
-  const { error: enrollError } = await supabaseAdmin
+  // Enroll child in the family class.
+  // student_classes has no unique constraint on (student_id, class_id) — only a
+  // partial unique index on (student_id, template_journey_id). PostgREST upsert
+  // can't target a partial index, so we check-then-insert (same pattern as
+  // lib/enroll-student.ts and lib/student-enrollment.ts).
+  const { data: existingEnrollment } = await supabaseAdmin
     .from('student_classes')
-    .upsert(
-      { student_id: link.child_id, class_id: newClass.id, template_journey_id: journeyId },
-      { onConflict: 'student_id,class_id', ignoreDuplicates: true },
-    );
+    .select('id')
+    .eq('student_id', link.child_id)
+    .eq('class_id', newClass.id)
+    .maybeSingle();
 
-  if (enrollError) {
-    console.error('[parent/family-class] enrollment error:', enrollError);
-    // Rollback the class
-    await supabaseAdmin.from('classes').delete().eq('id', newClass.id);
-    return NextResponse.json({ error: 'Failed to enroll child' }, { status: 500 });
+  if (!existingEnrollment) {
+    const { error: enrollError } = await supabaseAdmin
+      .from('student_classes')
+      .insert({ student_id: link.child_id, class_id: newClass.id, template_journey_id: journeyId });
+
+    if (enrollError && (enrollError as any).code !== '23505') {
+      console.error('[parent/family-class] enrollment error:', enrollError);
+      // Rollback the class
+      await supabaseAdmin.from('classes').delete().eq('id', newClass.id);
+      return NextResponse.json({ error: 'Failed to enroll child' }, { status: 500 });
+    }
   }
 
   // Seed class_mission_state (all locked) — same logic as teacher/connect
