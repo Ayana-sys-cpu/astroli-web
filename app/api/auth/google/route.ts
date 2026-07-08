@@ -274,7 +274,7 @@ export async function POST(req: NextRequest) {
         const callbackUrl = `${baseUrl}/auth/callback?invite=${pendingInvite.token}`;
         const { error: otpErr } = await supabaseAnon.auth.signInWithOtp({
           email,
-          options: { emailRedirectTo: callbackUrl },
+          options: { shouldCreateUser: false, emailRedirectTo: callbackUrl },
         });
         if (otpErr) {
           console.error('[google] OTP send for invite failed:', otpErr);

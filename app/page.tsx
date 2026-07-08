@@ -94,8 +94,9 @@ export default function LoginPage() {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('error');
     if (!code) return;
-    if (code === 'invalid_link')    setError('That sign-in link is invalid or has expired.');
-    else if (code === 'service_error')  setError('Service temporarily unavailable. Please try again.');
+    if (code === 'invalid_link')      setError('That sign-in link is invalid or has expired.');
+    else if (code === 'service_error') setError('Service temporarily unavailable. Please try again.');
+    else if (code === 'not_registered') setError("This email isn't linked to an Astroli account. Sign up via your parent's invite.");
     // Clean the param from the URL so a refresh doesn't re-display the error
     window.history.replaceState({}, '', window.location.pathname);
   }, []);

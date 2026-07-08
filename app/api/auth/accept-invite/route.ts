@@ -26,23 +26,25 @@ export async function POST(req: NextRequest) {
   const { token } = parsed.data;
 
   // 1. Require authenticated session (established via /auth/callback)
+  // Use getUser() — it verifies the JWT server-side, unlike getSession() which
+  // trusts the cookie value without re-validating the signature.
   const supabase = createSSRServerClient();
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (userError || !user) {
     return NextResponse.json(
       { error: 'Not authenticated — please click the invite link from your email.' },
       { status: 401 },
     );
   }
 
-  const email = session.user.email?.toLowerCase();
+  const email = user.email?.toLowerCase();
   if (!email) {
     return NextResponse.json({ error: 'No email in session.' }, { status: 401 });
   }
 
   // Name from invite metadata (set by inviteUserByEmail) or email prefix as fallback
-  const childName = (session.user.user_metadata?.childName as string | undefined)
+  const childName = (user.user_metadata?.childName as string | undefined)
     ?? email.split('@')[0];
   const nameParts = childName.split(' ');
 
@@ -123,7 +125,7 @@ export async function POST(req: NextRequest) {
     .eq('id', invite.id);
 
   // 6. Stamp user_metadata and link auth user to our users row
-  const authUserId = session.user.id;
+  const authUserId = user.id;
   await supabaseAdmin.auth.admin.updateUserById(authUserId, {
     user_metadata: { role: 'student', student_id: canonicalId, teacher_id: null, parent_id: null },
   });

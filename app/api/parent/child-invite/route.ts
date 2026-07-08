@@ -77,10 +77,12 @@ export async function POST(req: NextRequest) {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3001';
   // Route through /auth/callback so the PKCE code is exchanged server-side and
   // the session is established before the student reaches /auth/accept-invite.
-  // The invite token is carried in user_metadata (data.inviteToken) for the
-  // inviteUserByEmail path, and in the URL (?invite=) for the OTP fallback.
-  const callbackUrl   = `${baseUrl}/auth/callback`;
-  const otpCallbackUrl = `${baseUrl}/auth/callback?invite=${invite.token}`;
+  // The invite token travels in TWO places for redundancy:
+  //   1. ?invite=TOKEN in the redirectTo URL (read by /auth/callback via searchParams)
+  //   2. data.inviteToken stored in user_metadata (backup for inviteUserByEmail path)
+  // Using the same URL for both inviteUserByEmail and the OTP fallback keeps the
+  // callback route's logic simple: inviteFromUrl always wins.
+  const callbackUrl = `${baseUrl}/auth/callback?invite=${invite.token}`;
 
   const { error: emailError } = await supabaseAdmin.auth.admin.inviteUserByEmail(childEmail, {
     redirectTo: callbackUrl,
@@ -90,9 +92,11 @@ export async function POST(req: NextRequest) {
   if (emailError) {
     if ((emailError as any).status === 422) {
       // User already confirmed — inviteUserByEmail refuses them. Fall back to magic link.
+      // callbackUrl already contains ?invite=TOKEN so the callback route can find the
+      // token via searchParams even without user_metadata.inviteToken.
       const { error: otpError } = await supabaseAnon.auth.signInWithOtp({
         email:   childEmail,
-        options: { shouldCreateUser: false, emailRedirectTo: otpCallbackUrl },
+        options: { shouldCreateUser: false, emailRedirectTo: callbackUrl },
       });
       if (otpError) console.error('[parent/child-invite] OTP fallback error:', otpError);
     } else {

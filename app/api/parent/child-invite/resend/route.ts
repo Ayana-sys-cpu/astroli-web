@@ -55,8 +55,10 @@ export async function POST() {
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3001';
-  const callbackUrl    = `${baseUrl}/auth/callback`;
-  const otpCallbackUrl = `${baseUrl}/auth/callback?invite=${newInvite.token}`;
+  // Embed the token in the redirectTo URL for both paths — inviteUserByEmail (primary)
+  // and signInWithOtp fallback (for already-confirmed users). This ensures /auth/callback
+  // can find the token via searchParams even if user_metadata is not updated by Supabase.
+  const callbackUrl = `${baseUrl}/auth/callback?invite=${newInvite.token}`;
 
   const { error: emailError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
     lastInvite.child_email,
@@ -68,7 +70,7 @@ export async function POST() {
       // User already confirmed — fall back to magic link.
       const { error: otpError } = await supabaseAnon.auth.signInWithOtp({
         email:   lastInvite.child_email,
-        options: { shouldCreateUser: false, emailRedirectTo: otpCallbackUrl },
+        options: { shouldCreateUser: false, emailRedirectTo: callbackUrl },
       });
       if (otpError) console.error('[child-invite/resend] OTP fallback error:', otpError);
     } else {

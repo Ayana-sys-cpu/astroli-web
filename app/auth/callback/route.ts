@@ -46,6 +46,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${origin}/?error=invalid_link`);
   }
 
+  // ── Invite link shortcut (checked FIRST — no DB call, short-circuits immediately) ──
+  // Two paths land here with an invite token:
+  //  1. inviteUserByEmail / signInWithOtp — token is in the ?invite= URL param
+  //     (both now embed it in redirectTo/emailRedirectTo for reliability)
+  //  2. inviteUserByEmail only — token is also in user_metadata.inviteToken (via data:)
+  // URL param wins when both are present (it's always the intended token for this link).
+  // Checking this BEFORE the whitelist DB call means a DB error can't block invite acceptance.
+  const inviteFromUrl  = searchParams.get('invite');
+  const inviteFromMeta = data.session.user.user_metadata?.inviteToken as string | undefined;
+  const inviteToken    = inviteFromUrl || inviteFromMeta;
+  if (inviteToken) {
+    return NextResponse.redirect(`${origin}/auth/accept-invite?token=${inviteToken}`);
+  }
+
   // ── Whitelist check — fail closed on DB error ─────────────────────────────
   const { data: whitelist, error: whitelistError } = await supabaseAdmin
     .from('authorized_teachers')
@@ -59,18 +73,6 @@ export async function GET(req: NextRequest) {
   }
 
   const isTeacher = whitelist !== null;
-
-  // ── Invite link shortcut ─────────────────────────────────────────────────
-  // Two paths land here with an invite token:
-  //  1. inviteUserByEmail — token is in user_metadata.inviteToken (set via data:)
-  //  2. signInWithOtp fallback — token is in the ?invite= URL param
-  // URL param wins when both are present (it's the freshest token from a resend).
-  const inviteFromUrl  = searchParams.get('invite');
-  const inviteFromMeta = data.session.user.user_metadata?.inviteToken as string | undefined;
-  const inviteToken    = inviteFromUrl || inviteFromMeta;
-  if (inviteToken) {
-    return NextResponse.redirect(`${origin}/auth/accept-invite?token=${inviteToken}`);
-  }
 
   // ── User record lookup ────────────────────────────────────────────────────
   const { data: userRecord, error: userError } = await supabaseAdmin
