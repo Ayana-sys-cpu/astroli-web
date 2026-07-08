@@ -86,7 +86,10 @@ export default function ParentOnboardingPage() {
       return;
     }
 
-    router.push('/parent/dashboard');
+    const journeyTitle = journeys.find(j => j.id === selected)?.title ?? '';
+    router.push(
+      `/parent/reveal?childName=${encodeURIComponent(childName)}&journeyTitle=${encodeURIComponent(journeyTitle)}`
+    );
   }
 
   // ── Step 1: Invite ──────────────────────────────────────────────────────────
