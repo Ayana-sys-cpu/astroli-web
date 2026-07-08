@@ -39,7 +39,7 @@ export default function ParentWelcomePage() {
     let cancelled = false;
     getSupabaseBrowserClient()
       .auth.getSession()
-      .then(({ data: { session } }) => {
+      .then(({ data: { session } }: { data: { session: import('@supabase/supabase-js').Session | null } }) => {
         if (cancelled) return;
         if (session?.user.user_metadata?.role === 'parent') {
           router.replace('/parent/dashboard');

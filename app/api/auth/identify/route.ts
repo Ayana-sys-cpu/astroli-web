@@ -129,10 +129,9 @@ async function handlePOST(req: NextRequest) {
 
       const authResult = await upsertAuthUserAndToken(email, {
         role:       'parent',
-        parent_id:  parent.id,
         student_id: null,
         teacher_id: null,
-      });
+      } as any);
 
       if (!authResult) {
         console.error('[identify] upsertAuthUserAndToken failed for parent:', email);
