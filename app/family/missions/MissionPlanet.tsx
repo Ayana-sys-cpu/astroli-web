@@ -16,13 +16,14 @@ const FALLBACK = PLANET_THEMES[1];
 
 interface MissionPlanetProps {
   mission:      Mission;
+  language:     'en' | 'he';
   isPreview:    boolean;
   isActivating: boolean;
   showRing:     boolean;
   onSelect:     (id: string) => void;
 }
 
-export default function MissionPlanet({ mission, isPreview, isActivating, showRing, onSelect }: MissionPlanetProps) {
+export default function MissionPlanet({ mission, language, isPreview, isActivating, showRing, onSelect }: MissionPlanetProps) {
   const [isHovered, setIsHovered] = useState(false);
   const reducedMotion = useReducedMotion() ?? false;
   const theme = PLANET_THEMES[mission.order] ?? FALLBACK;
@@ -99,6 +100,7 @@ export default function MissionPlanet({ mission, isPreview, isActivating, showRi
           >
             <p
               className="text-white/85 text-[13px] leading-snug"
+              dir={language === 'he' ? 'rtl' : 'ltr'}
               style={{ maxWidth: '22ch', textWrap: 'balance' as never }}
             >
               {mission.title}

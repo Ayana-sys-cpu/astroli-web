@@ -8,6 +8,7 @@ import MissionPlanet from './MissionPlanet';
 import WarpOverlay from './WarpOverlay';
 
 type Mission = { id: string; title: string; state: string; order: number };
+type Language = 'en' | 'he';
 
 function worldsLabel(count: number): string {
   if (count === 1) return 'ONE WORLD AWAITS';
@@ -23,6 +24,7 @@ export default function FamilyMissionsContent() {
   const classId  = params.get('classId') ?? '';
 
   const [missions,   setMissions]   = useState<Mission[] | null>(null);
+  const [language,   setLanguage]   = useState<Language>('en');
   const [previewId,  setPreviewId]  = useState<string | null>(null);
   const [activating, setActivating] = useState<string | null>(null);
   const [warping,    setWarping]    = useState(false);
@@ -36,8 +38,12 @@ export default function FamilyMissionsContent() {
     fetch(`/api/student/family-missions?classId=${classId}`)
       .then(r => r.json())
       .then(d => {
-        if (d.missions) setMissions(d.missions);
-        else router.replace('/home');
+        if (d.missions) {
+          setMissions(d.missions);
+          if (d.language === 'he') setLanguage('he');
+        } else {
+          router.replace('/home');
+        }
       })
       .catch(() => router.replace('/home'));
   }, [classId, router]);
@@ -163,6 +169,7 @@ export default function FamilyMissionsContent() {
               >
                 <MissionPlanet
                   mission={mission}
+                  language={language}
                   isPreview={previewId === mission.id}
                   isActivating={activating === mission.id}
                   showRing={availableMissions.length >= 3}

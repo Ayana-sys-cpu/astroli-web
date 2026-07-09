@@ -76,10 +76,10 @@ export async function GET(req: NextRequest) {
   const lang: 'en' | 'he' = klass.language === 'he' ? 'he' : 'en';
 
   return NextResponse.json({
+    language: lang,
     missions: (missions ?? []).map((m: any) => {
-      const tx = lang === 'he'
-        ? ((m.translations as Record<string, Record<string, string>> | null)?.he ?? {})
-        : {};
+      const translations = (m.translations as Record<string, Record<string, string>> | null) ?? {};
+      const tx = translations[lang] ?? {};
       const rawTitle = m.question ?? m.project_title ?? 'Mission';
       const title = tx.question ?? tx.project_title ?? rawTitle;
       return {
