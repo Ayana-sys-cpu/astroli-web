@@ -8,7 +8,7 @@ import { supabaseAdmin } from '@/lib/supabase-server';
 import { requireAuth } from '@/lib/auth';
 import { resolveParentId } from '@/lib/parent-auth';
 
-export async function GET(req: Request) {
+export async function GET() {
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
 
@@ -17,15 +17,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Forbidden: parent session required' }, { status: 403 });
   }
 
-  const { searchParams } = new URL(req.url);
-  const lang = searchParams.get('language') ?? 'en';
-  const language = lang === 'he' ? 'he' : 'en';
-
   const { data: journeys, error } = await supabaseAdmin
     .from('journeys')
     .select('id, title, description, missions(id)')
     .eq('is_template', true)
-    .eq('language', language)
     .order('title');
 
   if (error) {
