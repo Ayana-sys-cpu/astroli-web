@@ -47,9 +47,11 @@ export default function ParentOnboardingContent() {
   const [selected,  setSelected]  = useState<string | null>(null);
   const [locked,    setLocked]    = useState(false);
 
+  // Prefetch on mount so journey data is ready before the user reaches step 2.
+  // Previously: fired only on step-change, making the user wait after "Continue".
   useEffect(() => {
-    if (step === 'journey') fetchJourneys();
-  }, [step]);
+    fetchJourneys();
+  }, []);
 
   async function fetchJourneys() {
     try {
@@ -223,7 +225,7 @@ export default function ParentOnboardingContent() {
                 </button>
 
                 <button
-                  onClick={() => { setStep('journey'); fetchJourneys(); }}
+                  onClick={() => setStep('journey')}
                   className="btn-teal"
                 >
                   Continue — choose a journey →
@@ -256,9 +258,21 @@ export default function ParentOnboardingContent() {
           </div>
 
           {journeys.length === 0 ? (
-            <p className="font-inter text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
-              Loading journeys…
-            </p>
+            <div className="space-y-2" aria-busy="true" aria-label="Loading journeys">
+              {[1, 2, 3].map(i => (
+                <div
+                  key={i}
+                  className="rounded-xl p-4 animate-pulse"
+                  style={{
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.07)',
+                  }}
+                >
+                  <div style={{ height: '13px', width: '55%', borderRadius: '6px', background: 'rgba(255,255,255,0.08)', marginBottom: '6px' }} />
+                  <div style={{ height: '11px', width: '80%', borderRadius: '6px', background: 'rgba(255,255,255,0.05)' }} />
+                </div>
+              ))}
+            </div>
           ) : (
             <form onSubmit={handlePickJourney} className="space-y-4">
               <div className="space-y-2">

@@ -17,9 +17,12 @@ export async function GET() {
     return NextResponse.json({ error: 'Forbidden: parent session required' }, { status: 403 });
   }
 
+  // Single query: embed missions via the FK relation (PostgREST LEFT JOIN).
+  // Previously: two sequential awaits (journeys → then mission count).
+  // Now: one round-trip; mission count derived from the embedded array length.
   const { data: journeys, error } = await supabaseAdmin
     .from('journeys')
-    .select('id, title, description')
+    .select('id, title, description, missions(id)')
     .eq('is_template', true)
     .order('title');
 
@@ -28,24 +31,18 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Count missions per journey
-  const journeyIds = (journeys ?? []).map((j: any) => j.id);
-  const { data: missionCounts } = await supabaseAdmin
-    .from('missions')
-    .select('journey_id')
-    .in('journey_id', journeyIds);
-
-  const countByJourney = new Map<string, number>();
-  for (const m of missionCounts ?? []) {
-    countByJourney.set(m.journey_id, (countByJourney.get(m.journey_id) ?? 0) + 1);
-  }
-
-  return NextResponse.json({
+  const body = {
     journeys: (journeys ?? []).map((j: any) => ({
       id:           j.id,
       title:        j.title,
       description:  j.description ?? '',
-      missionCount: countByJourney.get(j.id) ?? 0,
+      missionCount: Array.isArray(j.missions) ? j.missions.length : 0,
     })),
-  });
+  };
+
+  // Journey templates change rarely — cache for 5 min, serve stale for 10 min
+  // while revalidating in the background.
+  const res = NextResponse.json(body);
+  res.headers.set('Cache-Control', 'private, max-age=300, stale-while-revalidate=600');
+  return res;
 }
