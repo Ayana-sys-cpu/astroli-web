@@ -425,8 +425,7 @@ export function AllDiscoveriesView({ summaries, pipHistory, onClose, lang }: { s
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 800, color: T.tp }}>מה גיליתי בכל הכוכבים</div>
-          <div style={{ fontSize: 10, color: T.ts, marginTop: 2 }}>What I&apos;ve discovered across all planets</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: T.tp }}>{t('whatIDiscoveredAll', lang)}</div>
         </div>
         <button
           onClick={onClose}
@@ -436,12 +435,12 @@ export function AllDiscoveriesView({ summaries, pipHistory, onClose, lang }: { s
           }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = T.ac; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = T.b2; }}
-        >Close</button>
+        >{t('closeReview', lang)}</button>
       </div>
 
       {summaries.length === 0 ? (
         <p style={{ fontSize: 13, color: T.ts, textAlign: 'center', marginTop: 40 }}>
-          You haven&apos;t discovered anything yet — start exploring!
+          {t('noDiscoveriesYet', lang)}
         </p>
       ) : (
         summaries.map(s => (
@@ -489,7 +488,7 @@ export function AllDiscoveriesView({ summaries, pipHistory, onClose, lang }: { s
             fontSize: 9, fontWeight: 800, color: T.ts,
             textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 10,
           }}>
-            {lang === 'he' ? 'מה פיפ אמר לי' : 'What Pip told me'}
+            {t('whatPipToldMe', lang)}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {pipHistory.map((m, idx) => (

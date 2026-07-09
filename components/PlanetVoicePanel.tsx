@@ -224,7 +224,7 @@ export default function PlanetVoicePanel({
                       fontSize: 9, fontWeight: 800, color: T.orin,
                       textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 5,
                     }}>
-                      ORIN · GUIDE
+                      ORIN · {t('guideLabel', lang)}
                     </div>
                     <p style={{ fontSize: 13, lineHeight: 1.68, color: T.ts, margin: 0, ...(isRtl && { direction: 'rtl', textAlign: 'right' }) }}>
                       {msg.content}
@@ -290,8 +290,8 @@ export default function PlanetVoicePanel({
 
       {/* ── Start Uncovering CTA — pinned to bottom, shown only before conversation starts ── */}
       {messages.length === 0 && (() => {
-        const name    = studentFirstName ?? 'Explorer';
-        const mission = missionTitle ?? 'this mission';
+        const name    = studentFirstName ?? t('travelerName', lang);
+        const mission = missionTitle ?? t('thisMissionFallback', lang);
         const prefill = studentRevealMessage
           ?? t('prefillIntro', lang).replace('{name}', name).replace('{mission}', mission);
         return (

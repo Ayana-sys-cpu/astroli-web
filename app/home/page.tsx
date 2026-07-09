@@ -6,6 +6,7 @@ import StarField from '@/components/StarField';
 import JourneyCard from '@/components/student/JourneyCard';
 import TopBar from '@/components/TopBar';
 import { getFirstName } from '@/lib/student-store';
+import { t, type Lang } from '@/lib/i18n';
 import type { HomeJourney } from '@/lib/student-home';
 
 export default function HomePage() {
@@ -37,6 +38,10 @@ export default function HomePage() {
     return () => window.removeEventListener('focus', onFocus);
   }, [load]);
 
+  // Page-level chrome follows the language of the student's journeys
+  // (per-card copy already localizes via journey.language inside JourneyCard).
+  const lang: Lang = journeys?.[0]?.language === 'he' ? 'he' : 'en';
+
   const handleCardClick = (journey: HomeJourney) => {
     if (journey.status === 'idle') {
       if (journey.isFamilyClass) {
@@ -67,16 +72,16 @@ export default function HomePage() {
         }}
       />
 
-      <TopBar showStore left="" initials={firstName[0]?.toUpperCase() ?? 'A'} />
+      <TopBar showStore left="" initials={firstName[0]?.toUpperCase() ?? 'A'} lang={lang} />
 
       <div className="relative z-10 mt-11 px-7 py-8 max-w-4xl mx-auto">
-        <p className="font-caveat text-3xl text-white/80 mb-1">Welcome back, {firstName}.</p>
+        <p className="font-caveat text-3xl text-white/80 mb-1">{t('welcomeBack', lang).replace('{name}', firstName)}</p>
         <p className="text-[10px] tracking-[0.28em] font-space uppercase text-white/30 mb-8">
-          {!journeys ? 'SYNCING YOUR JOURNEYS…' : journeys.length === 0 ? 'YOUR JOURNEY AWAITS ACROSS THE STARS' : `YOU HAVE ${journeys.length} JOURNEY${journeys.length === 1 ? '' : 'S'} ACROSS THE STARS`}
+          {!journeys ? t('syncingJourneys', lang) : journeys.length === 0 ? t('journeyAwaits', lang) : journeys.length === 1 ? t('journeysCountOne', lang) : t('journeysCountMany', lang).replace('{n}', String(journeys.length))}
         </p>
 
         <div className="flex items-center gap-3 mb-4">
-          <p className="text-[10px] tracking-[0.3em] font-space uppercase text-white/35">YOUR JOURNEYS</p>
+          <p className="text-[10px] tracking-[0.3em] font-space uppercase text-white/35">{t('yourJourneys', lang)}</p>
           <div className="flex-1 h-px bg-white/8" />
         </div>
 
@@ -86,7 +91,7 @@ export default function HomePage() {
             transition={{ duration: 1.6, repeat: Infinity }}
             className="text-[10px] tracking-[0.3em] font-space uppercase text-white/40"
           >
-            SYNCING…
+            {t('syncingShort', lang)}
           </motion.div>
         ) : journeys.length === 0 ? (
           <EmptyJourneys hasParent={hasParent} />

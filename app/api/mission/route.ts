@@ -78,7 +78,9 @@ export async function GET(req: NextRequest) {
     : { data: [] };
 
   // ── Resolve language: explicit param overrides DB value ───────────────────
-  const missionLanguage: 'en' | 'he' = langParam === 'he' ? 'he' : 'en';
+  const missionLanguage: 'en' | 'he' = langParam
+    ? (langParam === 'he' ? 'he' : 'en')
+    : (((mission as any).language as string | null) === 'he' ? 'he' : 'en');
 
   // ── Apply translations for all user-visible fields when language is Hebrew ──
   const tx: Record<string, any> = missionLanguage === 'he'
@@ -103,14 +105,14 @@ export async function GET(req: NextRequest) {
     language:          missionLanguage,
     question:          q,
     worldBrief:        (tx.question_description ?? mission.question_description) as string,
-    worldBriefSummary: (mission.world_brief_summary as string | null) ?? '',
-    worldBriefItems:   (mission.world_brief_items as WorldBriefItem[] | null) ?? [],
+    worldBriefSummary: (tx.world_brief_summary ?? mission.world_brief_summary as string | null) ?? '',
+    worldBriefItems:   (tx.world_brief_items ?? mission.world_brief_items as WorldBriefItem[] | null) ?? [],
     projectTitle:      (tx.project_title ?? mission.project_title) as string,
     projectObjective,
     openingMessage:    (tx.opening_message ?? mission.opening_message) as string,
     openingMessage2:   (tx.opening_message_2 ?? mission.opening_message_2 as string | null) ?? '',
     missionBrief,
-    chapter:           (mission.chapter as string | null) ?? `Ch.${(mission as any).order}`,
+    chapter:           (tx.chapter ?? mission.chapter as string | null) ?? `Ch.${(mission as any).order}`,
     planets: (planets ?? []).map((p): OrinPlanet => {
       const ptx: Record<string, any> = missionLanguage === 'he'
         ? ((p as any).translations as Record<string, any>)?.he ?? {}

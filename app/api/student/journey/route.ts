@@ -93,22 +93,26 @@ export async function GET(req: NextRequest) {
 
       const { data: missionData } = await supabaseAdmin
         .from('missions')
-        .select('id, question, project_title, project_description, "order"')
+        .select('id, question, project_title, project_description, "order", language, translations')
         .in('id', missionIds)
         .order('"order"');
 
-      const voteMissions = (missionData ?? []).map((m: any) => ({
-        id:                 m.id,
-        question:           m.question,
-        projectTitle:       m.project_title,
-        projectDescription: m.project_description,
-        order:              m.order,
-        state:              stateByMission.get(m.id),
-      }));
+      const voteMissions = (missionData ?? []).map((m: any) => {
+        const tx = m.language === 'he' ? (m.translations?.he ?? {}) : {};
+        return {
+          id:                 m.id,
+          question:           tx.question ?? m.question,
+          projectTitle:       tx.project_title ?? m.project_title,
+          projectDescription: m.project_description,
+          order:              m.order,
+          state:              stateByMission.get(m.id),
+        };
+      });
 
       return NextResponse.json({
         hasActiveJourney: false,
         hasActiveVote:    true,
+        language:         ((missionData?.[0] as any)?.language === 'he' ? 'he' : 'en') as 'en' | 'he',
         voteSessionId:    (session as any).id,
         voteJourneyId:    (session as any).class_id,
         voteEndsAt:       (session as any).ends_at,
@@ -139,7 +143,7 @@ export async function GET(req: NextRequest) {
 
       const { data: allMissionData } = await supabaseAdmin
         .from('missions')
-        .select('id, question, project_title, project_description, "order"')
+        .select('id, question, project_title, project_description, "order", language, translations')
         .in('id', missionIds)
         .order('"order"');
 
@@ -152,19 +156,23 @@ export async function GET(req: NextRequest) {
         .limit(1)
         .maybeSingle();
 
-      const voteMissions = (allMissionData ?? []).map((m: any) => ({
-        id:                 m.id,
-        question:           m.question,
-        projectTitle:       m.project_title,
-        projectDescription: m.project_description,
-        order:              m.order,
-        state:              stateByMission.get(m.id),
-      }));
+      const voteMissions = (allMissionData ?? []).map((m: any) => {
+        const tx = m.language === 'he' ? (m.translations?.he ?? {}) : {};
+        return {
+          id:                 m.id,
+          question:           tx.question ?? m.question,
+          projectTitle:       tx.project_title ?? m.project_title,
+          projectDescription: m.project_description,
+          order:              m.order,
+          state:              stateByMission.get(m.id),
+        };
+      });
 
       return NextResponse.json({
         hasActiveJourney:   false,
         hasActiveVote:      true,
         awaitingActivation: true,
+        language:           ((allMissionData?.[0] as any)?.language === 'he' ? 'he' : 'en') as 'en' | 'he',
         voteSessionId:      (concludedSession as any)?.id ?? null,
         voteJourneyId:      pendingClassId,
         voteEndsAt:         null,

@@ -156,7 +156,8 @@ function LandscapeContent() {
   });
 
   const edges        = PLANET_EDGES[planets.length] ?? [];
-  const missionLabel = mission ? `MISSION ${String(mission.order).padStart(2, '0')}` : '…';
+  const uiLang       = mission?.language === 'he' ? 'he' as const : 'en' as const;
+  const missionLabel = mission ? `${t('missionLabel', uiLang)} ${String(mission.order).padStart(2, '0')}` : '…';
   const bigIdea      = mission?.question ?? '';
 
   // First planet passed to PipGuidePanel for the "Start Here" card navigation
@@ -211,7 +212,7 @@ function LandscapeContent() {
               ))}
             </svg>
 
-            <TopBar left={`${missionLabel} · ${bigIdea.toUpperCase()}`} showHome={!isPreview} showStore={!isPreview} />
+            <TopBar left={`${missionLabel} · ${bigIdea.toUpperCase()}`} showHome={!isPreview} showStore={!isPreview} lang={uiLang} />
 
             {/* Preview mode banner */}
             {isPreview && (
@@ -276,7 +277,7 @@ function LandscapeContent() {
                             />
                           : <OrinOrb size={28} />}
                         <p className="text-[9px] tracking-[0.2em] text-[#00F5D4]/60 font-space uppercase">
-                          {botName.toUpperCase()} · GUIDE
+                          {botName.toUpperCase()} · {t('guideLabel', uiLang)}
                         </p>
                       </div>
                       <button
@@ -310,7 +311,7 @@ function LandscapeContent() {
                     border: '1px solid rgba(0,245,212,0.5)',
                     boxShadow: '0 0 20px rgba(0,245,212,0.4)',
                   } : {}}
-                  title={`Talk to ${botName}`}
+                  title={t('talkTo', uiLang).replace('{name}', botName)}
                 >
                   {baseAvatarUrl
                     ? <img src={baseAvatarUrl} alt={botName} className="w-full h-full object-cover" />

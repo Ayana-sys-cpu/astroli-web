@@ -398,6 +398,196 @@ const strings = {
     en: '← BACK',
     he: '← חזרה',
   },
+  signOut: {
+    en: 'Sign Out',
+    he: 'התנתקות',
+  },
+  guideLabel: {
+    en: 'GUIDE',
+    he: 'מדריך',
+  },
+  talkTo: {
+    en: 'Talk to {name}',
+    he: 'דברו עם {name}',
+  },
+  clickToExplore: {
+    en: 'Click to explore this planet',
+    he: 'לחצו כדי לחקור את הכוכב הזה',
+  },
+
+  // ── Planet drill-down — celebration / reward / fallbacks ───────────────────
+  planetExplored: {
+    en: 'Planet Explored!',
+    he: 'הכוכב נחקר!',
+  },
+  goalReached: {
+    en: 'Goal Reached',
+    he: 'יעד הושג',
+  },
+  uncoveredEverySecret: {
+    en: "You've uncovered every secret on this planet.",
+    he: 'חשפת כל סוד בכוכב הזה.',
+  },
+  keepExploringUniverse: {
+    en: 'Keep exploring the universe.',
+    he: 'המשיכו לחקור את היקום.',
+  },
+  orinProudOfYou: {
+    en: "Orin is proud of you! You've uncovered every secret on this planet.",
+    he: 'אורין גאה בך! חשפת כל סוד בכוכב הזה.',
+  },
+  seeMyDiscoveries: {
+    en: 'See my discoveries →',
+    he: 'הצגת התגליות שלי →',
+  },
+  planetNotFound: {
+    en: 'Planet not found',
+    he: 'הכוכב לא נמצא',
+  },
+  noCharacterAvailable: {
+    en: 'No character available for this planet.',
+    he: 'אין דמות זמינה בכוכב הזה.',
+  },
+  temporalLink: {
+    en: 'TEMPORAL LINK',
+    he: 'קישור זמן',
+  },
+  ceSuffix: {
+    en: 'CE',
+    he: 'לספירה',
+  },
+  whatPipToldMe: {
+    en: 'What Pip told me',
+    he: 'מה פיפ אמר לי',
+  },
+  travelerName: {
+    en: 'Traveler',
+    he: 'חוקר',
+  },
+  thisMissionFallback: {
+    en: 'this mission',
+    he: 'המשימה הזו',
+  },
+
+  // ── Home screen (page-level) ────────────────────────────────────────────────
+  welcomeBack: {
+    en: 'Welcome back, {name}.',
+    he: 'ברוך שובך, {name}.',
+  },
+  syncingJourneys: {
+    en: 'SYNCING YOUR JOURNEYS…',
+    he: 'מסנכרן את המסעות שלך…',
+  },
+  journeyAwaits: {
+    en: 'YOUR JOURNEY AWAITS ACROSS THE STARS',
+    he: 'המסע שלך מחכה בין הכוכבים',
+  },
+  journeysCountOne: {
+    en: 'YOU HAVE 1 JOURNEY ACROSS THE STARS',
+    he: 'יש לך מסע אחד בין הכוכבים',
+  },
+  journeysCountMany: {
+    en: 'YOU HAVE {n} JOURNEYS ACROSS THE STARS',
+    he: 'יש לך {n} מסעות בין הכוכבים',
+  },
+  yourJourneys: {
+    en: 'YOUR JOURNEYS',
+    he: 'המסעות שלך',
+  },
+  syncingShort: {
+    en: 'SYNCING…',
+    he: 'מסנכרן…',
+  },
+
+  // ── Vote screen ─────────────────────────────────────────────────────────────
+  voteTopBar: {
+    en: 'MISSION SELECTION · VOTE',
+    he: 'בחירת משימה · הצבעה',
+  },
+  voteSyncing: {
+    en: 'SYNCING VOTE DATA…',
+    he: 'מסנכרן נתוני הצבעה…',
+  },
+  chooseYourMission: {
+    en: 'Choose your mission, {name}.',
+    he: 'בחר את המשימה שלך, {name}.',
+  },
+  voteShapesJourney: {
+    en: 'YOUR VOTE SHAPES THE JOURNEY',
+    he: 'ההצבעה שלך מעצבת את המסע',
+  },
+  winnerChosen: {
+    en: 'WINNER CHOSEN · AWAITING LAUNCH',
+    he: 'הזוכה נבחר · ממתין להשקה',
+  },
+  voteClosed: {
+    en: 'VOTE CLOSED',
+    he: 'ההצבעה נסגרה',
+  },
+  closesIn: {
+    en: 'CLOSES IN {time}',
+    he: 'נסגרת בעוד {time}',
+  },
+  voteOrinHint: {
+    en: 'Each mission is a different path through history. Pick the one that calls to you — your class votes together to decide the journey.',
+    he: 'כל משימה היא נתיב אחר דרך ההיסטוריה. בחרו את זו שקוראת לכם — הכיתה מצביעה יחד כדי להחליט על המסע.',
+  },
+  chosenBadge: {
+    en: 'CHOSEN ✦',
+    he: 'נבחרה ✦',
+  },
+  yourVoteBadge: {
+    en: 'YOUR VOTE ✦',
+    he: 'ההצבעה שלך ✦',
+  },
+  voteCountOne: {
+    en: '1 vote',
+    he: 'קול אחד',
+  },
+  voteCountMany: {
+    en: '{n} votes',
+    he: '{n} קולות',
+  },
+  awaitingMissionLaunch: {
+    en: 'AWAITING MISSION LAUNCH',
+    he: 'ממתין להשקת המשימה',
+  },
+  teacherAboutToLaunch: {
+    en: 'Your teacher is about to launch the chosen mission',
+    he: 'המורה שלך עומד להשיק את המשימה שנבחרה',
+  },
+  voteLockedIn: {
+    en: 'VOTE LOCKED IN',
+    he: 'ההצבעה נקלטה',
+  },
+  canChangeVote: {
+    en: 'You can change your vote until the window closes',
+    he: 'אפשר לשנות את ההצבעה עד סגירת החלון',
+  },
+  changeVote: {
+    en: 'CHANGE VOTE',
+    he: 'שינוי הצבעה',
+  },
+  submitting: {
+    en: 'SUBMITTING…',
+    he: 'שולח…',
+  },
+  castMyVote: {
+    en: 'CAST MY VOTE ✦',
+    he: 'הצבע ✦',
+  },
+  selectMissionFirst: {
+    en: 'SELECT A MISSION FIRST',
+    he: 'בחרו משימה תחילה',
+  },
+  missionSelectedImminent: {
+    en: 'MISSION SELECTED · LAUNCH IMMINENT',
+    he: 'המשימה נבחרה · ההשקה קרובה',
+  },
+  missionSelectionInProgress: {
+    en: 'MISSION SELECTION IN PROGRESS',
+    he: 'בחירת המשימה בעיצומה',
+  },
 } as const;
 
 type StringKey = keyof typeof strings;

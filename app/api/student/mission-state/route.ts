@@ -162,7 +162,15 @@ async function computeReturnTrigger(
   missionId: string,
   lastSnapshot: VisitSnapshot,
 ): Promise<{ trigger: ReturnTrigger; currentSnapshot: VisitSnapshot }> {
-  // 1. Get all planets for this mission
+  // 1. Get all planets for this mission (and the mission's language, so planet
+  //    titles are only translated when the mission is actually in Hebrew)
+  const { data: missionRow } = await supabaseAdmin
+    .from('missions')
+    .select('language')
+    .eq('id', missionId)
+    .maybeSingle();
+  const missionLang = (missionRow as { language?: string } | null)?.language ?? 'en';
+
   const { data: planets } = await supabaseAdmin
     .from('planets')
     .select('id, title, translations, mission_id')
@@ -206,7 +214,7 @@ async function computeReturnTrigger(
     const prev = lastSnapshot.planets[pid] ?? { discoveredGoalCount: 0, completedAt: null };
 
     if (current.completedAt && !prev.completedAt) {
-      newlyCompletedPlanet = { id: pid, title: getPlanetTitle(planet) };
+      newlyCompletedPlanet = { id: pid, title: getPlanetTitle(planet, missionLang) };
     }
     const delta = current.discoveredGoalCount - prev.discoveredGoalCount;
     if (delta > 0) {
@@ -255,7 +263,8 @@ async function computeReturnTrigger(
   };
 }
 
-function getPlanetTitle(planet: { title: string; translations: unknown }): string {
+function getPlanetTitle(planet: { title: string; translations: unknown }, lang: string): string {
+  if (lang !== 'he') return planet.title;
   const tx = planet.translations as Record<string, { title?: string }> | null;
   return tx?.he?.title ?? planet.title;
 }

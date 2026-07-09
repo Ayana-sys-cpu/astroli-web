@@ -82,7 +82,7 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
       studentIdRef.current = studentId;
 
       return Promise.all([
-        fetch(`${BOT_URL}/api/planet-voice/character?planetId=${encodeURIComponent(planetId)}`).then(r => r.json()),
+        fetch(`${BOT_URL}/api/planet-voice/character?planetId=${encodeURIComponent(planetId)}&lang=${language}`).then(r => r.json()),
         fetch(`${BOT_URL}/api/planet-voice/history?studentId=${encodeURIComponent(studentId)}&planetId=${encodeURIComponent(planetId)}`).then(r => r.json()),
       ]);
     }).then(([charData, histData]) => {
@@ -112,7 +112,9 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
     }).catch(() => {
       if (isMounted.current) setCharLoading(false);
     });
-  }, [planetId]);
+    // language is a dep so the character re-fetches localized once the
+    // mission language resolves (it starts as 'en' before the mission loads).
+  }, [planetId, language]);
 
   const sendText = useCallback(async (text: string) => {
     if (!text.trim() || loading || !character) return;

@@ -5,6 +5,7 @@ import { MOCK_STUDENT_USER } from '@/lib/dev/mock-student-user';
 import { clearSession } from '@/lib/student-store';
 import { supabaseSignOut } from '@/lib/session';
 import StoreButton from '@/components/StoreButton';
+import { t, type Lang } from '@/lib/i18n';
 import type { ReactNode } from 'react';
 
 interface TopBarProps {
@@ -15,6 +16,7 @@ interface TopBarProps {
   showStore?: boolean;
   backToMap?: string;
   initials?: string;
+  lang?: Lang;
 }
 
 function getInitials(displayName: string): string {
@@ -23,7 +25,7 @@ function getInitials(displayName: string): string {
   return parts[0]?.[0]?.toUpperCase() ?? 'A';
 }
 
-export default function TopBar({ left, center, showUser = true, showHome = true, showStore = false, backToMap, initials }: TopBarProps) {
+export default function TopBar({ left, center, showUser = true, showHome = true, showStore = false, backToMap, initials, lang = 'en' }: TopBarProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -71,7 +73,7 @@ export default function TopBar({ left, center, showUser = true, showHome = true,
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,45,120,.16)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,45,120,.08)'; }}
           >
-            ← MAP
+            {t('backToMap', lang)}
           </button>
         ) : (
           <span className="text-[10px] tracking-[0.22em] text-white/35 font-space uppercase">
@@ -113,7 +115,7 @@ export default function TopBar({ left, center, showUser = true, showHome = true,
                     onClick={handleSignOut}
                     className="w-full px-4 py-3 text-left text-[11px] tracking-[0.15em] font-space text-white/60 hover:text-white hover:bg-white/5 transition-colors uppercase"
                   >
-                    Sign Out
+                    {t('signOut', lang)}
                   </button>
                 </div>
               )}

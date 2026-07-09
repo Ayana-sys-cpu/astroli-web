@@ -68,7 +68,7 @@ export default function Planet({ id, name, shortTitle, number, planetQuestion, x
               </p>
             ) : (
               <p className="text-[13px] font-inter text-white/40 italic">
-                Click to explore this planet
+                {t('clickToExplore', lang)}
               </p>
             )}
             <div className="mt-3 flex items-center gap-2">

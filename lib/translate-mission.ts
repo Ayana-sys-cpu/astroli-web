@@ -38,6 +38,8 @@ interface PlanetRow {
   opening_message: string | null;
   student_reveal_message: string | null;
   hint: string | null;
+  character_figure: string | null;
+  character_location: string | null;
 }
 
 // Payload sent to OpenAI for translation — single request covers mission + all planets.
@@ -66,6 +68,8 @@ interface TranslationPayload {
     opening_message: string;
     student_reveal_message: string;
     hint: string;
+    character_figure: string;
+    character_location: string;
   }>;
 }
 
@@ -93,36 +97,53 @@ ${JSON.stringify(payload, null, 2)}`;
 
 interface TeachingGoalRow {
   id:          string;
+  slug:        string;
   description: string;
   translations: unknown;
 }
 
+// Mirrors slugToLabel in the mission API route — the English label shown for a
+// key term is derived from the goal's slug, so the Hebrew slug_label must be a
+// translation of that same label.
+function slugToLabel(slug: string): string {
+  return slug
+    .split('-')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
 // Translates the still-untranslated teaching goals for a set of planets and
-// writes translations.he.description back onto each planet_teaching_goals row.
+// writes translations.he.description + translations.he.slug_label back onto
+// each planet_teaching_goals row.
 // Safe to call repeatedly — already-translated goals are skipped.
 export async function translateTeachingGoals(planetIds: string[]): Promise<void> {
   if (planetIds.length === 0) return;
 
   const { data: goals, error } = await supabaseAdmin
     .from('planet_teaching_goals')
-    .select('id, description, translations')
+    .select('id, slug, description, translations')
     .in('planet_id', planetIds);
 
   if (error) throw new Error(`Teaching goals fetch failed: ${error.message}`);
 
   const untranslated = ((goals ?? []) as unknown as TeachingGoalRow[]).filter(g => {
     const tx = (g.translations as Record<string, any>) ?? {};
-    return !tx.he?.description;
+    return !tx.he?.description || !tx.he?.slug_label;
   });
 
   if (untranslated.length === 0) return;
 
   const prompt = `You are a professional Hebrew translator for an educational platform for Israeli students aged 13–15.
-Translate the following teaching-goal descriptions from English to Hebrew. Keep the JSON keys (ids) exactly as given — only translate the values.
+Translate the following teaching goals from English to Hebrew. Keep the JSON keys (ids and field names) exactly as given — only translate the values.
+For each goal, "slug_label" is the short term/concept name shown to students and "description" is its explanation — translate both. Keep slug_label short (a term, not a sentence).
 Transliterate every person's name into Hebrew (e.g. "Antoine Lavoisier" → "אנטואן לבואזייה", "James Joule" → "ג'יימס ג'אול"). Never leave a name in Latin script.
-Return ONLY valid JSON with no explanation: an object mapping each id to its Hebrew translation.
+Return ONLY valid JSON with no explanation: an object mapping each id to { "slug_label": ..., "description": ... } in Hebrew.
 
-${JSON.stringify(Object.fromEntries(untranslated.map(g => [g.id, g.description])), null, 2)}`;
+${JSON.stringify(
+    Object.fromEntries(untranslated.map(g => [g.id, { slug_label: slugToLabel(g.slug), description: g.description }])),
+    null,
+    2,
+  )}`;
 
   const response = await getOpenAI().chat.completions.create({
     model: 'gpt-4o-mini',
@@ -133,17 +154,93 @@ ${JSON.stringify(Object.fromEntries(untranslated.map(g => [g.id, g.description])
 
   const content = response.choices[0]?.message?.content;
   if (!content) throw new Error('Empty response from OpenAI translation');
-  const translated = JSON.parse(content) as Record<string, string>;
+  const translated = JSON.parse(content) as Record<string, { slug_label?: string; description?: string }>;
 
   await Promise.all(
     untranslated.map(async g => {
-      const description = translated[g.id];
+      const description = translated[g.id]?.description;
+      const slug_label  = translated[g.id]?.slug_label;
       if (!description) return;
       const { error: updErr } = await supabaseAdmin
         .from('planet_teaching_goals')
-        .update({ translations: { he: { description } } })
+        .update({ translations: { he: { description, ...(slug_label ? { slug_label } : {}) } } })
         .eq('id', g.id);
       if (updErr) throw new Error(`Teaching goal ${g.id} translation save failed: ${updErr.message}`);
+    }),
+  );
+}
+
+interface CharacterRow {
+  id:            string;
+  name:          string;
+  bio:           string;
+  era:           string;
+  location:      string;
+  voice_profile: string;
+  teaching_goal: string;
+  translations:  unknown;
+}
+
+// Translates the still-untranslated planet characters for a set of planets and
+// writes translations.he.{name, bio, era, location, voice_profile, teaching_goal}
+// back onto each planet_characters row. The character name is transliterated,
+// not translated. Safe to call repeatedly — already-translated rows are skipped.
+export async function translatePlanetCharacters(planetIds: string[]): Promise<void> {
+  if (planetIds.length === 0) return;
+
+  const { data: characters, error } = await supabaseAdmin
+    .from('planet_characters')
+    .select('id, name, bio, era, location, voice_profile, teaching_goal, translations')
+    .in('planet_id', planetIds);
+
+  if (error) throw new Error(`Planet characters fetch failed: ${error.message}`);
+
+  const untranslated = ((characters ?? []) as unknown as CharacterRow[]).filter(c => {
+    const tx = (c.translations as Record<string, any>) ?? {};
+    return !tx.he?.name || !tx.he?.bio;
+  });
+
+  if (untranslated.length === 0) return;
+
+  const prompt = `You are a professional Hebrew translator for an educational platform for Israeli students aged 13–15.
+Translate the following historical character profiles from English to Hebrew. Keep the JSON keys (ids and field names) exactly as given — only translate the values.
+Transliterate every person's name into Hebrew (e.g. "Antoine Lavoisier" → "אנטואן לבואזייה"). Never leave a name in Latin script.
+"voice_profile" and "teaching_goal" describe how the character speaks and what they teach — translate them faithfully.
+Return ONLY valid JSON with no explanation: an object mapping each id to { "name": ..., "bio": ..., "era": ..., "location": ..., "voice_profile": ..., "teaching_goal": ... } in Hebrew.
+
+${JSON.stringify(
+    Object.fromEntries(untranslated.map(c => [c.id, {
+      name:          c.name,
+      bio:           c.bio,
+      era:           c.era,
+      location:      c.location,
+      voice_profile: c.voice_profile,
+      teaching_goal: c.teaching_goal,
+    }])),
+    null,
+    2,
+  )}`;
+
+  const response = await getOpenAI().chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'user', content: prompt }],
+    response_format: { type: 'json_object' },
+    temperature: 0.1,
+  });
+
+  const content = response.choices[0]?.message?.content;
+  if (!content) throw new Error('Empty response from OpenAI translation');
+  const translated = JSON.parse(content) as Record<string, Partial<Omit<CharacterRow, 'id' | 'translations'>>>;
+
+  await Promise.all(
+    untranslated.map(async c => {
+      const he = translated[c.id];
+      if (!he?.name || !he?.bio) return;
+      const { error: updErr } = await supabaseAdmin
+        .from('planet_characters')
+        .update({ translations: { he } })
+        .eq('id', c.id);
+      if (updErr) throw new Error(`Character ${c.id} translation save failed: ${updErr.message}`);
     }),
   );
 }
@@ -167,7 +264,7 @@ export async function translateMission(missionId: string): Promise<void> {
   // Fetch all planets for this mission.
   const { data: planets, error: pErr } = await supabaseAdmin
     .from('planets')
-    .select('id, title, label, short_title, planet_question, content, opening_message, student_reveal_message, hint')
+    .select('id, title, label, short_title, planet_question, content, opening_message, student_reveal_message, hint, character_figure, character_location')
     .eq('mission_id', missionId);
 
   if (pErr) throw new Error(`Planets fetch failed: ${pErr.message}`);
@@ -201,6 +298,8 @@ export async function translateMission(missionId: string): Promise<void> {
         opening_message:        row.opening_message ?? '',
         student_reveal_message: row.student_reveal_message ?? '',
         hint:                   row.hint ?? '',
+        character_figure:       row.character_figure ?? '',
+        character_location:     row.character_location ?? '',
       };
     }),
   };
@@ -228,7 +327,9 @@ export async function translateMission(missionId: string): Promise<void> {
     }),
   );
 
-  // Teaching goals aren't part of the payload above (they're generated
-  // separately from planet content) — translate them in their own pass.
+  // Teaching goals and planet characters aren't part of the payload above
+  // (they're generated separately from planet content) — translate them in
+  // their own passes.
   await translateTeachingGoals(translated.planets.map(tp => tp.id));
+  await translatePlanetCharacters(translated.planets.map(tp => tp.id));
 }

@@ -8,6 +8,7 @@ import TopBar from '@/components/TopBar';
 import OrinOrb from '@/components/OrinOrb';
 import { getFirstName } from '@/lib/student-store';
 import { useCoinReward } from '@/hooks/useCoinReward';
+import { t, type Lang } from '@/lib/i18n';
 
 interface VoteMission {
   id: string;
@@ -26,18 +27,26 @@ interface JourneyState {
   voteJourneyId: string | null;
   voteEndsAt: string | null;
   voteMissions: VoteMission[];
+  language?: Lang;
 }
 
-function formatCountdown(endsAt: string): string {
+const COUNTDOWN_UNITS: Record<Lang, [string, string, string, string]> = {
+  en: ['d', 'h', 'm', 's'],
+  he: ['י׳', 'שע׳', 'דק׳', 'שנ׳'],
+};
+
+function formatCountdown(endsAt: string, lang: Lang): string {
   const diff = Math.max(0, new Date(endsAt).getTime() - Date.now());
-  if (diff === 0) return 'VOTE CLOSED';
+  if (diff === 0) return t('voteClosed', lang);
   const s = Math.floor(diff / 1000) % 60;
   const m = Math.floor(diff / 60_000) % 60;
   const h = Math.floor(diff / 3_600_000) % 24;
   const d = Math.floor(diff / 86_400_000);
-  if (d > 0) return `${d}d ${h}h ${m}m`;
-  if (h > 0) return `${h}h ${m}m ${s}s`;
-  return `${m}m ${s}s`;
+  const [ud, uh, um, us] = COUNTDOWN_UNITS[lang];
+  const sep = lang === 'he' ? ' ' : '';
+  if (d > 0) return `${d}${sep}${ud} ${h}${sep}${uh} ${m}${sep}${um}`;
+  if (h > 0) return `${h}${sep}${uh} ${m}${sep}${um} ${s}${sep}${us}`;
+  return `${m}${sep}${um} ${s}${sep}${us}`;
 }
 
 const PLANET_COLORS = [
@@ -57,7 +66,8 @@ function VotePageContent() {
   const [confirmed, setConfirmed] = useState(false);
   const [previousVoteId, setPreviousVoteId] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
-  const [firstName] = useState(() => getFirstName() || 'Traveller');
+  const [lang, setLang] = useState<Lang>('en');
+  const [firstName] = useState(() => getFirstName());
   const [voteCounts, setVoteCounts] = useState<Record<string, number>>({});
   const { triggerReward } = useCoinReward();
 
@@ -73,6 +83,7 @@ function VotePageContent() {
       // the hub rather than the old global pending-journey screen, since
       // other journeys may still need attention.
       if (!data.hasActiveVote) { router.replace('/home'); return; }
+      setLang(data.language === 'he' ? 'he' : 'en');
       setState({
         hasActiveJourney:   false,
         hasActiveVote:      true,
@@ -187,7 +198,7 @@ function VotePageContent() {
           transition={{ duration: 1.6, repeat: Infinity }}
           className="text-[10px] tracking-[0.3em] font-space uppercase text-white/40"
         >
-          SYNCING VOTE DATA…
+          {t('voteSyncing', lang)}
         </motion.div>
       </div>
     );
@@ -218,7 +229,7 @@ function VotePageContent() {
         <div className="scan-line" />
       </div>
 
-      <TopBar left="MISSION SELECTION · VOTE" />
+      <TopBar left={t('voteTopBar', lang)} lang={lang} />
 
       <div className="relative z-10 flex-1 flex flex-col items-center pt-20 pb-10 px-5 gap-6 max-w-2xl mx-auto w-full">
 
@@ -230,10 +241,10 @@ function VotePageContent() {
           className="text-center"
         >
           <p className="font-caveat text-3xl text-white/80 mb-1">
-            Choose your mission, {firstName}.
+            {t('chooseYourMission', lang).replace('{name}', firstName || t('travelerName', lang))}
           </p>
           <p className="text-[10px] tracking-[0.28em] font-space uppercase text-white/30">
-            YOUR VOTE SHAPES THE JOURNEY
+            {t('voteShapesJourney', lang)}
           </p>
         </motion.div>
 
@@ -261,8 +272,8 @@ function VotePageContent() {
           />
           <span className="font-space text-xs tracking-[0.18em] uppercase" style={{ color: state.awaitingActivation ? '#00F5D4' : isExpired ? '#FF0080' : '#00F5D4' }}>
             {state.awaitingActivation
-              ? 'WINNER CHOSEN · AWAITING LAUNCH'
-              : isExpired ? 'VOTE CLOSED' : `CLOSES IN ${state.voteEndsAt ? formatCountdown(state.voteEndsAt) : '…'}`}
+              ? t('winnerChosen', lang)
+              : isExpired ? t('voteClosed', lang) : t('closesIn', lang).replace('{time}', state.voteEndsAt ? formatCountdown(state.voteEndsAt, lang) : '…')}
           </span>
           {/* force re-render on tick */}
           <span className="hidden">{tick}</span>
@@ -277,8 +288,8 @@ function VotePageContent() {
           style={{ background: 'rgba(0,245,212,0.03)', border: '1px solid rgba(0,245,212,0.1)' }}
         >
           <OrinOrb size={28} pulse={false} />
-          <p className="text-xs font-inter text-white/45 leading-relaxed">
-            Each mission is a different path through history. Pick the one that calls to you — your class votes together to decide the journey.
+          <p className="text-xs font-inter text-white/45 leading-relaxed" dir={lang === 'he' ? 'rtl' : undefined}>
+            {t('voteOrinHint', lang)}
           </p>
         </motion.div>
 
@@ -339,17 +350,17 @@ function VotePageContent() {
                         className="text-[9px] tracking-[0.22em] font-space uppercase"
                         style={{ color: isSelected ? col.dot : 'rgba(255,255,255,0.25)' }}
                       >
-                        MISSION {String(mission.order).padStart(2, '0')}
+                        {t('missionLabel', lang)} {String(mission.order).padStart(2, '0')}
                       </p>
                       <div className="flex items-center gap-2">
                         {isWinner && (
                           <span className="text-[9px] tracking-[0.14em] font-space uppercase" style={{ color: col.dot }}>
-                            CHOSEN ✦
+                            {t('chosenBadge', lang)}
                           </span>
                         )}
                         {!isWinner && wasVoted && confirmed && (
                           <span className="text-[9px] tracking-[0.14em] font-space uppercase" style={{ color: col.dot }}>
-                            YOUR VOTE ✦
+                            {t('yourVoteBadge', lang)}
                           </span>
                         )}
                         {totalVotes > 0 && (
@@ -357,7 +368,7 @@ function VotePageContent() {
                             className="text-[9px] tracking-[0.1em] font-space tabular-nums"
                             style={{ color: isSelected ? col.dot : 'rgba(255,255,255,0.3)' }}
                           >
-                            {missionVotes} vote{missionVotes !== 1 ? 's' : ''} · {votePct}%
+                            {missionVotes === 1 ? t('voteCountOne', lang) : t('voteCountMany', lang).replace('{n}', String(missionVotes))} · {votePct}%
                           </span>
                         )}
                       </div>
@@ -412,7 +423,7 @@ function VotePageContent() {
                   ✦
                 </motion.span>
                 <p className="font-space font-bold text-sm tracking-[0.12em] text-white">
-                  AWAITING MISSION LAUNCH
+                  {t('awaitingMissionLaunch', lang)}
                 </p>
                 <motion.span
                   animate={{ scale: [1, 1.2, 1], opacity: [0.6, 1, 0.6] }}
@@ -423,7 +434,7 @@ function VotePageContent() {
                 </motion.span>
               </div>
               <p className="text-[10px] tracking-[0.2em] font-space uppercase text-white/25">
-                Your teacher is about to launch the chosen mission
+                {t('teacherAboutToLaunch', lang)}
               </p>
             </motion.div>
           ) : confirmed ? (
@@ -450,12 +461,12 @@ function VotePageContent() {
                   ✦
                 </motion.span>
                 <p className="font-space font-bold text-sm tracking-[0.12em] text-white">
-                  VOTE LOCKED IN
+                  {t('voteLockedIn', lang)}
                 </p>
               </div>
               {!isExpired && (
                 <p className="text-[10px] tracking-[0.2em] font-space uppercase text-white/25">
-                  You can change your vote until the window closes
+                  {t('canChangeVote', lang)}
                 </p>
               )}
               {!isExpired && (
@@ -465,7 +476,7 @@ function VotePageContent() {
                   style={{ color: 'rgba(255,255,255,0.3)', cursor: 'pointer' }}
                   whileHover={{ color: 'rgba(255,255,255,0.6)' }}
                 >
-                  CHANGE VOTE
+                  {t('changeVote', lang)}
                 </motion.button>
               )}
             </motion.div>
@@ -491,9 +502,9 @@ function VotePageContent() {
                 {submitting ? (
                   <span className="flex items-center justify-center gap-2">
                     <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                    SUBMITTING…
+                    {t('submitting', lang)}
                   </span>
-                ) : isExpired ? 'VOTE CLOSED' : selectedId ? 'CAST MY VOTE ✦' : 'SELECT A MISSION FIRST'}
+                ) : isExpired ? t('voteClosed', lang) : selectedId ? t('castMyVote', lang) : t('selectMissionFirst', lang)}
 
                 {/* Shimmer effect when active */}
                 {selectedId && !isExpired && (
@@ -526,7 +537,7 @@ function VotePageContent() {
             transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
           />
           <p className="text-[9px] tracking-[0.34em] font-space uppercase text-white/25">
-            {state.awaitingActivation ? 'MISSION SELECTED · LAUNCH IMMINENT' : 'MISSION SELECTION IN PROGRESS'}
+            {state.awaitingActivation ? t('missionSelectedImminent', lang) : t('missionSelectionInProgress', lang)}
           </p>
           <motion.div
             className="w-1.5 h-1.5 rounded-full"

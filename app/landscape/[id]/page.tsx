@@ -49,7 +49,7 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
   const thinkingStartTime = useRef(0);
   const processedMsgCount = useRef(0);
   const isThinkingRef = useRef(false);
-  const firstName = getFirstName() || 'Traveler';
+  const firstName = getFirstName() || t('travelerName', missionLang);
   const orin = useOrinChat('planet_screen', params.id, 'planet');
   const planetVoice = usePlanetVoice(params.id, missionLang);
   const [savedInsights, setSavedInsights]         = useState<SummaryInsight[]>([]);
@@ -105,12 +105,12 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
         sourceRect:       chatPanelRef.current?.getBoundingClientRect(),
         eventType:        award.eventType as 'goal_completion' | 'first_vote' | 'planet_complete' | 'mission_complete' | 'bonus_mission',
         titleOverride:    isGoalCompletion
-          ? (isFinalGoal ? 'Planet Explored!' : 'Goal Reached')
+          ? (isFinalGoal ? t('planetExplored', missionLang) : t('goalReached', missionLang))
           : undefined,
         subtitleOverride: isGoalCompletion
           ? (isFinalGoal
-              ? "You've uncovered every secret on this planet."
-              : 'Keep exploring the universe.')
+              ? t('uncoveredEverySecret', missionLang)
+              : t('keepExploringUniverse', missionLang))
           : undefined,
         // Planet is already recorded complete server-side — on dismiss show the
         // avatar celebration, which then hands off to the summary screen.
@@ -194,7 +194,7 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
-          <p className="text-white/40 font-space text-sm mb-4">Planet not found</p>
+          <p className="text-white/40 font-space text-sm mb-4">{t('planetNotFound', missionLang)}</p>
           <button onClick={() => router.push(classId ? `/landscape?classId=${classId}` : '/landscape')} className="btn-ghost font-space text-xs">
             {t('backToLandscape', missionLang)}
           </button>
@@ -209,13 +209,14 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
 
   const figureDisplayName = character?.name ?? planet.characterFigure ?? experience?.figure ?? null;
   const figureLocation    = character?.location ?? planet.characterLocation ?? experience?.location ?? null;
+  const ce = t('ceSuffix', missionLang);
   const figureEra         = character?.era
     ?? (planet.characterYear && figureLocation
-          ? `${figureLocation} · ${planet.characterYear} CE`
-          : planet.characterYear ? `${planet.characterYear} CE`
+          ? `${figureLocation} · ${planet.characterYear} ${ce}`
+          : planet.characterYear ? `${planet.characterYear} ${ce}`
           : experience?.year && figureLocation
-            ? `${figureLocation} · ${experience.year} CE`
-            : experience?.year ? `${experience.year} CE` : null);
+            ? `${figureLocation} · ${experience.year} ${ce}`
+            : experience?.year ? `${experience.year} ${ce}` : null);
 
   return (
     <motion.div
@@ -236,6 +237,7 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
         ) : undefined}
         showStore
         initials={firstName[0]?.toUpperCase() ?? 'A'}
+        lang={missionLang}
       />
 
       {/* Main content row */}
@@ -333,7 +335,7 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
           {/* Bottom nav bar — inside left panel */}
           <div className="absolute bottom-0 left-0 right-0 z-40 h-11 border-t border-white/6 bg-black/75 backdrop-blur-sm flex items-center justify-between px-5">
             <span className="text-[9px] tracking-[0.18em] text-white/30 font-space uppercase">
-              {figureEra ? `TEMPORAL LINK · ${figureEra}` : `PLANET · ${label.toUpperCase()}`}
+              {figureEra ? `${t('temporalLink', missionLang)} · ${figureEra}` : `${t('planetLabel', missionLang)} · ${label.toUpperCase()}`}
             </span>
             <div className="flex items-center gap-3">
               <button className="text-white/25 hover:text-white/60 transition-colors text-xs">←</button>
@@ -396,7 +398,7 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
               </div>
             ) : (
               <div className="flex-1 flex items-center justify-center">
-                <p className="text-[11px] text-white/30 font-space">No character available for this planet.</p>
+                <p className="text-[11px] text-white/30 font-space">{t('noCharacterAvailable', missionLang)}</p>
               </div>
             )}
 
@@ -452,10 +454,10 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
             <div style={{ padding: '20px 24px' }}>
               <div style={{ fontSize: '22px', marginBottom: '6px' }}>🌟</div>
               <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff', marginBottom: '6px' }}>
-                Planet Explored!
+                {t('planetExplored', missionLang)}
               </div>
               <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.5, marginBottom: '20px' }}>
-                Orin is proud of you! You&apos;ve uncovered every secret on this planet.
+                {t('orinProudOfYou', missionLang)}
               </div>
               <button
                 onClick={() => { setShowAvatarCelebration(false); handleViewDiscovery(); }}
@@ -466,7 +468,7 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
                   cursor: 'pointer',
                 }}
               >
-                See my discoveries →
+                {t('seeMyDiscoveries', missionLang)}
               </button>
             </div>
           </div>
