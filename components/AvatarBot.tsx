@@ -93,7 +93,10 @@ export default function AvatarBot() {
     const { contentType, contentId } = content;
     getSessionStudentId().then((id) => {
       const studentId = id ?? FALLBACK_ID;
-      const name = getFirstName();
+      const rawName = getFirstName();
+      const name = rawName && !rawName.includes(' ') && rawName.includes('.')
+        ? rawName.split('.')[0].replace(/^./, (c: string) => c.toUpperCase())
+        : rawName;
       fetch(`${OPENING_URL}?type=${contentType}&contentId=${contentId}&studentId=${studentId}&lang=${missionLanguage}`)
         .then(r => r.json())
         .then(data => {
