@@ -71,7 +71,6 @@ export default function CallbackContent() {
       const refreshToken = hashParams.get('refresh_token');
       const hashError    = hashParams.get('error') || params.get('error');
 
-      const invite = params.get('invite') || inviteTokenFromMeta;
       const code   = params.get('code');
 
       // Supabase reports expired / already-used links via the fragment.
@@ -117,6 +116,11 @@ export default function CallbackContent() {
       }
 
       // ── Invite link → accept it here with the token in hand ────────────
+      // The token can arrive as a ?invite= query param or via the session's
+      // user_metadata (set by create-invite-session when redirectTo couldn't
+      // carry it). The metadata value is only available after the session is
+      // established above, so resolve `invite` here rather than up front.
+      const invite = params.get('invite') || inviteTokenFromMeta;
       if (invite) {
         try {
           const res = await fetch('/api/auth/accept-invite', {
