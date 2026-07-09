@@ -85,8 +85,9 @@ export default function RevealPage() {
         }}
       />
 
-      {/* Avatar — floats freely, no clip */}
-      <div className="relative flex items-center justify-center z-10" style={{ width: 320, height: 320, marginTop: 8 }}>
+      {/* Avatar — floats freely, no clip. No z-index here: it would create a
+          stacking context and break the video's screen-blend with the page. */}
+      <div className="relative flex items-center justify-center" style={{ width: 320, height: 320, marginTop: 8 }}>
         {/* Expanding stardust rings */}
         <AnimatePresence>
           {!displayUrl && [0, 1, 2].map((i) => (
@@ -107,8 +108,8 @@ export default function RevealPage() {
           ))}
         </AnimatePresence>
 
-        {/* Avatar — WebM/VP9 with alpha channel keyed from the original MP4.
-            True alpha transparency: no box, no checkerboard. */}
+        {/* Avatar — MP4 on a black backdrop. `screen` blending drops the black
+            frame into the page background so no rectangle edge shows. */}
         <AnimatePresence>
           {displayUrl && (
             <motion.video
@@ -118,7 +119,7 @@ export default function RevealPage() {
               muted
               playsInline
               className="absolute"
-              style={{ width: 300, height: 300, objectFit: 'contain' }}
+              style={{ width: 300, height: 300, objectFit: 'contain', mixBlendMode: 'screen' }}
               initial={{ scale: 0.7, opacity: 0, filter: 'blur(16px)' }}
               animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
               transition={{ duration: 0.8, ease: 'easeOut' }}
