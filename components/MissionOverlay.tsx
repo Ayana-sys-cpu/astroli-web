@@ -51,6 +51,7 @@ export default function MissionOverlay({ question, order, onAccept, language }: 
       {/* Big idea — word-by-word cinematic reveal */}
       <h1
         className="relative z-10 font-space font-black text-center leading-tight"
+        dir={lang === 'he' ? 'rtl' : 'ltr'}
         style={{ fontSize: 'clamp(44px, 6.5vw, 88px)', letterSpacing: '-0.02em', maxWidth: 800 }}
       >
         {words.map((word, i) => (
@@ -59,8 +60,9 @@ export default function MissionOverlay({ question, order, onAccept, language }: 
             initial={{ opacity: 0, y: 40, filter: 'blur(12px)' }}
             animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
             transition={{ delay: 0.4 + i * 0.15, duration: 0.6, ease: 'easeOut' }}
-            className="inline-block mr-[0.2em]"
+            className="inline-block"
             style={{
+              marginInlineEnd: '0.2em',
               color: i % 4 === 1 ? '#FF0080' : i % 4 === 3 ? '#00F5D4' : '#ffffff',
               textShadow:
                 i % 4 === 1
