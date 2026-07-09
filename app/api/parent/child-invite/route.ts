@@ -12,10 +12,11 @@
 //           422 — child email belongs to an existing teacher or school student
 
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin, supabaseAnon } from '@/lib/supabase-server';
+import { supabaseAdmin } from '@/lib/supabase-server';
 import { requireAuth } from '@/lib/auth';
 import { resolveParentId } from '@/lib/parent-auth';
 import { z, parseBody } from '@/lib/validate';
+import { sendInviteEmail } from '@/lib/email';
 
 const Schema = z.object({
   childEmail: z.string().email('Invalid email address').toLowerCase(),
@@ -72,35 +73,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to create invite' }, { status: 500 });
   }
 
-  // Send invite email via Supabase — inviteUserByEmail actually delivers the email,
-  // unlike generateLink which only returns a URL without sending anything.
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3001';
-  // Route through /auth/callback (a CLIENT page). Admin invite / server magic
-  // links use the IMPLICIT flow — Supabase returns the session in the URL
-  // *fragment* (#access_token=…), which only a client component can read. The
-  // callback page persists the session via setSession(), then forwards to
-  // /auth/accept-invite. The invite token rides in ?invite=TOKEN (survives the
-  // fragment redirect); user_metadata.inviteToken is a secondary backup.
-  const callbackUrl = `${baseUrl}/auth/callback?invite=${invite.token}`;
-
-  const { error: emailError } = await supabaseAdmin.auth.admin.inviteUserByEmail(childEmail, {
-    redirectTo: callbackUrl,
-    data:       { childName, inviteToken: invite.token },
-  });
-
-  if (emailError) {
-    if ((emailError as any).status === 422) {
-      // User already confirmed — inviteUserByEmail refuses them. Fall back to magic link.
-      // callbackUrl already contains ?invite=TOKEN so the callback route can find the
-      // token via searchParams even without user_metadata.inviteToken.
-      const { error: otpError } = await supabaseAnon.auth.signInWithOtp({
-        email:   childEmail,
-        options: { shouldCreateUser: false, emailRedirectTo: callbackUrl },
-      });
-      if (otpError) console.error('[parent/child-invite] OTP fallback error:', otpError);
-    } else {
-      console.error('[parent/child-invite] invite email error:', emailError);
-    }
+  // Send invite email via Resend. The link points to /auth/accept-invite (our
+  // client page) which calls /api/auth/create-invite-session at click time to
+  // generate a fresh Supabase magic-link. This avoids the old single-use OTP
+  // problem: Supabase's link is generated at click time, not at send time, so
+  // resends never invalidate previous emails and email scanners can't consume
+  // the token (they don't execute JavaScript).
+  try {
+    await sendInviteEmail(childEmail, childName, invite.token);
+  } catch (err) {
+    console.error('[parent/child-invite] Resend error:', err);
+    // Don't fail the request — the invite row exists; parent can resend from dashboard.
   }
 
   return NextResponse.json({ ok: true, inviteId: invite.id });

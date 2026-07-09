@@ -6,8 +6,9 @@ import type { NextRequest } from 'next/server';
 const PUBLIC_API_ROUTES = new Set([
   '/api/auth/google',    // login endpoint — must be reachable before a session exists
   '/api/auth/identify',
-  '/api/auth/accept-invite', // invite link completion — no session exists yet
-  '/api/auth/finalize-login', // non-invite magic-link completion — enforces its own getUser
+  '/api/auth/accept-invite',        // invite link completion — no session exists yet
+  '/api/auth/create-invite-session', // Resend-based invite: generate Supabase action_link at click time
+  '/api/auth/finalize-login',        // non-invite magic-link completion — enforces its own getUser
   '/api/auth/student-status',
   '/api/vote-counts',
   '/api/winner',

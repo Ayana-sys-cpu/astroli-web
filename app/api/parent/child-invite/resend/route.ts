@@ -9,9 +9,10 @@
 //           404 — no pending invite found
 
 import { NextResponse } from 'next/server';
-import { supabaseAdmin, supabaseAnon } from '@/lib/supabase-server';
+import { supabaseAdmin } from '@/lib/supabase-server';
 import { requireAuth } from '@/lib/auth';
 import { resolveParentId } from '@/lib/parent-auth';
+import { sendInviteEmail } from '@/lib/email';
 
 export async function POST() {
   const auth = await requireAuth();
@@ -54,28 +55,10 @@ export async function POST() {
     return NextResponse.json({ error: 'Failed to create new invite' }, { status: 500 });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3001';
-  // Embed the token in the redirectTo URL for both paths — inviteUserByEmail (primary)
-  // and signInWithOtp fallback (for already-confirmed users). This ensures /auth/callback
-  // can find the token via searchParams even if user_metadata is not updated by Supabase.
-  const callbackUrl = `${baseUrl}/auth/callback?invite=${newInvite.token}`;
-
-  const { error: emailError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-    lastInvite.child_email,
-    { redirectTo: callbackUrl, data: { inviteToken: newInvite.token } },
-  );
-
-  if (emailError) {
-    if ((emailError as any).status === 422) {
-      // User already confirmed — fall back to magic link.
-      const { error: otpError } = await supabaseAnon.auth.signInWithOtp({
-        email:   lastInvite.child_email,
-        options: { shouldCreateUser: false, emailRedirectTo: callbackUrl },
-      });
-      if (otpError) console.error('[child-invite/resend] OTP fallback error:', otpError);
-    } else {
-      console.error('[child-invite/resend] invite email error:', emailError);
-    }
+  try {
+    await sendInviteEmail(lastInvite.child_email, lastInvite.child_email.split('@')[0], newInvite.token);
+  } catch (err) {
+    console.error('[child-invite/resend] Resend error:', err);
   }
 
   return NextResponse.json({ ok: true });
