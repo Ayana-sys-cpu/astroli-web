@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
     : { data: [] };
 
   // ── Resolve language: explicit param overrides DB value ───────────────────
-  const missionLanguage: 'en' | 'he' = (langParam === 'he' || (!langParam && (mission as any).language === 'he')) ? 'he' : 'en';
+  const missionLanguage: 'en' | 'he' = langParam === 'he' ? 'he' : 'en';
 
   // ── Apply translations for all user-visible fields when language is Hebrew ──
   const tx: Record<string, any> = missionLanguage === 'he'
