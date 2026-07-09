@@ -75,9 +75,11 @@ function LandscapeContent() {
   // Student normal mode — fetch via student session.
   useEffect(() => {
     if (isPreview) return;
-    fetch(`/api/student/journey${classId ? `?classId=${classId}` : ''}`)
-      .then(r => r.json())
-      .then(({ hasActiveJourney, hasActiveVote, activeMissionId, missionStatus }) => {
+    (async () => {
+      try {
+        const journeyRes = await fetch(`/api/student/journey${classId ? `?classId=${classId}` : ''}`);
+        const { hasActiveJourney, hasActiveVote, activeMissionId, missionStatus } = await journeyRes.json();
+
         if (!hasActiveJourney) {
           if (hasActiveVote) {
             // No classId means this came from a caller that never had one
@@ -93,27 +95,30 @@ function LandscapeContent() {
           }
           return;
         }
-        if (activeMissionId) {
-          fetch(`/api/student/mission?missionId=${activeMissionId}`)
-            .then(r => r.json())
-            .then(({ mission }) => {
-              if (!missionStatus) {
-                isFirstVisit.current = true;
-                setShowOverlay(true);
-              }
-              setMission(mission);
-              fetch(`/api/student/planet-progress?missionId=${mission.id}`)
-                .then(r => r.json())
-                .then(({ progress }) => {
-                  if (progress) setPlanetProgress(progress);
-                  if (missionStatus) setReady(true);
-                })
-                .catch(() => { if (missionStatus) setReady(true); });
-            })
-            .catch(() => {});
+        if (!activeMissionId) return;
+
+        // planet-progress only needs the missionId we ALREADY have from the
+        // journey call — it does NOT depend on the mission body. So fetch the
+        // mission and its progress map concurrently instead of chaining them,
+        // removing a full round-trip from the path to the map reveal.
+        const [missionRes, progressRes] = await Promise.all([
+          fetch(`/api/student/mission?missionId=${activeMissionId}`),
+          fetch(`/api/student/planet-progress?missionId=${activeMissionId}`),
+        ]);
+        const { mission } = await missionRes.json();
+        const { progress } = await progressRes.json().catch(() => ({ progress: null }));
+
+        if (!missionStatus) {
+          isFirstVisit.current = true;
+          setShowOverlay(true);
         }
-      })
-      .catch(() => {});
+        setMission(mission);
+        if (progress) setPlanetProgress(progress);
+        if (missionStatus) setReady(true);
+      } catch {
+        // stay — next focus/poll will retry
+      }
+    })();
   }, [isPreview, router, classId]);
 
   const handleAcceptMission = () => {
