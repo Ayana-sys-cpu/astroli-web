@@ -19,9 +19,14 @@ export async function GET() {
     return NextResponse.json({ error: 'Forbidden: student session required' }, { status: 403 });
   }
 
-  const classIds = await resolveEnrolledClassIds(studentId);
+  const [classIds, { data: parentLink }] = await Promise.all([
+    resolveEnrolledClassIds(studentId),
+    supabaseAdmin.from('parent_child_link').select('parent_id').eq('child_id', studentId).maybeSingle(),
+  ]);
+  const hasParent = !!parentLink;
+
   if (classIds.length === 0) {
-    return NextResponse.json({ journeys: [] });
+    return NextResponse.json({ journeys: [], hasParent });
   }
 
   const { data: classes } = await supabaseAdmin
@@ -30,7 +35,7 @@ export async function GET() {
     .in('id', classIds);
 
   if (!classes || classes.length === 0) {
-    return NextResponse.json({ journeys: [] });
+    return NextResponse.json({ journeys: [], hasParent });
   }
 
   const journeyIds = Array.from(new Set(classes.map((c: any) => c.journey_id)));
@@ -135,5 +140,5 @@ export async function GET() {
     });
   });
 
-  return NextResponse.json({ journeys });
+  return NextResponse.json({ journeys, hasParent });
 }
