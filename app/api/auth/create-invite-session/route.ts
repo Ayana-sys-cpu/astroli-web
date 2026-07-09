@@ -59,14 +59,18 @@ export async function POST(req: NextRequest) {
 
   const email = invite.child_email.toLowerCase();
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://app.astroli.ai';
-  const redirectTo = `${baseUrl}/auth/callback?invite=${token}`;
+
+  // redirectTo must be EXACTLY on the Supabase allowlist — no query params.
+  // We pass the invite token via options.data (sets user_metadata on the auth
+  // user) so CallbackContent can read it from the setSession() response.
+  const redirectTo = `${baseUrl}/auth/callback`;
 
   // 2. Generate a fresh Supabase magic-link session. generateLink works for
   //    both new users (Supabase creates them) and returning ones.
   const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
     type: 'magiclink',
     email,
-    options: { redirectTo },
+    options: { redirectTo, data: { inviteToken: token } },
   });
 
   if (linkError || !linkData?.properties?.action_link) {

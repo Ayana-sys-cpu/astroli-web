@@ -71,7 +71,7 @@ export default function CallbackContent() {
       const refreshToken = hashParams.get('refresh_token');
       const hashError    = hashParams.get('error') || params.get('error');
 
-      const invite = params.get('invite');
+      const invite = params.get('invite') || inviteTokenFromMeta;
       const code   = params.get('code');
 
       // Supabase reports expired / already-used links via the fragment.
@@ -88,8 +88,9 @@ export default function CallbackContent() {
 
       // ── Establish the session ──────────────────────────────────────────
       let bearer = accessToken ?? undefined;
+      let inviteTokenFromMeta: string | undefined;
       if (accessToken && refreshToken) {
-        const { error } = await supabase.auth.setSession({
+        const { data: sd, error } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
         });
@@ -98,6 +99,9 @@ export default function CallbackContent() {
           router.replace('/?error=invalid_link');
           return;
         }
+        // The invite token may have been passed via user_metadata (set by
+        // create-invite-session) when the redirectTo didn't carry ?invite=TOKEN.
+        inviteTokenFromMeta = sd.session?.user.user_metadata?.inviteToken as string | undefined;
       } else if (code) {
         const { data, error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
