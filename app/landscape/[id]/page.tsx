@@ -11,7 +11,10 @@ import { getFirstName, clearSession, loadStudent } from '@/lib/student-store';
 import { supabaseSignOut, getSessionStudentId } from '@/lib/session';
 import { usePlanetVoice } from '@/hooks/usePlanetVoice';
 import { useCoinReward } from '@/hooks/useCoinReward';
-import PlanetVoicePanel from '@/components/PlanetVoicePanel';
+import dynamic from 'next/dynamic';
+// Voice/chat panel — only rendered once a character is loaded for the planet,
+// so it's code-split out of the initial page bundle.
+const PlanetVoicePanel = dynamic(() => import('@/components/PlanetVoicePanel'), { ssr: false });
 import PlanetSummaryScreen from '@/components/PlanetSummaryScreen';
 import StoreButton from '@/components/StoreButton';
 import { t, type Lang } from '@/lib/i18n';

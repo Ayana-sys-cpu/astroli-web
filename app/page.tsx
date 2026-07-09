@@ -295,10 +295,11 @@ export default function LoginPage() {
     client.requestCode();
   };
 
-  // Show nothing while we check for an existing session — prevents the login form
-  // from flashing before an automatic redirect fires.
-  if (checkingSession) return null;
-
+  // Note: we intentionally do NOT blank the page while checking the session.
+  // The branded backdrop + wordmark render immediately; only the sign-in button
+  // is held disabled until the check resolves (see `checkingSession` on the
+  // button below), so an already-signed-in user is redirected without ever
+  // seeing a usable login form.
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -406,19 +407,19 @@ export default function LoginPage() {
         >
           <motion.button
             onClick={handleGoogleLogin}
-            disabled={loading || !gisReady}
+            disabled={loading || !gisReady || checkingSession}
             whileHover={!loading ? { scale: 1.02 } : undefined}
             whileTap={!loading ? { scale: 0.97 } : undefined}
             className="relative overflow-hidden rounded-lg font-space font-bold tracking-[0.14em] text-sm w-full flex items-center justify-center gap-3"
             style={{
               height: 52,
-              background: loading
+              background: (loading || checkingSession)
                 ? 'rgba(255,0,128,0.25)'
                 : 'linear-gradient(120deg, #FF0080 0%, #a020f0 50%, #00F5D4 100%)',
               color: '#fff',
               border: 'none',
-              cursor: (loading || !gisReady) ? 'default' : 'pointer',
-              boxShadow: loading ? 'none' : '0 0 30px rgba(255,0,128,0.35), 0 0 60px rgba(0,245,212,0.12)',
+              cursor: (loading || !gisReady || checkingSession) ? 'default' : 'pointer',
+              boxShadow: (loading || checkingSession) ? 'none' : '0 0 30px rgba(255,0,128,0.35), 0 0 60px rgba(0,245,212,0.12)',
               transition: 'box-shadow 0.3s',
             }}
           >
@@ -433,10 +434,10 @@ export default function LoginPage() {
               transition={{ duration: 2.6, repeat: Infinity, ease: 'linear' }}
             />
             <span className="relative z-10 flex items-center gap-3">
-              {loading ? (
+              {loading || checkingSession ? (
                 <>
                   <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                  CONNECTING...
+                  {checkingSession && !loading ? 'CHECKING SESSION...' : 'CONNECTING...'}
                 </>
               ) : (
                 <>

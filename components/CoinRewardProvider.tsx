@@ -1,10 +1,14 @@
 'use client';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import dynamic from 'next/dynamic';
 import { CoinRewardContext } from '@/hooks/useCoinReward';
-import CoinRewardModal from './CoinRewardModal';
 import CoinBurst from './CoinBurst';
 import type { CoinRewardResult } from '@/hooks/useCoinReward';
+
+// This provider wraps the whole app but the reward modal only appears after a
+// coin reward is earned — code-split it so it's not in every page's first load.
+const CoinRewardModal = dynamic(() => import('./CoinRewardModal'), { ssr: false });
 
 const PILL_PULSE_MS = 550;
 const COUNT_UP_MS = 500;

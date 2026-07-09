@@ -2,12 +2,16 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useSupabaseRealtime, type RealtimeMission, type RealtimeVote } from '@/hooks/useSupabaseRealtime';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getCourses, saveCourses, type CourseRecord } from '@/lib/teacher-store';
 import ConnectState from '@/components/teacher/ConnectState';
 import Countdown from '@/components/Countdown';
-import VoteManageModals from '@/components/VoteManageModals';
-import JourneyMonitorView from '@/components/teacher/journey/JourneyMonitorView';
+// Vote-manage modals (hidden until a manage action is triggered) and the live
+// monitor view (only shown for journeys with an active mission) are code-split
+// so they don't inflate this dashboard's first-load bundle.
+const VoteManageModals = dynamic(() => import('@/components/VoteManageModals'), { ssr: false });
+const JourneyMonitorView = dynamic(() => import('@/components/teacher/journey/JourneyMonitorView'), { ssr: false });
 
 type MissionState = 'locked' | 'voting' | 'pending_start' | 'active' | 'completed' | 'skipped';
 
@@ -128,17 +132,18 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
           }
         });
 
+        // Vote counts: the journeys response already carries each mission's
+        // `state`, so we can tell which journeys have a concluded vote WITHOUT
+        // a per-journey /api/teacher/missions round-trip. These fire in parallel
+        // and never block the dashboard paint. Full mission detail (planets,
+        // descriptions) is loaded lazily on card expand — see the effect below.
         loaded.forEach(journey => {
-          fetch(`/api/teacher/missions?journeyId=${journey.id}`)
-            .then(r => r.json())
-            .then(md => {
-              const ms: Mission[] = md.missions ?? [];
-              setFullMissions(prev => ({ ...prev, [journey.id]: ms }));
-              const hasConcluded = ms.some(m => m.state === 'pending_start' || m.state === 'skipped');
-              const sessionId = journey.activeVoteSession?.id ?? localStorage.getItem(`voteSessionId_${journey.id}`);
-              if (hasConcluded && sessionId) fetchVoteCounts(journey.id, sessionId);
-            })
-            .catch(() => {});
+          const hasConcluded = journey.missions.some(
+            m => m.state === 'pending_start' || m.state === 'skipped',
+          );
+          const sessionId = journey.activeVoteSession?.id
+            ?? localStorage.getItem(`voteSessionId_${journey.id}`);
+          if (hasConcluded && sessionId) fetchVoteCounts(journey.id, sessionId);
         });
       })
       .catch(() => setLoading(false));
@@ -171,8 +176,8 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
   // The server is now the source of truth for active sessions — no localStorage→DB sync needed.
   useEffect(() => {
     if (journeys.length === 0 || syncedVoteRef.current) return;
-    const allLoaded = journeys.every(j => Boolean(fullMissions[j.id]));
-    if (!allLoaded) return;
+    // journey.missions (from /api/teacher/journeys) already carries state, so we
+    // no longer wait for the full missions payload to run this cleanup.
     syncedVoteRef.current = true;
     journeys.forEach(j => {
       if (!j.activeVoteSession) {
@@ -189,7 +194,27 @@ export default function JourneyPage({ params }: { params: { id: string } }) {
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [journeys, fullMissions]);
+  }, [journeys]);
+
+  // Lazily load a journey's full mission detail (planets, descriptions, opening
+  // messages). The dashboard renders from the lighter journey.missions payload,
+  // so we only fetch the heavy planet data a journey actually needs to display:
+  //   • its active-mission card is shown (expanded by default, or tapped), OR
+  //   • one of its accordion missions is expanded.
+  // Journeys with no active mission (setup/voting/locked) load nothing until a
+  // teacher expands one — instead of every class fetching planets on page load.
+  useEffect(() => {
+    for (const j of journeys) {
+      if (fullMissions[j.id]) continue; // already loaded
+      const activeShown  = j.missions.some(m => m.state === 'active') && expanded === null;
+      const cardExpanded = j.missions.some(m => m.id === expanded);
+      if (!activeShown && !cardExpanded) continue;
+      fetch(`/api/teacher/missions?journeyId=${j.id}`)
+        .then(r => r.json())
+        .then(md => setFullMissions(prev => ({ ...prev, [j.id]: md.missions ?? [] })))
+        .catch(() => {});
+    }
+  }, [expanded, journeys, fullMissions]);
 
   async function toggleMission(mission: Mission) {
     if (activating) return;

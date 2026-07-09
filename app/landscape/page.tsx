@@ -7,8 +7,11 @@ import TopBar from '@/components/TopBar';
 import OrinOrb from '@/components/OrinOrb';
 import { t } from '@/lib/i18n';
 import Planet from '@/components/Planet';
+import dynamic from 'next/dynamic';
 import MissionOverlay from '@/components/MissionOverlay';
-import PipGuidePanel from '@/components/PipGuidePanel';
+// Heavy guide panel (~1000 lines) — only mounts when the teacher-guide sidebar
+// is opened, so it's split out of this page's first-load bundle.
+const PipGuidePanel = dynamic(() => import('@/components/PipGuidePanel'), { ssr: false });
 import { getBotName, loadStudent } from '@/lib/student-store';
 import { getPlanetMeta, PLANET_LAYOUT, PLANET_EDGES } from '@/lib/planet-meta';
 
