@@ -18,6 +18,7 @@ import { z, parseBody } from '@/lib/validate';
 
 const Schema = z.object({
   journeyId: z.string().min(1, 'journeyId required'),
+  language:  z.enum(['en', 'he']).default('en'),
 });
 
 export async function POST(req: NextRequest) {
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
 
   const parsed = await parseBody(req, Schema);
   if (!parsed.ok) return parsed.response;
-  const { journeyId } = parsed.data;
+  const { journeyId, language } = parsed.data;
 
   // Verify journey template exists
   const { data: journey } = await supabaseAdmin
@@ -75,6 +76,7 @@ export async function POST(req: NextRequest) {
       teacher_id: parentId,
       title:      journey.title,
       type:       'family',
+      language,
       // google_course_id deliberately omitted (NULL) for family classes
     })
     .select('id')

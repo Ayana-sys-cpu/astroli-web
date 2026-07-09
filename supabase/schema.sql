@@ -96,6 +96,8 @@ CREATE TABLE IF NOT EXISTS journeys (
   id                     UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
   google_course_id       TEXT        UNIQUE,          -- NULL for curriculum templates
   title                  TEXT        NOT NULL,
+  description            TEXT        NOT NULL DEFAULT '',
+  language               TEXT        NOT NULL DEFAULT 'en', -- 'en' | 'he'
   teacher_id             UUID        REFERENCES users(user_id) ON DELETE CASCADE, -- NULL for curriculum templates
   curriculum_journey_id  UUID        REFERENCES journeys(id) ON DELETE SET NULL,
   last_material_sync_at  TIMESTAMPTZ,

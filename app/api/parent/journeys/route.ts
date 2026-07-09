@@ -8,7 +8,7 @@ import { supabaseAdmin } from '@/lib/supabase-server';
 import { requireAuth } from '@/lib/auth';
 import { resolveParentId } from '@/lib/parent-auth';
 
-export async function GET() {
+export async function GET(req: Request) {
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
 
@@ -17,13 +17,15 @@ export async function GET() {
     return NextResponse.json({ error: 'Forbidden: parent session required' }, { status: 403 });
   }
 
-  // Single query: embed missions via the FK relation (PostgREST LEFT JOIN).
-  // Previously: two sequential awaits (journeys → then mission count).
-  // Now: one round-trip; mission count derived from the embedded array length.
+  const { searchParams } = new URL(req.url);
+  const lang = searchParams.get('language') ?? 'en';
+  const language = lang === 'he' ? 'he' : 'en';
+
   const { data: journeys, error } = await supabaseAdmin
     .from('journeys')
     .select('id, title, description, missions(id)')
     .eq('is_template', true)
+    .eq('language', language)
     .order('title');
 
   if (error) {

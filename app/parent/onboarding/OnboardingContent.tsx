@@ -46,21 +46,30 @@ export default function ParentOnboardingContent() {
   const [journeys,  setJourneys]  = useState<Journey[]>([]);
   const [selected,  setSelected]  = useState<string | null>(null);
   const [locked,    setLocked]    = useState(false);
+  const [language,  setLanguage]  = useState<'en' | 'he'>('en');
+  const [journeysLoading, setJourneysLoading] = useState(true);
 
-  // Prefetch on mount so journey data is ready before the user reaches step 2.
-  // Previously: fired only on step-change, making the user wait after "Continue".
   useEffect(() => {
-    fetchJourneys();
-  }, []);
+    fetchJourneys(language);
+  }, [language]);
 
-  async function fetchJourneys() {
+  async function fetchJourneys(lang: 'en' | 'he') {
+    setJourneysLoading(true);
     try {
-      const res  = await fetch('/api/parent/journeys');
+      const res  = await fetch(`/api/parent/journeys?language=${lang}`);
       const data = await res.json();
       setJourneys(data.journeys ?? []);
     } catch {
       // network error — leave list empty, user can retry
+    } finally {
+      setJourneysLoading(false);
     }
+  }
+
+  function handleLanguageChange(lang: 'en' | 'he') {
+    if (lang === language) return;
+    setLanguage(lang);
+    setSelected(null);
   }
 
   async function handleSendInvite(e: React.FormEvent) {
@@ -109,7 +118,7 @@ export default function ParentOnboardingContent() {
     const res  = await fetch('/api/parent/family-class', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ journeyId: selected }),
+      body:    JSON.stringify({ journeyId: selected, language }),
     });
     const data = await res.json();
     setLoading(false);
@@ -257,7 +266,36 @@ export default function ParentOnboardingContent() {
             </p>
           </div>
 
-          {journeys.length === 0 ? (
+          {/* Language toggle */}
+          <div
+            className="flex rounded-lg overflow-hidden"
+            style={{ border: '1px solid rgba(255,255,255,0.12)', width: 'fit-content' }}
+            role="group"
+            aria-label="Journey language"
+          >
+            {(['en', 'he'] as const).map((lang) => {
+              const active = language === lang;
+              return (
+                <button
+                  key={lang}
+                  type="button"
+                  onClick={() => handleLanguageChange(lang)}
+                  className="font-space text-xs font-bold px-4 py-2 transition-colors"
+                  style={{
+                    background:  active ? '#00F5D4' : 'transparent',
+                    color:       active ? '#000'    : 'rgba(255,255,255,0.45)',
+                    border:      'none',
+                    cursor:      'pointer',
+                    letterSpacing: '0.08em',
+                  }}
+                >
+                  {lang === 'en' ? 'English' : 'עברית'}
+                </button>
+              );
+            })}
+          </div>
+
+          {journeysLoading ? (
             <div className="space-y-2" aria-busy="true" aria-label="Loading journeys">
               {[1, 2, 3].map(i => (
                 <div
@@ -273,6 +311,10 @@ export default function ParentOnboardingContent() {
                 </div>
               ))}
             </div>
+          ) : journeys.length === 0 ? (
+            <p className="font-inter text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              No {language === 'he' ? 'Hebrew' : 'English'} journeys are available yet.
+            </p>
           ) : (
             <form onSubmit={handlePickJourney} className="space-y-4">
               <div className="space-y-2">
