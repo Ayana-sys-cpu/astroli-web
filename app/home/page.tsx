@@ -1,22 +1,17 @@
 'use client';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
 import JourneyCard from '@/components/student/JourneyCard';
-import StoreButton from '@/components/StoreButton';
-import { getAlienName, getBaseAvatarUrl, getInterest, generateAlienName, clearSession, getFirstName } from '@/lib/student-store';
-import { supabaseSignOut } from '@/lib/session';
+import TopBar from '@/components/TopBar';
+import { getFirstName } from '@/lib/student-store';
 import type { HomeJourney } from '@/lib/student-home';
 
 export default function HomePage() {
   const router = useRouter();
   const [journeys, setJourneys] = useState<HomeJourney[] | null>(null);
   const [hasParent, setHasParent] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [alienName] = useState(() => getAlienName() || generateAlienName(getInterest() || 'traveller'));
-  const [avatarUrl] = useState(() => getBaseAvatarUrl());
   const [firstName] = useState(() => getFirstName());
 
   const load = useCallback(async () => {
@@ -41,21 +36,6 @@ export default function HomePage() {
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
   }, [load]);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [menuOpen]);
-
-  const handleSignOut = () => {
-    clearSession();
-    supabaseSignOut().catch(() => {});
-    router.push('/');
-  };
 
   const handleCardClick = (journey: HomeJourney) => {
     if (journey.status === 'idle') {
@@ -87,53 +67,9 @@ export default function HomePage() {
         }}
       />
 
-      <header className="relative z-10 flex items-center gap-4 px-7 py-4 border-b border-white/8">
-        <button
-          onClick={() => router.push('/home')}
-          className="font-space font-black text-sm tracking-[0.22em] gradient-wordmark"
-          aria-label="Go to home"
-        >
-          ASTROLI
-        </button>
-        <div className="flex-1" />
-        <StoreButton />
-        <div className="relative" ref={menuRef}>
-          <button
-            onClick={() => setMenuOpen((prev) => !prev)}
-            className="flex items-center gap-2.5 pl-1.5 pr-3.5 py-1.5 rounded-full"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}
-          >
-            <div
-              className="w-[34px] h-[34px] rounded-full overflow-hidden flex-shrink-0"
-              style={{ border: '1.5px solid rgba(168,85,247,0.4)' }}
-            >
-              {avatarUrl
-                ? <img src={avatarUrl} alt={alienName} className="w-full h-full object-cover" />
-                : <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, #1d0033, #06000f)' }} />}
-            </div>
-            <div className="flex flex-col items-start">
-              <span className="font-space font-bold text-xs tracking-[0.08em] text-white uppercase">{alienName}</span>
-              <span className="text-[9px] text-white/35 tracking-[0.1em] uppercase">Traveller</span>
-            </div>
-          </button>
+      <TopBar showStore left="" initials={firstName[0]?.toUpperCase() ?? 'A'} />
 
-          {menuOpen && (
-            <div
-              className="absolute top-12 right-0 w-40 rounded-lg overflow-hidden z-50"
-              style={{ background: 'rgba(0,10,18,0.95)', border: '1px solid rgba(0,196,204,0.2)', boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}
-            >
-              <button
-                onClick={handleSignOut}
-                className="w-full px-4 py-3 text-left text-[11px] tracking-[0.15em] font-space text-white/60 hover:text-white hover:bg-white/5 transition-colors uppercase"
-              >
-                Sign Out
-              </button>
-            </div>
-          )}
-        </div>
-      </header>
-
-      <div className="relative z-10 px-7 py-8 max-w-4xl mx-auto">
+      <div className="relative z-10 mt-11 px-7 py-8 max-w-4xl mx-auto">
         <p className="font-caveat text-3xl text-white/80 mb-1">Welcome back, {firstName}.</p>
         <p className="text-[10px] tracking-[0.28em] font-space uppercase text-white/30 mb-8">
           {!journeys ? 'SYNCING YOUR JOURNEYS…' : journeys.length === 0 ? 'YOUR JOURNEY AWAITS ACROSS THE STARS' : `YOU HAVE ${journeys.length} JOURNEY${journeys.length === 1 ? '' : 'S'} ACROSS THE STARS`}
