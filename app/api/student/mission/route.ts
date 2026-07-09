@@ -112,7 +112,7 @@ export async function GET(req: NextRequest) {
     const [planetRes, classRes] = await Promise.all([
       supabaseAdmin
         .from('planets')
-        .select('id, title, label, short_title, planet_question, content, opening_message, character_figure, character_year, character_location, student_reveal_message, media_url, media_type, translations, mission_id, missions!mission_id ( language, translations )')
+        .select('id, title, label, short_title, planet_question, content, opening_message, character_figure, character_year, character_location, student_reveal_message, media_url, media_type, translations, mission_id, missions!mission_id ( language, translations, journey_id )')
         .eq('id', planetId)
         .single(),
       classId
@@ -126,7 +126,30 @@ export async function GET(req: NextRequest) {
     }
 
     const missionData = (data as any).missions;
-    const classLang = (classRes as any).data?.language;
+    let classLang = (classRes as any).data?.language as string | undefined;
+
+    // When classId wasn't provided (e.g. AvatarBot floating panel), resolve the
+    // class language from the student's enrollment — same as the missionId path.
+    if (!classLang) {
+      const journeyId = missionData?.journey_id;
+      if (journeyId) {
+        const { data: enrollment } = await supabaseAdmin
+          .from('student_classes')
+          .select('class_id')
+          .eq('student_id', studentId)
+          .eq('template_journey_id', journeyId)
+          .maybeSingle();
+        if (enrollment?.class_id) {
+          const { data: classRow } = await supabaseAdmin
+            .from('classes')
+            .select('language')
+            .eq('id', enrollment.class_id)
+            .maybeSingle();
+          classLang = classRow?.language ?? undefined;
+        }
+      }
+    }
+
     const missionLanguage: 'en' | 'he' = classLang === 'he' ? 'he' : classLang === 'en' ? 'en' : (missionData?.language === 'he' ? 'he' : 'en');
 
     const ptx = (((data as any).translations as Record<string, any>) ?? {})[missionLanguage] ?? {};
