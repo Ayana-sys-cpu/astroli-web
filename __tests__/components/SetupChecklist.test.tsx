@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useRouter } from 'next/navigation';
-import SetupChecklist from '@/app/parent/dashboard/SetupChecklist';
+import SetupChecklist from '@/app/parent/(app)/dashboard/SetupChecklist';
 
 vi.mock('next/navigation', () => ({ useRouter: vi.fn() }));
 

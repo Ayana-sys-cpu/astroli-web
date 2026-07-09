@@ -753,7 +753,8 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
   const [showCelebration,    setShowCelebration]    = useState(false);
 
   const [messages,           setMessages]           = useState<ChatMsg[]>([]);
-  const [dock,               setDock]               = useState<DockState>('lock');
+  const [hasPipHistory,      setHasPipHistory]      = useState(false);
+  const [dock,               setDock]               = useState<DockState>('cta-howto');
   const [qaIdx,              setQaIdx]              = useState(0);
   const [allSummaries,       setAllSummaries]       = useState<LockedPlanetSummary[]>([]);
   const [showAllDiscoveries, setShowAllDiscoveries] = useState(false);
@@ -803,6 +804,7 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
         if (stateData?.returnTrigger) setReturnTrigger(stateData.returnTrigger);
         // Pre-load persisted Pip message history (T019)
         if (stateData?.pipMessages?.length > 0) {
+          setHasPipHistory(true);
           setMessages(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             stateData.pipMessages.map((m: any) => ({
@@ -820,7 +822,7 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
   // ── Show opening sequence once both mission data and state are loaded ──────
   // Gates on hasConfirmed !== null so we never fire before mission-state resolves.
   useEffect(() => {
-    if (!mission || hasConfirmed === null) return;
+    if (!mission || hasConfirmed === null || hasPipHistory) return;
 
     if (hasConfirmed) {
       // Return visitor — show context-aware return message (T015)
@@ -850,7 +852,7 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
     }, 1600);
     return () => { clearTimeout(t1); clearTimeout(t2); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mission, hasConfirmed, savePip]);
+  }, [mission, hasConfirmed, hasPipHistory, savePip]);
 
   async function handleViewDiscoveries() {
     try {

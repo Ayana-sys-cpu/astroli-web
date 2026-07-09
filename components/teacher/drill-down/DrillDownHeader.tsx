@@ -16,9 +16,10 @@ function avatarColor(id: string): string {
 
 interface Props {
   student: DrillDownStudent;
+  hideBackButton?: boolean;
 }
 
-export default function DrillDownHeader({ student }: Props) {
+export default function DrillDownHeader({ student, hideBackButton }: Props) {
   const router = useRouter();
   const color = avatarColor(student.id);
 
@@ -37,28 +38,30 @@ export default function DrillDownHeader({ student }: Props) {
       }}
     >
       {/* Back button — 44×44px touch target */}
-      <button
-        className="dd-btn"
-        onClick={() => router.push('/teacher/progress')}
-        aria-label="Back to students"
-        style={{
-          background: 'none',
-          border: 'none',
-          color: 'rgba(26,26,46,0.4)',
-          fontSize: 20,
-          cursor: 'pointer',
-          padding: '0 10px 0 4px',
-          lineHeight: 1,
-          flexShrink: 0,
-          minWidth: 44,
-          minHeight: 44,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        ‹
-      </button>
+      {!hideBackButton && (
+        <button
+          className="dd-btn"
+          onClick={() => router.push('/teacher/progress')}
+          aria-label="Back to students"
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'rgba(26,26,46,0.4)',
+            fontSize: 20,
+            cursor: 'pointer',
+            padding: '0 10px 0 4px',
+            lineHeight: 1,
+            flexShrink: 0,
+            minWidth: 44,
+            minHeight: 44,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          ‹
+        </button>
+      )}
 
       {/* Avatar */}
       <div
