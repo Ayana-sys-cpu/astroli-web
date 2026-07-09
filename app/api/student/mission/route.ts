@@ -61,8 +61,16 @@ export async function GET(req: NextRequest) {
       classLanguage = classRes.data?.language === 'he' ? 'he' : 'en';
     }
 
-    const language: 'en' | 'he' = classLanguage ?? ((data as any).language === 'he' ? 'he' : 'en');
+    const missionBaseLang: 'en' | 'he' = (data as any).language === 'he' ? 'he' : 'en';
     const translations = ((data as any).translations as Record<string, any>) ?? {};
+    const heTranslations = translations['he'] ?? {};
+    const hasHeTranslations = Object.keys(heTranslations).length > 0;
+    // Only honour classLanguage='he' when the mission has Hebrew translations;
+    // otherwise fall back to the mission's authored language so the bot and
+    // content stay in sync.
+    const language: 'en' | 'he' = classLanguage === 'he' && hasHeTranslations ? 'he'
+      : classLanguage === 'en' ? 'en'
+      : missionBaseLang;
     const missionTx = translations[language] ?? {};
 
     return NextResponse.json({
