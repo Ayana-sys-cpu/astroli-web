@@ -5,16 +5,25 @@ import { MOCK_STUDENT_USER } from '@/lib/dev/mock-student-user';
 import { clearSession } from '@/lib/student-store';
 import { supabaseSignOut } from '@/lib/session';
 import StoreButton from '@/components/StoreButton';
+import type { ReactNode } from 'react';
 
 interface TopBarProps {
   left?: string;
-  center?: string;
+  center?: ReactNode;
   showUser?: boolean;
   showHome?: boolean;
   showStore?: boolean;
+  backToMap?: string;
+  initials?: string;
 }
 
-export default function TopBar({ left, center, showUser = true, showHome = true, showStore = false }: TopBarProps) {
+function getInitials(displayName: string): string {
+  const parts = displayName.trim().split(/[\s.]+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return parts[0]?.[0]?.toUpperCase() ?? 'A';
+}
+
+export default function TopBar({ left, center, showUser = true, showHome = true, showStore = false, backToMap, initials }: TopBarProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -36,6 +45,8 @@ export default function TopBar({ left, center, showUser = true, showHome = true,
     router.push('/');
   };
 
+  const avatarInitials = initials ?? getInitials(MOCK_STUDENT_USER.displayName);
+
   return (
     <header className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-5 py-3 border-b border-white/5 bg-black/40 backdrop-blur-sm">
       <div className="flex items-center gap-3">
@@ -48,15 +59,31 @@ export default function TopBar({ left, center, showUser = true, showHome = true,
             ASTROLI
           </button>
         )}
-        <span className="text-[10px] tracking-[0.22em] text-white/35 font-space uppercase">
-          {left ?? 'MISSION 03 · WHO OWNS THE TRUTH?'}
-        </span>
+        {backToMap ? (
+          <button
+            onClick={() => router.push(backToMap)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-md text-[11px] font-space tracking-[0.12em] font-semibold uppercase transition-all"
+            style={{
+              border: '1px solid rgba(255,45,120,.4)',
+              background: 'rgba(255,45,120,.08)',
+              color: '#FF2D78',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,45,120,.16)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,45,120,.08)'; }}
+          >
+            ← MAP
+          </button>
+        ) : (
+          <span className="text-[10px] tracking-[0.22em] text-white/35 font-space uppercase">
+            {left ?? 'MISSION 03 · WHO OWNS THE TRUTH?'}
+          </span>
+        )}
       </div>
 
       {center && (
-        <span className="absolute left-1/2 -translate-x-1/2 text-[10px] tracking-widest text-[#00C4CC]/70 font-space uppercase">
+        <div className="absolute left-1/2 -translate-x-1/2">
           {center}
-        </span>
+        </div>
       )}
 
       {(showStore || showUser) && (
@@ -64,13 +91,12 @@ export default function TopBar({ left, center, showUser = true, showHome = true,
           {showStore && <StoreButton />}
           {showUser && (
             <>
-              <span className="text-[11px] text-white/40 font-space">{MOCK_STUDENT_USER.displayName}</span>
               <button
                 onClick={() => setMenuOpen(prev => !prev)}
                 className="w-6 h-6 rounded-full border border-[#00C4CC]/50 flex items-center justify-center bg-[#001820] cursor-pointer hover:border-[#00C4CC] transition-colors"
               >
                 <span className="text-[9px] text-[#00C4CC] font-space font-bold">
-                  {MOCK_STUDENT_USER.firstName[0]}
+                  {avatarInitials}
                 </span>
               </button>
 

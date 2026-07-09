@@ -7,8 +7,9 @@ import OrinOrb from '@/components/OrinOrb';
 import { getPlanetMeta } from '@/lib/planet-meta';
 import { PLANET_EXPERIENCE } from '@/lib/planet-experience';
 import { useOrinChat } from '@/hooks/useOrinChat';
-import { getFirstName, clearSession, loadStudent } from '@/lib/student-store';
-import { supabaseSignOut, getSessionStudentId } from '@/lib/session';
+import { getFirstName, loadStudent } from '@/lib/student-store';
+import { getSessionStudentId } from '@/lib/session';
+import TopBar from '@/components/TopBar';
 import { usePlanetVoice } from '@/hooks/usePlanetVoice';
 import { useCoinReward } from '@/hooks/useCoinReward';
 import dynamic from 'next/dynamic';
@@ -16,7 +17,6 @@ import dynamic from 'next/dynamic';
 // so it's code-split out of the initial page bundle.
 const PlanetVoicePanel = dynamic(() => import('@/components/PlanetVoicePanel'), { ssr: false });
 import PlanetSummaryScreen from '@/components/PlanetSummaryScreen';
-import StoreButton from '@/components/StoreButton';
 import { t, type Lang } from '@/lib/i18n';
 import { type SummaryInsight } from '@/hooks/usePlanetVoice';
 import type { MissionTerm } from '@/lib/orin-guide-types';
@@ -55,24 +55,7 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
   const [savedInsights, setSavedInsights]         = useState<SummaryInsight[]>([]);
   const [savedIntroducedTerms, setSavedIntroducedTerms] = useState<MissionTerm[]>([]);
   const [showSummaryReview, setShowSummaryReview] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const chatPanelRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [menuOpen]);
-
-  const handleSignOut = () => {
-    clearSession();
-    supabaseSignOut().catch(() => {});
-    router.push('/');
-  };
 
   useEffect(() => { isThinkingRef.current = isAvatarThinking; }, [isAvatarThinking]);
 
@@ -234,8 +217,6 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
             ? `${figureLocation} · ${experience.year} CE`
             : experience?.year ? `${experience.year} CE` : null);
 
-  const displayName = (() => { const n = firstName; return n ? n[0].toUpperCase() + n.slice(1, 2) + '.' : 'A.'; })();
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -245,69 +226,17 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
     >
       <StarField count={60} seed={params.id.length * 7} />
 
-      {/* Top bar */}
-      <header className="relative z-20 flex-shrink-0 flex items-center justify-between px-5 h-11 border-b border-white/5 bg-black/40 backdrop-blur-sm">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.push('/home')}
-            className="font-space font-black text-sm tracking-[0.22em] gradient-wordmark"
-            aria-label="Go to home"
-          >
-            ASTROLI
-          </button>
-          <button
-            onClick={() => router.push(classId ? `/landscape?classId=${classId}` : '/landscape')}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-md text-[11px] font-space tracking-[0.12em] font-semibold uppercase transition-all"
-            style={{
-              border: '1px solid rgba(255,45,120,.4)',
-              background: 'rgba(255,45,120,.08)',
-              color: '#FF2D78',
-              animation: 'mapPulse 3s ease-in-out infinite',
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,45,120,.16)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,45,120,.08)'; }}
-          >
-            {t('backToMap', missionLang)}
-          </button>
-        </div>
-        {figureDisplayName && (
+      <TopBar
+        backToMap={classId ? `/landscape?classId=${classId}` : '/landscape'}
+        center={figureDisplayName ? (
           <span className="text-[10px] tracking-wide text-[#a855f7]/60 font-space flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#a855f7] inline-block" />
             {figureDisplayName} {t('isPresenting', missionLang)}
           </span>
-        )}
-        <div className="flex items-center gap-2.5">
-        <StoreButton />
-        <div className="relative" ref={menuRef}>
-          <button
-            className="flex items-center gap-2 group"
-            title="Account"
-            onClick={() => setMenuOpen((prev) => !prev)}
-          >
-            <span className="text-[11px] text-white/40 font-space group-hover:text-white/70 transition-colors">{displayName}</span>
-            <div className="w-6 h-6 rounded-full border border-[#a855f7]/50 flex items-center justify-center bg-[#001820] group-hover:border-[#a855f7] transition-colors">
-              <span className="text-[9px] text-[#a855f7] font-space font-bold">
-                {firstName[0]?.toUpperCase() ?? 'A'}
-              </span>
-            </div>
-          </button>
-
-          {menuOpen && (
-            <div
-              className="absolute top-9 right-0 w-36 rounded-lg overflow-hidden z-50"
-              style={{ background: 'rgba(0,10,18,0.95)', border: '1px solid rgba(0,196,204,0.2)', boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}
-            >
-              <button
-                onClick={handleSignOut}
-                className="w-full px-4 py-3 text-left text-[11px] tracking-[0.15em] font-space text-white/60 hover:text-white hover:bg-white/5 transition-colors uppercase"
-              >
-                Sign Out
-              </button>
-            </div>
-          )}
-        </div>
-        </div>
-      </header>
+        ) : undefined}
+        showStore
+        initials={firstName[0]?.toUpperCase() ?? 'A'}
+      />
 
       {/* Main content row */}
       <div className="flex flex-1 overflow-hidden min-h-0">
