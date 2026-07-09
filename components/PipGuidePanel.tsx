@@ -840,7 +840,10 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
     // First-time visitor — existing opening flow
     const t1 = setTimeout(() => showTyping(), 300);
     const t2 = setTimeout(() => {
-      const firstName = getFirstName();
+      const rawFirst = getFirstName();
+      const firstName = rawFirst && !rawFirst.includes(' ') && rawFirst.includes('.')
+        ? rawFirst.split('.')[0].replace(/^./, (c: string) => c.toUpperCase())
+        : rawFirst;
       const html = mission.openingMessage
         .replace(/\{\{first_name\}\}/g, firstName)
         .replace(/\[שם תלמיד\]/g, firstName)
