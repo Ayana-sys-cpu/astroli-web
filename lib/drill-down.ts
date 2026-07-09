@@ -118,12 +118,19 @@ export async function getStudentDrillDown(
   // (same table/pattern used by lib/signals.ts and the student planet-summaries route).
   const { data: sessionRows } = await supabaseAdmin
     .from('planet_session_state')
-    .select('planet_id, completed')
+    .select('planet_id, completed, perkins_map')
     .eq('student_id', studentId)
     .in('planet_id', planetIds);
 
-  const sessionByPlanetId = new Map(
-    (sessionRows ?? []).map((r) => [(r as any).planet_id as string, (r as any).completed as boolean]),
+  type SessionEntry = { completed: boolean; perkinsMap: Record<string, number | null> | null };
+  const sessionByPlanetId = new Map<string, SessionEntry>(
+    (sessionRows ?? []).map((r) => [
+      (r as any).planet_id as string,
+      {
+        completed: (r as any).completed as boolean,
+        perkinsMap: ((r as any).perkins_map as Record<string, number | null> | null) ?? null,
+      },
+    ]),
   );
 
   // planet_summary_goals only stores a teaching_goal_id FK, not a title — resolve a
@@ -175,15 +182,24 @@ export async function getStudentDrillDown(
         }));
 
         const missionPending = mission.state !== 'active' && mission.state !== 'completed';
+        const session = sessionByPlanetId.get(planet.id);
         let storedStatus: PlanetStatus;
         if (summary) {
           storedStatus = 'completed';
-        } else if (sessionByPlanetId.has(planet.id)) {
-          storedStatus = sessionByPlanetId.get(planet.id) ? 'completed' : 'in_progress';
+        } else if (session) {
+          storedStatus = session.completed ? 'completed' : 'in_progress';
         } else {
           storedStatus = 'not_started';
         }
         const resolvedStatus: PlanetStatus = missionPending ? 'pending_activation' : storedStatus;
+
+        const perkinsMap = session?.perkinsMap ?? null;
+        const discoveredGoalCount =
+          !summary && perkinsMap
+            ? Object.values(perkinsMap).filter((v) => v !== null).length
+            : 0;
+        const inProgressTotalGoalCount =
+          !summary && perkinsMap ? Object.keys(perkinsMap).length : 0;
 
         const performance: PerformanceInfo | null = summary
           ? {
@@ -204,7 +220,8 @@ export async function getStudentDrillDown(
           performance,
           completedAt: summary?.completedAt?.toISOString() ?? null,
           goals,
-          teachingGoalCount: goals.length,
+          teachingGoalCount: goals.length > 0 ? goals.length : inProgressTotalGoalCount,
+          discoveredGoalCount,
         });
       }
     }

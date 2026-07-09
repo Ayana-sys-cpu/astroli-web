@@ -77,11 +77,15 @@ export default function SubjectRow({ subject, mode, studentInitials, isExpanded,
           }}>
             {subject.planetTitle}
           </div>
-          {subject.teachingGoalCount > 0 && (
+          {subject.status === 'in_progress' && subject.discoveredGoalCount > 0 ? (
+            <div style={{ fontSize: 11, color: 'rgba(139,0,255,0.6)', marginTop: 2, fontWeight: 500 }}>
+              {subject.discoveredGoalCount} of {subject.teachingGoalCount} {subject.teachingGoalCount === 1 ? 'goal' : 'goals'} discovered
+            </div>
+          ) : subject.teachingGoalCount > 0 ? (
             <div style={{ fontSize: 11, color: 'rgba(26,26,46,0.4)', marginTop: 2 }}>
               {subject.teachingGoalCount} {subject.teachingGoalCount === 1 ? 'goal' : 'goals'}
             </div>
-          )}
+          ) : null}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>

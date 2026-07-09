@@ -62,6 +62,8 @@ export interface SubjectSummary {
   completedAt: string | null;
   goals: GoalSummary[];
   teachingGoalCount: number;
+  /** For in_progress planets: how many goals have been explored so far (non-null perkins_map entries). 0 otherwise. */
+  discoveredGoalCount: number;
 }
 
 export interface DrillDownStudent {
