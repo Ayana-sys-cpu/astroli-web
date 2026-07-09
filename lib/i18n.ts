@@ -284,6 +284,14 @@ const strings = {
     en: 'NOT STARTED',
     he: 'לא התחיל',
   },
+  badgeIdleFamily: {
+    en: 'PICK A MISSION',
+    he: 'בחר משימה',
+  },
+  ctaPickMission: {
+    en: 'CHOOSE MISSION →',
+    he: 'בחר משימה →',
+  },
   ctaContinueMission: {
     en: 'CONTINUE MISSION →',
     he: 'המשך משימה →',

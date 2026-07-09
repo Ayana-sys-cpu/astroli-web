@@ -1,20 +1,34 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import StarField from '@/components/StarField';
+import MissionPlanet from './MissionPlanet';
+import WarpOverlay from './WarpOverlay';
 
 type Mission = { id: string; title: string; state: string; order: number };
 
+function worldsLabel(count: number): string {
+  if (count === 1) return 'ONE WORLD AWAITS';
+  if (count === 2) return 'TWO WORLDS AWAIT';
+  if (count === 3) return 'THREE WORLDS AWAIT';
+  if (count === 4) return 'FOUR WORLDS AWAIT';
+  return 'FIVE WORLDS AWAIT';
+}
+
 export default function FamilyMissionsContent() {
-  const router  = useRouter();
-  const params  = useSearchParams();
-  const classId = params.get('classId') ?? '';
+  const router   = useRouter();
+  const params   = useSearchParams();
+  const classId  = params.get('classId') ?? '';
 
   const [missions,   setMissions]   = useState<Mission[] | null>(null);
+  const [previewId,  setPreviewId]  = useState<string | null>(null);
   const [activating, setActivating] = useState<string | null>(null);
+  const [warping,    setWarping]    = useState(false);
   const [error,      setError]      = useState<string | null>(null);
+
+  const reducedMotion = useReducedMotion() ?? false;
 
   useEffect(() => {
     if (!classId) { router.replace('/home'); return; }
@@ -28,7 +42,7 @@ export default function FamilyMissionsContent() {
       .catch(() => router.replace('/home'));
   }, [classId, router]);
 
-  async function handleActivate(missionId: string) {
+  const handleActivate = useCallback(async (missionId: string) => {
     setActivating(missionId);
     setError(null);
 
@@ -50,10 +64,27 @@ export default function FamilyMissionsContent() {
       return;
     }
 
-    router.replace(`/landscape?classId=${classId}`);
-  }
+    if (reducedMotion) {
+      router.replace(`/landscape?classId=${classId}`);
+    } else {
+      setWarping(true);
+      setTimeout(() => router.replace(`/landscape?classId=${classId}`), 820);
+    }
+  }, [classId, reducedMotion, router]);
 
-  const availableMissions = (missions ?? []).filter(m => m.state === 'locked' || m.state === 'active');
+  const handleSelect = useCallback((missionId: string) => {
+    if (previewId !== missionId) {
+      // First tap / hover-click on a new planet → preview only
+      setPreviewId(missionId);
+    } else {
+      // Second tap on the already-previewed planet → launch
+      handleActivate(missionId);
+    }
+  }, [previewId, handleActivate]);
+
+  const availableMissions = (missions ?? [])
+    .filter(m => m.state === 'locked' || m.state === 'active')
+    .sort((a, b) => a.order - b.order);
 
   return (
     <motion.div
@@ -64,12 +95,18 @@ export default function FamilyMissionsContent() {
     >
       <StarField count={100} seed={42} />
 
+      {/* Nebula ambient glow */}
       <div
+        aria-hidden
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: 'radial-gradient(ellipse at 20% -10%, rgba(123,47,190,0.12) 0%, transparent 55%), radial-gradient(ellipse at 85% 100%, rgba(0,245,212,0.07) 0%, transparent 55%)',
+          background:
+            'radial-gradient(ellipse at 20% -10%, rgba(123,47,190,0.14) 0%, transparent 55%), radial-gradient(ellipse at 85% 100%, rgba(0,245,212,0.07) 0%, transparent 55%)',
         }}
       />
+
+      {/* Warp animation — covers everything */}
+      <WarpOverlay active={warping} onComplete={() => {}} />
 
       <header className="relative z-10 flex items-center px-7 py-4 border-b border-white/8">
         <button
@@ -81,68 +118,69 @@ export default function FamilyMissionsContent() {
         </button>
       </header>
 
-      <div className="relative z-10 px-7 py-8 max-w-2xl mx-auto">
-        <h1 className="font-caveat text-3xl text-white/80 mb-1">Choose your mission</h1>
-        <p className="text-[10px] tracking-[0.28em] font-space uppercase text-white/30 mb-8">
-          Pick a mission to start exploring
-        </p>
+      <div className="relative z-10 flex flex-col items-center px-6 pt-10 pb-16 min-h-[calc(100vh-57px)]">
+        {/* Heading */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15, duration: 0.45 }}
+          className="text-center mb-12 md:mb-16"
+        >
+          <h1 className="font-caveat text-3xl md:text-4xl text-white/85 mb-1">
+            Choose your destination
+          </h1>
+          {missions && availableMissions.length > 0 && (
+            <p className="text-[10px] tracking-[0.3em] font-space uppercase text-white/30">
+              {worldsLabel(availableMissions.length)}
+            </p>
+          )}
+        </motion.div>
 
+        {/* Planet grid */}
         {!missions ? (
-          <motion.div
+          <motion.p
             animate={{ opacity: [0.3, 0.7, 0.3] }}
             transition={{ duration: 1.6, repeat: Infinity }}
             className="text-[10px] tracking-[0.3em] font-space uppercase text-white/40"
           >
             LOADING…
-          </motion.div>
+          </motion.p>
         ) : availableMissions.length === 0 ? (
           <p className="text-white/40 text-sm">No missions available yet.</p>
         ) : (
-          <div className="space-y-3">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3, duration: 0.5 }}
+            className="flex items-end justify-center gap-8 md:gap-14 flex-wrap"
+          >
             {availableMissions.map((mission, i) => (
               <motion.div
                 key={mission.id}
-                initial={{ opacity: 0, y: 12 }}
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.06 }}
-                className="relative rounded-[18px] p-5 cursor-pointer group"
-                style={{
-                  background: 'linear-gradient(145deg, #1a1726 0%, #14121d 100%)',
-                  border: '1px solid rgba(160,32,240,0.22)',
-                }}
-                onClick={() => !activating && handleActivate(mission.id)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleActivate(mission.id); } }}
+                transition={{ delay: 0.35 + i * 0.1, duration: 0.45 }}
               >
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-[10px] tracking-[0.22em] font-space uppercase text-white/30 mb-1">
-                      Mission {mission.order ?? i + 1}
-                    </p>
-                    <p className="text-white/85 font-medium text-sm leading-snug">{mission.title}</p>
-                  </div>
-
-                  <motion.button
-                    className="flex-shrink-0 px-4 py-2 rounded-[10px] text-[11px] font-bold tracking-[0.12em] uppercase"
-                    style={{
-                      background: activating === mission.id ? 'rgba(160,32,240,0.25)' : 'rgba(160,32,240,0.13)',
-                      border: '1px solid rgba(160,32,240,0.4)',
-                      color: '#cd9bff',
-                    }}
-                    whileHover={!activating ? { background: 'rgba(160,32,240,0.25)' } as any : {}}
-                    disabled={!!activating}
-                  >
-                    {activating === mission.id ? 'Starting…' : 'Start'}
-                  </motion.button>
-                </div>
+                <MissionPlanet
+                  mission={mission}
+                  isPreview={previewId === mission.id}
+                  isActivating={activating === mission.id}
+                  showRing={availableMissions.length >= 3}
+                  onSelect={handleSelect}
+                />
               </motion.div>
             ))}
-          </div>
+          </motion.div>
         )}
 
         {error && (
-          <p className="mt-4 text-sm text-red-400">{error}</p>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mt-8 text-sm text-red-400 text-center"
+          >
+            {error}
+          </motion.p>
         )}
       </div>
     </motion.div>

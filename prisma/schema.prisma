@@ -367,17 +367,20 @@ model ClassMissionState {
 }
 
 model PlanetSummary {
-  id              String              @id @default(dbgenerated("(gen_random_uuid())::text"))
-  studentId       String              @map("student_id")
-  planetId        String              @map("planet_id")
-  status          PlanetSummaryStatus @default(not_started)
-  performanceType String?             @map("performance_type")
-  assessedAt      DateTime?           @map("assessed_at") @db.Timestamptz(6)
-  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  goals           PlanetSummaryGoal[]
-  planet          Planet              @relation(fields: [planetId], references: [id], onDelete: Cascade)
-  student         User                @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  id                               String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId                        String              @map("student_id")
+  planetId                        String              @map("planet_id")
+  completedAt                      DateTime            @map("completed_at") @db.Timestamptz(6)
+  completionType                   String              @map("completion_type")
+  highestPerkinsLevelDemonstrated  Int?                @map("highest_perkins_level_demonstrated")
+  totalActiveTimeMinutes           Float?              @map("total_active_time_minutes")
+  totalGenuineExchanges            Int?                @map("total_genuine_exchanges")
+  additionalInsight                String?             @map("additional_insight")
+  termDefinitions                  Json                @default("[]") @map("term_definitions")
+  createdAt                        DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  goals                            PlanetSummaryGoal[]
+  planet                           Planet              @relation(fields: [planetId], references: [id], onDelete: Cascade)
+  student                          User                @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, planetId])
   @@index([studentId])
@@ -386,14 +389,17 @@ model PlanetSummary {
 }
 
 model PlanetSummaryGoal {
-  id              String        @id @default(dbgenerated("(gen_random_uuid())::text"))
-  summaryId       String        @map("summary_id")
-  goalTitle       String        @map("goal_title")
-  performanceType String?       @map("performance_type")
-  botQuestion     String        @map("bot_question")
-  studentAnswer   String        @map("student_answer")
-  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  summary         PlanetSummary @relation(fields: [summaryId], references: [id], onDelete: Cascade)
+  id                        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  summaryId                 String        @map("summary_id") @db.Uuid
+  teachingGoalId             String?       @map("teaching_goal_id") @db.Uuid
+  perkinsLevelDemonstrated  Int?          @map("perkins_level_demonstrated")
+  insightText                String?       @map("insight_text")
+  studentAddition            String?       @map("student_addition")
+  conversationEvidence       String?       @map("conversation_evidence")
+  termName                   String?       @map("term_name")
+  createdAt                  DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  summary                    PlanetSummary @relation(fields: [summaryId], references: [id], onDelete: Cascade)
 
   @@index([summaryId])
   @@map("planet_summary_goals")
@@ -453,10 +459,4 @@ enum MaterialType {
   YOUTUBE
   LINK
   OTHER
-}
-
-enum PlanetSummaryStatus {
-  not_started
-  in_progress
-  completed
 }

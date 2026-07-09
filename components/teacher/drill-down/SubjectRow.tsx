@@ -2,39 +2,15 @@
 import { useState } from 'react';
 import PerformanceBadge from './PerformanceBadge';
 import GoalCard from './GoalCard';
-import type { SubjectSummary } from '@/lib/drill-down-types';
+import type { SubjectSummary, PerformanceInfo } from '@/lib/drill-down-types';
+import { performanceLabel } from '@/lib/drill-down-types';
 
-const PERKINS_RANK_OUT_OF_10: Record<string, number> = {
-  grace_completion: 1,
-  explaining: 2,
-  mustering_evidence: 3,
-  finding_examples: 4,
-  generalizing: 5,
-  applying_concepts: 6,
-  analogizing: 7,
-  representing_in_new_ways: 8,
-  considering_alternatives: 9,
-  actionable_extrapolation: 10,
-};
-
-const PERKINS_LABEL: Record<string, string> = {
-  grace_completion: 'Grace Completion',
-  explaining: 'Explaining',
-  mustering_evidence: 'Mustering Evidence',
-  finding_examples: 'Finding Examples',
-  generalizing: 'Generalizing',
-  applying_concepts: 'Applying Concepts',
-  analogizing: 'Analogizing',
-  representing_in_new_ways: 'Representing in New Ways',
-  considering_alternatives: 'Considering Alternatives',
-  actionable_extrapolation: 'Actionable Extrapolation',
-};
-
-function DotProgress({ performanceType }: { performanceType: string | null }) {
-  const filled = performanceType ? (PERKINS_RANK_OUT_OF_10[performanceType] ?? 0) : 0;
-  const name = performanceType ? (PERKINS_LABEL[performanceType] ?? performanceType) : null;
+function DotProgress({ performance }: { performance: PerformanceInfo | null }) {
+  // Grace completion means the target level wasn't demonstrated — shown as the lowest fill, not empty.
+  const filled = performance?.isGraceCompletion ? 1 : performance?.level ?? 0;
+  const name = performance ? performanceLabel(performance) : null;
   const tooltip = name
-    ? `${name} — level ${filled} of 10 on the Perkins Thinking Scale`
+    ? `${name} — level ${filled} of 7 on the Perkins Thinking Scale`
     : 'Not yet assessed';
   return (
     <div
@@ -43,7 +19,7 @@ function DotProgress({ performanceType }: { performanceType: string | null }) {
       aria-label={tooltip}
       role="img"
     >
-      {Array.from({ length: 10 }).map((_, i) => (
+      {Array.from({ length: 7 }).map((_, i) => (
         <div
           key={i}
           style={{
@@ -109,8 +85,8 @@ export default function SubjectRow({ subject, mode, studentInitials, isExpanded,
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-          <DotProgress performanceType={subject.performanceType} />
-          <PerformanceBadge performanceType={subject.performanceType} size="sm" />
+          <DotProgress performance={subject.performance} />
+          <PerformanceBadge performance={subject.performance} size="sm" />
         </div>
 
         {canExpand && (
@@ -161,10 +137,10 @@ export default function SubjectRow({ subject, mode, studentInitials, isExpanded,
                     Goal {i + 1}
                   </span>
                   <span style={{ fontSize: 13, color: '#1a1a2e', fontWeight: 500 }}>
-                    {goal.goalTitle}
+                    {goal.displayTitle}
                   </span>
                 </div>
-                <PerformanceBadge performanceType={goal.performanceType} size="sm" />
+                <PerformanceBadge performance={goal.performance} size="sm" />
               </div>
             ))
           )}

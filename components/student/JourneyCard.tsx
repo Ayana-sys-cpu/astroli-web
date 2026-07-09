@@ -27,12 +27,14 @@ const ACCENT: Record<HomeJourney['status'], Accent> = {
 
 function badgeLabel(journey: HomeJourney, lang: Lang): string {
   if (journey.status === 'live' && journey.studentMissionCompleted) return t('badgeMissionComplete', lang);
+  if (journey.status === 'idle' && journey.isFamilyClass) return t('badgeIdleFamily', lang);
   const key = { live: 'badgeLive', voting: 'badgeVoting', pending: 'badgePending', done: 'badgeDone', idle: 'badgeIdle' } as const;
   return t(key[journey.status], lang);
 }
 
 function ctaLabel(journey: HomeJourney, lang: Lang): string {
   if (journey.status === 'live' && journey.studentMissionCompleted) return t('ctaRevisitJourney', lang);
+  if (journey.status === 'idle' && journey.isFamilyClass) return t('ctaPickMission', lang);
   switch (journey.status) {
     case 'live':    return t('ctaContinueMission', lang);
     case 'voting':  return t('ctaVoteNow', lang);
@@ -68,9 +70,10 @@ function bodyText(journey: HomeJourney, lang: Lang): string {
 
 export default function JourneyCard({ journey, onClick }: JourneyCardProps) {
   const lang: Lang  = journey.language ?? 'en';
-  const accentKey   = (journey.status === 'live' && journey.studentMissionCompleted) ? 'done' : journey.status;
+  const isIdleFamily = journey.status === 'idle' && Boolean(journey.isFamilyClass);
+  const accentKey   = (journey.status === 'live' && journey.studentMissionCompleted) ? 'done' : isIdleFamily ? 'pending' : journey.status;
   const accent      = ACCENT[accentKey];
-  const clickable   = journey.status !== 'idle';
+  const clickable   = journey.status !== 'idle' || isIdleFamily;
 
   return (
     <button
@@ -83,7 +86,7 @@ export default function JourneyCard({ journey, onClick }: JourneyCardProps) {
         border: `1px solid ${accent.border}`,
         boxShadow: `0 0 0 1px rgba(255,255,255,0.02) inset, 0 0 36px ${accent.glow}, 0 0 70px ${accent.glowSoft}`,
         cursor: clickable ? 'pointer' : 'default',
-        opacity: journey.status === 'idle' ? 0.55 : 1,
+        opacity: journey.status === 'idle' && !isIdleFamily ? 0.55 : 1,
       }}
     >
       <div className="flex items-start justify-between mb-4">

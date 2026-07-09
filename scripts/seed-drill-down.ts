@@ -5,14 +5,15 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-const SAMPLE_PERFORMANCES = [
-  'explaining',
-  'applying_concepts',
-  'grace_completion',
-  'generalizing',
-  null, // not started / in_progress
-  'mustering_evidence',
-  'finding_examples',
+// { level, completionType } — null level combined with 'standard' means "no summary yet".
+const SAMPLE_PERFORMANCES: { level: number | null; completionType: 'standard' | 'grace' }[] = [
+  { level: 1, completionType: 'standard' },
+  { level: 5, completionType: 'standard' },
+  { level: 3, completionType: 'grace' },
+  { level: 4, completionType: 'standard' },
+  { level: null, completionType: 'standard' }, // not started / in_progress
+  { level: 2, completionType: 'standard' },
+  { level: 3, completionType: 'standard' },
 ];
 
 async function seedStudent(student: { id: string; full_name: string | null; first_name: string | null }) {
@@ -56,53 +57,56 @@ async function seedStudent(student: { id: string; full_name: string | null; firs
 
   for (let i = 0; i < planets.length; i++) {
     const planet = planets[i];
-    const perfType = SAMPLE_PERFORMANCES[i % SAMPLE_PERFORMANCES.length];
-    const isNotStarted = perfType === null && i % 3 === 0;
-    const status = isNotStarted ? 'not_started' : perfType === null ? 'in_progress' : 'completed';
+    const sample = SAMPLE_PERFORMANCES[i % SAMPLE_PERFORMANCES.length];
+    const isNotStarted = sample.level === null && i % 3 === 0;
+
+    if (isNotStarted) {
+      console.log(`  ✓ ${planet.title} → not_started`);
+      continue;
+    }
 
     const summary = await prisma.planetSummary.upsert({
       where: { studentId_planetId: { studentId: student.id, planetId: planet.id } },
       create: {
         studentId: student.id,
         planetId: planet.id,
-        status,
-        performanceType: isNotStarted ? null : perfType,
-        assessedAt: isNotStarted ? null : new Date(Date.now() - i * 24 * 60 * 60 * 1000),
+        completionType: sample.completionType,
+        highestPerkinsLevelDemonstrated: sample.level,
+        completedAt: new Date(Date.now() - i * 24 * 60 * 60 * 1000),
+        termDefinitions: [],
       },
       update: {
-        status,
-        performanceType: isNotStarted ? null : perfType,
-        assessedAt: isNotStarted ? null : new Date(Date.now() - i * 24 * 60 * 60 * 1000),
+        completionType: sample.completionType,
+        highestPerkinsLevelDemonstrated: sample.level,
+        completedAt: new Date(Date.now() - i * 24 * 60 * 60 * 1000),
       },
     });
 
-    if (!isNotStarted && perfType) {
-      await prisma.planetSummaryGoal.deleteMany({ where: { summaryId: summary.id } });
+    await prisma.planetSummaryGoal.deleteMany({ where: { summaryId: summary.id } });
 
+    await prisma.planetSummaryGoal.create({
+      data: {
+        summaryId: summary.id,
+        termName: `Core concept of ${planet.title}`,
+        perkinsLevelDemonstrated: sample.level,
+        insightText: `The student can explain what makes ${planet.title} significant.`,
+        conversationEvidence: `I think it's significant because it changed the way people understood the world at the time. The main idea was that everything connected back to this central principle.`,
+      },
+    });
+
+    if (i % 2 === 0) {
       await prisma.planetSummaryGoal.create({
         data: {
           summaryId: summary.id,
-          goalTitle: `Understanding the core concept of ${planet.title}`,
-          performanceType: perfType,
-          botQuestion: `Can you explain in your own words what makes ${planet.title} significant?`,
-          studentAnswer: `I think it's significant because it changed the way people understood the world at the time. The main idea was that everything connected back to this central principle.`,
+          termName: `Applying ${planet.title} today`,
+          perkinsLevelDemonstrated: sample.level,
+          insightText: `The student can apply what they learned about ${planet.title} to a modern context.`,
+          conversationEvidence: `You could see this in how modern governments work. They still use similar structures to what was described, just updated for today's technology and scale.`,
         },
       });
-
-      if (i % 2 === 0) {
-        await prisma.planetSummaryGoal.create({
-          data: {
-            summaryId: summary.id,
-            goalTitle: `Applying lessons from ${planet.title} to modern contexts`,
-            performanceType: 'applying_concepts',
-            botQuestion: `How would you apply what you learned about ${planet.title} to a situation today?`,
-            studentAnswer: `You could see this in how modern governments work. They still use similar structures to what was described, just updated for today's technology and scale.`,
-          },
-        });
-      }
     }
 
-    console.log(`  ✓ ${planet.title} → ${status}${perfType ? ` / ${perfType}` : ''}`);
+    console.log(`  ✓ ${planet.title} → completed (${sample.completionType}, level ${sample.level})`);
   }
 }
 

@@ -2,20 +2,7 @@
 import { useMemo, useState } from 'react';
 import SubjectRow from './SubjectRow';
 import PerformanceBadge from './PerformanceBadge';
-import type { DrillDownResponse, MissionMeta, PerformanceType } from '@/lib/drill-down-types';
-
-const PERKINS_RANK: Record<string, number> = {
-  grace_completion: 0,
-  explaining: 1,
-  mustering_evidence: 2,
-  finding_examples: 3,
-  generalizing: 4,
-  applying_concepts: 5,
-  analogizing: 6,
-  representing_in_new_ways: 7,
-  considering_alternatives: 8,
-  actionable_extrapolation: 9,
-};
+import type { DrillDownResponse, MissionMeta, PerformanceInfo } from '@/lib/drill-down-types';
 
 function missionStateLabel(state: string): { label: string; color: string; bg: string } {
   if (state === 'completed') return { label: 'completed', color: '#15803d', bg: 'rgba(21,128,61,0.1)' };
@@ -53,16 +40,16 @@ export default function AllTimeView({ data, selectedJourneyId }: Props) {
       (s) => s.status !== 'not_started' && s.status !== 'pending_activation',
     ).length;
 
-    let peakType: PerformanceType | null = null;
-    let peakRank = -1;
+    let peakPerformance: PerformanceInfo | null = null;
+    let peakLevel = -1;
     for (const s of journeySubjects) {
-      if (s.performanceType) {
-        const rank = PERKINS_RANK[s.performanceType] ?? -1;
-        if (rank > peakRank) { peakRank = rank; peakType = s.performanceType; }
+      if (s.performance && !s.performance.isGraceCompletion && s.performance.level && s.performance.level > peakLevel) {
+        peakLevel = s.performance.level;
+        peakPerformance = s.performance;
       }
     }
 
-    return { completedCount, activeCount, studiedCount, peakType };
+    return { completedCount, activeCount, studiedCount, peakPerformance };
   }, [missions, journeySubjects]);
 
   function scrollToMission(missionId: string) {
@@ -137,10 +124,10 @@ export default function AllTimeView({ data, selectedJourneyId }: Props) {
                 <strong style={{ color: '#1a1a2e' }}>{overview.activeCount}</strong> active {overview.activeCount === 1 ? 'mission' : 'missions'}
               </div>
             )}
-            {overview.peakType && (
+            {overview.peakPerformance && (
               <div style={{ fontSize: 12, color: 'rgba(26,26,46,0.7)', display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <span>Peak level reached</span>
-                <PerformanceBadge performanceType={overview.peakType} size="sm" />
+                <PerformanceBadge performance={overview.peakPerformance} size="sm" />
               </div>
             )}
             {overview.studiedCount > 0 && (

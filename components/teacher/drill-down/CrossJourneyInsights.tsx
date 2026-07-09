@@ -34,7 +34,7 @@ interface Props {
 export default function CrossJourneyInsights({ data, studentFirstName }: Props) {
   const { crossJourneyStats: stats, prewrittenMessage } = data;
 
-  const hasAssessedGoals = stats.peakPerformanceType !== null;
+  const hasAssessedGoals = stats.peakPerformance !== null;
 
   function handleWhatsApp() {
     if (!hasAssessedGoals) return;
@@ -42,7 +42,7 @@ export default function CrossJourneyInsights({ data, studentFirstName }: Props) 
     window.open(`https://wa.me/?text=${encoded}`, '_blank', 'noopener,noreferrer');
   }
 
-  const peakLabel = stats.peakPerformanceType ? performanceLabel(stats.peakPerformanceType) : null;
+  const peakLabel = stats.peakPerformance ? performanceLabel(stats.peakPerformance) : null;
 
   return (
     <div style={{

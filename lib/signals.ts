@@ -78,6 +78,21 @@ export async function generateSignals(
   const since = lastSessionAt ?? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const studentIds = Array.from(byStudent.keys());
 
+  // messages has no mission_id column — it links to a planet via
+  // screen_context = 'planet_voice:<planet_id>', so resolve planets first.
+  const { data: planetRows, error: planetsError } = await supabaseAdmin
+    .from('planets')
+    .select('id')
+    .in('mission_id', missionIds);
+
+  if (planetsError) {
+    console.error('[signals] planets query failed', planetsError);
+    return [];
+  }
+
+  const planetContexts = (planetRows ?? []).map((p: { id: string }) => `planet_voice:${p.id}`);
+  if (planetContexts.length === 0) return [];
+
   // Run both message queries in parallel — they're independent.
   // Remove override query once planet_summaries pipeline is live.
   const [overridesResult, recentResult] = await Promise.all([
@@ -85,16 +100,23 @@ export async function generateSignals(
       .from('messages')
       .select('student_id, content, created_at')
       .in('student_id', studentIds)
-      .in('mission_id', missionIds)
+      .in('screen_context', planetContexts)
       .like('content', '[SIGNAL:%]')
       .order('created_at', { ascending: false }),
     supabaseAdmin
       .from('messages')
       .select('student_id')
       .in('student_id', studentIds)
-      .in('mission_id', missionIds)
+      .in('screen_context', planetContexts)
       .gte('created_at', since.toISOString()),
   ]);
+
+  if (overridesResult.error) {
+    console.error('[signals] messages override query failed', overridesResult.error);
+  }
+  if (recentResult.error) {
+    console.error('[signals] messages recent-activity query failed', recentResult.error);
+  }
 
   // Keep only the most recent override per student.
   const overrideByStudent = new Map<string, string>();
@@ -218,28 +240,56 @@ export async function generateSignalsBatch(
     new Date(),
   );
 
+  // messages has no mission_id column — it links to a planet via
+  // screen_context = 'planet_voice:<planet_id>', so resolve planets first.
+  const { data: planetRows, error: planetsForMessagesError } = await supabaseAdmin
+    .from('planets')
+    .select('id, mission_id')
+    .in('mission_id', allMissionIds);
+
+  if (planetsForMessagesError) {
+    console.error('[signals batch] planets lookup', planetsForMessagesError);
+    return new Map(resolved.map(e => [e.journeyId, []]));
+  }
+
+  const contextToJourney = new Map<string, string>();
+  for (const row of planetRows ?? []) {
+    const journeyId = missionToJourney.get(row.mission_id as string);
+    if (!journeyId) continue;
+    contextToJourney.set(`planet_voice:${row.id as string}`, journeyId);
+  }
+  const planetContexts = Array.from(contextToJourney.keys());
+  if (planetContexts.length === 0) return new Map(resolved.map(e => [e.journeyId, []]));
+
   // Queries 2 + 3 in parallel
   const [overridesResult, recentResult] = await Promise.all([
     supabaseAdmin
       .from('messages')
-      .select('student_id, mission_id, content, created_at')
+      .select('student_id, screen_context, content, created_at')
       .in('student_id', allStudentIds)
-      .in('mission_id', allMissionIds)
+      .in('screen_context', planetContexts)
       .like('content', '[SIGNAL:%]')
       .order('created_at', { ascending: false }),
     supabaseAdmin
       .from('messages')
-      .select('student_id, mission_id, created_at')
+      .select('student_id, screen_context, created_at')
       .in('student_id', allStudentIds)
-      .in('mission_id', allMissionIds)
+      .in('screen_context', planetContexts)
       .gte('created_at', earliestSince.toISOString()),
   ]);
+
+  if (overridesResult.error) {
+    console.error('[signals batch] messages override query failed', overridesResult.error);
+  }
+  if (recentResult.error) {
+    console.error('[signals batch] messages recent-activity query failed', recentResult.error);
+  }
 
   // Most-recent override per (journeyId, studentId)
   const overrideKey = (jid: string, sid: string) => `${jid}:${sid}`;
   const overrideMap = new Map<string, string>();
   for (const row of overridesResult.data ?? []) {
-    const journeyId = missionToJourney.get(row.mission_id as string);
+    const journeyId = contextToJourney.get(row.screen_context as string);
     if (!journeyId) continue;
     const k = overrideKey(journeyId, row.student_id as string);
     if (!overrideMap.has(k)) overrideMap.set(k, row.content as string);
@@ -248,7 +298,7 @@ export async function generateSignalsBatch(
   // Recent activity per journey — honour per-journey since cutoff
   const activeByJourney = new Map<string, Set<string>>(resolved.map(e => [e.journeyId, new Set()]));
   for (const row of recentResult.data ?? []) {
-    const journeyId = missionToJourney.get(row.mission_id as string);
+    const journeyId = contextToJourney.get(row.screen_context as string);
     if (!journeyId) continue;
     const jSince = sinceByJourney.get(journeyId)!;
     if (new Date(row.created_at) >= jSince) {

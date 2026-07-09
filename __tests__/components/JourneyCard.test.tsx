@@ -14,6 +14,10 @@ const idle: HomeJourney = {
   classId: 'class-2', className: 'Algebra I', teacherName: 'Mr. Osei', status: 'idle',
 };
 
+const idleFamily: HomeJourney = {
+  classId: 'class-3', className: 'Science 7th Grade', teacherName: null, status: 'idle', isFamilyClass: true,
+};
+
 describe('JourneyCard', () => {
   it('renders the class name, teacher, and CTA for a live journey', () => {
     render(<JourneyCard journey={live} onClick={() => {}} />);
@@ -44,5 +48,21 @@ describe('JourneyCard', () => {
     render(<JourneyCard journey={idle} onClick={onClick} />);
     await user.click(screen.getByRole('button'));
     expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it('renders an idle family journey as clickable with a pick-a-mission CTA', () => {
+    render(<JourneyCard journey={idleFamily} onClick={() => {}} />);
+    const button = screen.getByRole('button');
+    expect(button).not.toBeDisabled();
+    expect(screen.getByText('PICK A MISSION')).toBeInTheDocument();
+    expect(screen.getByText('CHOOSE MISSION →')).toBeInTheDocument();
+  });
+
+  it('calls onClick when an idle family journey card is clicked', async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
+    render(<JourneyCard journey={idleFamily} onClick={onClick} />);
+    await user.click(screen.getByRole('button'));
+    expect(onClick).toHaveBeenCalledOnce();
   });
 });

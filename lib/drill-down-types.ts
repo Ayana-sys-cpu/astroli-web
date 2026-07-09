@@ -2,56 +2,51 @@
 
 import type { SignalType } from '@/lib/signals';
 
-export type PerkinsType =
-  | 'explaining'
-  | 'mustering_evidence'
-  | 'finding_examples'
-  | 'generalizing'
-  | 'applying_concepts'
-  | 'analogizing'
-  | 'representing_in_new_ways'
-  | 'considering_alternatives'
-  | 'actionable_extrapolation';
+// The real Perkins Thinking Scale used by the bot to score students — see
+// src/astorli-bot/lib/planet-voice-prompt.ts's PERKINS_LEVELS, the source of truth.
+// Kept in sync by hand since astroli-web and astorli-bot are separate apps with no
+// shared package.
+export type PerkinsLevel = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
-export type PerformanceType = PerkinsType | 'grace_completion';
+export const PERKINS_LEVEL_NAMES: Record<PerkinsLevel, string> = {
+  1: 'Explanation',
+  2: 'Exemplification',
+  3: 'Comparison',
+  4: 'Contextualization',
+  5: 'Application',
+  6: 'Justification',
+  7: 'Generalization',
+};
 
 export type PlanetStatus = 'not_started' | 'in_progress' | 'completed' | 'pending_activation';
 
-export const PERKINS_LABELS: Record<PerkinsType, string> = {
-  explaining: 'Explaining',
-  mustering_evidence: 'Mustering Evidence',
-  finding_examples: 'Finding Examples',
-  generalizing: 'Generalizing',
-  applying_concepts: 'Applying Concepts',
-  analogizing: 'Analogizing',
-  representing_in_new_ways: 'Representing in New Ways',
-  considering_alternatives: 'Considering Alternatives',
-  actionable_extrapolation: 'Actionable Extrapolation',
-};
-
-const VALID_PERFORMANCE_TYPES = new Set<string>([
-  'explaining', 'mustering_evidence', 'finding_examples', 'generalizing',
-  'applying_concepts', 'analogizing', 'representing_in_new_ways',
-  'considering_alternatives', 'actionable_extrapolation', 'grace_completion',
-]);
-
-export function toPerformanceType(value: string | null | undefined): PerformanceType | null {
-  if (!value) return null;
-  return VALID_PERFORMANCE_TYPES.has(value) ? (value as PerformanceType) : null;
+export function toPerkinsLevel(value: number | null | undefined): PerkinsLevel | null {
+  return typeof value === 'number' && value >= 1 && value <= 7 ? (value as PerkinsLevel) : null;
 }
 
-export function performanceLabel(type: PerformanceType | null): string {
-  if (!type) return 'Not started';
-  if (type === 'grace_completion') return 'Grace Completion';
-  return PERKINS_LABELS[type] ?? type;
+// A planet/goal's demonstrated performance: either a Perkins level, a grace
+// completion (planet finished without reaching a goal's target level), or
+// nothing yet (null upstream, no PerformanceInfo at all).
+export interface PerformanceInfo {
+  level: PerkinsLevel | null;
+  isGraceCompletion: boolean;
+}
+
+export function performanceLabel(p: PerformanceInfo | null): string {
+  if (!p) return 'Not started';
+  if (p.isGraceCompletion) return 'Grace Completion';
+  if (p.level) return PERKINS_LEVEL_NAMES[p.level];
+  return 'Not started';
 }
 
 export interface GoalSummary {
   id: string;
-  goalTitle: string;
-  performanceType: PerformanceType | null;
-  botQuestion: string;
-  studentAnswer: string;
+  displayTitle: string;
+  termName: string | null;
+  insightText: string | null;
+  conversationEvidence: string | null;
+  studentAddition: string | null;
+  performance: PerformanceInfo;
 }
 
 export interface SubjectSummary {
@@ -63,8 +58,8 @@ export interface SubjectSummary {
   journeyId: string;
   journeyTitle: string;
   status: PlanetStatus;
-  performanceType: PerformanceType | null;
-  assessedAt: string | null;
+  performance: PerformanceInfo | null;
+  completedAt: string | null;
   goals: GoalSummary[];
   teachingGoalCount: number;
 }
@@ -85,7 +80,7 @@ export interface MissionMeta {
 }
 
 export interface CrossJourneyStats {
-  peakPerformanceType: PerformanceType | null;
+  peakPerformance: PerformanceInfo | null;
   peakJourneyTitle: string | null;
   activeMissionsCount: number;
   totalMissionsCount: number;

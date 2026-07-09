@@ -3,13 +3,7 @@ import { useState } from 'react';
 import SubjectRow from './SubjectRow';
 import SignalBanner from './SignalBanner';
 import PerformanceBadge from './PerformanceBadge';
-import type { DrillDownResponse, PerformanceType } from '@/lib/drill-down-types';
-
-const PERKINS_RANK: Record<string, number> = {
-  explaining: 1, mustering_evidence: 2, finding_examples: 3,
-  generalizing: 4, applying_concepts: 5, analogizing: 6,
-  representing_in_new_ways: 7, considering_alternatives: 8, actionable_extrapolation: 9,
-};
+import type { DrillDownResponse, PerformanceInfo } from '@/lib/drill-down-types';
 
 interface Props {
   data: DrillDownResponse;
@@ -32,13 +26,11 @@ export default function ThisWeekView({ data, selectedJourneyId, onSwitchToAllTim
 
   const firstName = data.student.name.split(' ')[0] || data.student.name;
 
-  // Peak Perkins level across all subjects in the active mission (grace_completion excluded from peak)
-  const peakPerformance = activeSubjects.reduce<PerformanceType | null>((best, s) => {
-    if (!s.performanceType || s.performanceType === 'grace_completion') return best;
-    if (!best || best === 'grace_completion') return s.performanceType;
-    return (PERKINS_RANK[s.performanceType] ?? 0) > (PERKINS_RANK[best] ?? 0)
-      ? s.performanceType
-      : best;
+  // Peak Perkins level across all subjects in the active mission (grace completions excluded from peak)
+  const peakPerformance = activeSubjects.reduce<PerformanceInfo | null>((best, s) => {
+    if (!s.performance || s.performance.isGraceCompletion || !s.performance.level) return best;
+    if (!best || (s.performance.level ?? 0) > (best.level ?? 0)) return s.performance;
+    return best;
   }, null);
 
   return (
@@ -89,7 +81,7 @@ export default function ThisWeekView({ data, selectedJourneyId, onSwitchToAllTim
             <span style={{ fontSize: 11, color: 'rgba(26,26,46,0.45)', fontWeight: 500 }}>
               Highest level reached
             </span>
-            <PerformanceBadge performanceType={peakPerformance} size="sm" />
+            <PerformanceBadge performance={peakPerformance} size="sm" />
           </div>
         )}
 
