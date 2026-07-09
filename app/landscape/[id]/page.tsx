@@ -239,7 +239,7 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
       />
 
       {/* Main content row */}
-      <div className="flex flex-1 overflow-hidden min-h-0">
+      <div className="flex flex-1 pt-11 overflow-hidden min-h-0">
 
         {/* ── Left — Cinematic figure panel ── */}
         <div className="flex-1 relative overflow-hidden bg-black">
