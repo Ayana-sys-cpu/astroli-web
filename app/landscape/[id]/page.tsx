@@ -148,15 +148,33 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
       const match = (summaryData.summaries ?? []).find(
         (s: { planetId: string }) => s.planetId === params.id,
       );
-      setSavedInsights(
-        (match?.insights ?? []).map((g: { termName?: string; insightText: string; studentAddition: string | null }) => ({
-          goalSlug:        '',
-          termName:        g.termName,
-          insightText:     g.insightText,
-          evidence:        '',
-          studentAddition: g.studentAddition ?? undefined,
-        })),
-      );
+
+      // The hook's summaryInsights are re-generated live by the history endpoint
+      // using the current mission language — always correct even if the stored
+      // planet_summary_goals rows were written in a different language (e.g. when
+      // a teacher later changed the mission language from Hebrew to English).
+      // Prefer those; fall back to DB rows only if the hook hasn't loaded them yet.
+      const hookInsights = planetVoice.summaryInsights;
+      const dbInsights: { termName?: string; insightText: string; studentAddition: string | null }[] =
+        match?.insights ?? [];
+      const insights = hookInsights.length > 0
+        ? hookInsights.map((h, i) => ({
+            goalSlug:        h.goalSlug,
+            termName:        h.termName,
+            insightText:     h.insightText,
+            evidence:        h.evidence ?? '',
+            // Layer in any student edits that were persisted to the DB row.
+            studentAddition: dbInsights[i]?.studentAddition ?? undefined,
+          }))
+        : dbInsights.map((g) => ({
+            goalSlug:        '',
+            termName:        g.termName,
+            insightText:     g.insightText,
+            evidence:        '',
+            studentAddition: g.studentAddition ?? undefined,
+          }));
+      setSavedInsights(insights);
+
       const termDefinitions = match?.termDefinitions ?? [];
       setSavedIntroducedTerms(termDefinitions);
 
