@@ -148,7 +148,7 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
   }
 
   useEffect(() => {
-    fetch(`/api/student/mission?planetId=${params.id}`)
+    fetch(`/api/student/mission?planetId=${params.id}${classId ? `&classId=${classId}` : ''}`)
       .then(r => r.json())
       .then(({ planet }) => {
         setPlanet(planet);

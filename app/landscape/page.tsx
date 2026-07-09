@@ -102,7 +102,7 @@ function LandscapeContent() {
         // mission and its progress map concurrently instead of chaining them,
         // removing a full round-trip from the path to the map reveal.
         const [missionRes, progressRes] = await Promise.all([
-          fetch(`/api/student/mission?missionId=${activeMissionId}`),
+          fetch(`/api/student/mission?missionId=${activeMissionId}${classId ? `&classId=${classId}` : ''}`),
           fetch(`/api/student/planet-progress?missionId=${activeMissionId}`),
         ]);
         const { mission } = await missionRes.json();

@@ -42,20 +42,28 @@ export async function GET(req: NextRequest) {
       .maybeSingle();
 
     let state: string | null = null;
+    let classLanguage: 'en' | 'he' | null = null;
     if (enrollment?.class_id) {
-      const { data: stateRow } = await supabaseAdmin
-        .from('class_mission_state')
-        .select('state')
-        .eq('class_id', enrollment.class_id)
-        .eq('mission_id', missionId)
-        .maybeSingle();
-      state = stateRow?.state ?? 'locked';
+      const [stateRes, classRes] = await Promise.all([
+        supabaseAdmin
+          .from('class_mission_state')
+          .select('state')
+          .eq('class_id', enrollment.class_id)
+          .eq('mission_id', missionId)
+          .maybeSingle(),
+        supabaseAdmin
+          .from('classes')
+          .select('language')
+          .eq('id', enrollment.class_id)
+          .maybeSingle(),
+      ]);
+      state = stateRes.data?.state ?? 'locked';
+      classLanguage = classRes.data?.language === 'he' ? 'he' : 'en';
     }
 
-    const language = (data as any).language ?? 'en';
-    const missionTx = language === 'he'
-      ? ((data as any).translations as Record<string, any>)?.he ?? {}
-      : {};
+    const language: 'en' | 'he' = classLanguage ?? ((data as any).language === 'he' ? 'he' : 'en');
+    const translations = ((data as any).translations as Record<string, any>) ?? {};
+    const missionTx = translations[language] ?? {};
 
     return NextResponse.json({
       mission: {
@@ -69,9 +77,7 @@ export async function GET(req: NextRequest) {
         order:               (data as any).order,
         state,
         planets: (data.planets ?? []).map((p: any) => {
-          const ptx = language === 'he'
-            ? ((p.translations as Record<string, any>)?.he ?? {})
-            : {};
+          const ptx = ((p.translations as Record<string, any>) ?? {})[language] ?? {};
           return {
             id:                   p.id,
             title:                ptx.title          ?? p.title,
@@ -93,22 +99,29 @@ export async function GET(req: NextRequest) {
   }
 
   if (planetId) {
-    const { data, error } = await supabaseAdmin
-      .from('planets')
-      .select('id, title, label, short_title, planet_question, content, opening_message, character_figure, character_year, character_location, student_reveal_message, media_url, media_type, translations, mission_id, missions!mission_id ( language, translations )')
-      .eq('id', planetId)
-      .single();
+    const classId = req.nextUrl.searchParams.get('classId');
 
+    const [planetRes, classRes] = await Promise.all([
+      supabaseAdmin
+        .from('planets')
+        .select('id, title, label, short_title, planet_question, content, opening_message, character_figure, character_year, character_location, student_reveal_message, media_url, media_type, translations, mission_id, missions!mission_id ( language, translations )')
+        .eq('id', planetId)
+        .single(),
+      classId
+        ? supabaseAdmin.from('classes').select('language').eq('id', classId).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+
+    const { data, error } = planetRes;
     if (error || !data) {
       return NextResponse.json({ error: 'Planet not found' }, { status: 404 });
     }
 
     const missionData = (data as any).missions;
-    const missionLanguage: string = missionData?.language ?? 'en';
+    const classLang = (classRes as any).data?.language;
+    const missionLanguage: 'en' | 'he' = classLang === 'he' ? 'he' : classLang === 'en' ? 'en' : (missionData?.language === 'he' ? 'he' : 'en');
 
-    const ptx = missionLanguage === 'he'
-      ? ((data as any).translations as Record<string, any>)?.he ?? {}
-      : {};
+    const ptx = (((data as any).translations as Record<string, any>) ?? {})[missionLanguage] ?? {};
 
     return NextResponse.json({
       planet: {
