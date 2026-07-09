@@ -17,10 +17,12 @@ export interface ChatMessage  {
 // screen      — which screen the student is on (big_question, plant_screen, etc.)
 // contentId   — the mission or planet DB id (e.g. 'seed-mission-1', 'seed-planet-2-3')
 // contentType — 'mission' | 'planet' — determines which table to query
+// language    — mission language; drives prompt file selection and opening message
 export function useOrinChat(
   screen:       string,
   contentId?:   string,
-  contentType?: 'mission' | 'planet'
+  contentType?: 'mission' | 'planet',
+  language:     'en' | 'he' = 'en',
 ) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input,    setInput]    = useState('');
@@ -34,7 +36,7 @@ export function useOrinChat(
 
     getSessionStudentId().then(id => {
       const studentId = id ?? FALLBACK_ID;
-      fetch(`${OPENING_URL}?type=${contentType}&contentId=${contentId}&studentId=${studentId}`)
+      fetch(`${OPENING_URL}?type=${contentType}&contentId=${contentId}&studentId=${studentId}&lang=${language}`)
         .then(r => r.json())
         .then(data => {
           if (data.message) {
@@ -68,6 +70,7 @@ export function useOrinChat(
           studentId,
           message:        msg,
           screen,
+          language,
           currentPlanet:  contentType === 'planet'  ? contentId : undefined,
           currentMission: contentType === 'mission' ? contentId : undefined,
         }),
