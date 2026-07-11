@@ -88,11 +88,11 @@ export async function GET(req: NextRequest) {
     : {};
 
   // ── Derive computed fields ────────────────────────────────────────────────
-  const q = (tx.question ?? mission.question) as string;
+  const q = (tx.question ?? mission.question ?? '') as string;
   const missionBrief = (tx.mission_brief ?? mission.mission_brief as string | null)
     ?? (q.length > 60 ? q.slice(0, 57) + '…' : q);
 
-  const projectDescRaw = (tx.project_description ?? mission.project_description) as string;
+  const projectDescRaw = (tx.project_description ?? mission.project_description ?? '') as string;
   const firstPara      = projectDescRaw.split('\n\n')[0].trim();
   const projectObjective = firstPara.length > 320
     ? firstPara.slice(0, 317) + '…'
@@ -104,12 +104,12 @@ export async function GET(req: NextRequest) {
     order:             (mission as any).order as number,
     language:          missionLanguage,
     question:          q,
-    worldBrief:        (tx.question_description ?? mission.question_description) as string,
+    worldBrief:        (tx.question_description ?? mission.question_description ?? '') as string,
     worldBriefSummary: (tx.world_brief_summary ?? mission.world_brief_summary as string | null) ?? '',
     worldBriefItems:   (tx.world_brief_items ?? mission.world_brief_items as WorldBriefItem[] | null) ?? [],
-    projectTitle:      (tx.project_title ?? mission.project_title) as string,
+    projectTitle:      (tx.project_title ?? mission.project_title ?? '') as string,
     projectObjective,
-    openingMessage:    (tx.opening_message ?? mission.opening_message) as string,
+    openingMessage:    (tx.opening_message ?? mission.opening_message ?? '') as string,
     openingMessage2:   (tx.opening_message_2 ?? mission.opening_message_2 as string | null) ?? '',
     missionBrief,
     chapter:           (tx.chapter ?? mission.chapter as string | null) ?? `Ch.${(mission as any).order}`,
@@ -119,8 +119,8 @@ export async function GET(req: NextRequest) {
         : {};
       return {
         icon: (p.icon as string | null) ?? '🌍',
-        name: (ptx.label ?? p.label) as string,
-        hint: (ptx.hint ?? p.hint as string | null) ?? ((ptx.title ?? p.title) as string).slice(0, 45),
+        name: (ptx.label ?? p.label ?? '') as string,
+        hint: (ptx.hint ?? p.hint as string | null) ?? ((ptx.title ?? p.title ?? '') as string).slice(0, 45),
       };
     }),
     allTerms: (teachingGoals ?? []).map((g): MissionTerm => {
