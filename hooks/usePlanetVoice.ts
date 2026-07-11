@@ -40,6 +40,7 @@ export interface CoinAward {
   amount:    number;
   newBalance: number;
   eventType: string;
+  goalDescription?: string;
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────

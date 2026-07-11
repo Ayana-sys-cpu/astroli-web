@@ -20,6 +20,7 @@ import PlanetSummaryScreen from '@/components/PlanetSummaryScreen';
 import { t, type Lang } from '@/lib/i18n';
 import { type SummaryInsight } from '@/hooks/usePlanetVoice';
 import type { MissionTerm } from '@/lib/orin-guide-types';
+import PlanetCelebrationOverlay, { type NextPlanetInfo, type MissionProgressInfo } from '@/components/PlanetCelebrationOverlay';
 
 interface Planet {
   id: string;
@@ -44,7 +45,6 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
   const [isAvatarThinking, setIsAvatarThinking] = useState(false);
   const { triggerReward } = useCoinReward();
   const [shownMsgCount, setShownMsgCount] = useState(0);
-  const [showAvatarCelebration, setShowAvatarCelebration] = useState(false);
   const [baseAvatarUrl] = useState(() => loadStudent()?.baseAvatarUrl ?? null);
   const thinkingStartTime = useRef(0);
   const processedMsgCount = useRef(0);
@@ -55,6 +55,10 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
   const [savedInsights, setSavedInsights]         = useState<SummaryInsight[]>([]);
   const [savedIntroducedTerms, setSavedIntroducedTerms] = useState<MissionTerm[]>([]);
   const [showSummaryReview, setShowSummaryReview] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [celebrationAward, setCelebrationAward] = useState<{ amount: number; newBalance: number } | null>(null);
+  const [celebrationNextPlanet, setCelebrationNextPlanet] = useState<NextPlanetInfo | null>(null);
+  const [celebrationProgress, setCelebrationProgress] = useState<MissionProgressInfo | null>(null);
   const chatPanelRef = useRef<HTMLElement>(null);
 
   useEffect(() => { isThinkingRef.current = isAvatarThinking; }, [isAvatarThinking]);
@@ -95,29 +99,31 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
     const timer = setTimeout(() => {
       const isFinalGoal = planetVoice.completionReady;
       const isGoalCompletion = award.eventType === 'goal_completion';
+      // When the final goal and planet_complete fire in the same turn, mergeAwards
+      // promotes the combined popup to 'planet_complete' (highest tier). We must
+      // check both event types so the celebration chain runs in either case.
+      const triggersCelebration =
+        award.eventType === 'planet_complete' ||
+        (isGoalCompletion && isFinalGoal);
       // Anchor the entrance animation to the chat panel — the student's message and
       // the bot's acknowledgment live there, so the reward should visibly emerge from
       // that conversation rather than materialize out of nowhere at screen center.
-      triggerReward({
-        awarded:          true,
-        amount:           award.amount,
-        newBalance:       award.newBalance,
-        sourceRect:       chatPanelRef.current?.getBoundingClientRect(),
-        eventType:        award.eventType as 'goal_completion' | 'first_vote' | 'planet_complete' | 'mission_complete' | 'bonus_mission',
-        titleOverride:    isGoalCompletion
-          ? (isFinalGoal ? t('planetExplored', missionLang) : t('goalReached', missionLang))
-          : undefined,
-        subtitleOverride: isGoalCompletion
-          ? (isFinalGoal
-              ? t('uncoveredEverySecret', missionLang)
-              : t('keepExploringUniverse', missionLang))
-          : undefined,
-        // Planet is already recorded complete server-side — on dismiss show the
-        // avatar celebration, which then hands off to the summary screen.
-        onDismiss: (isGoalCompletion && isFinalGoal)
-          ? () => setShowAvatarCelebration(true)
-          : undefined,
-      });
+      if (triggersCelebration) {
+        // Bypass CoinRewardModal for planet_complete — open the 3-beat overlay directly.
+        handleCelebrationTrigger({ amount: award.amount, newBalance: award.newBalance });
+      } else {
+        triggerReward({
+          awarded:          true,
+          amount:           award.amount,
+          newBalance:       award.newBalance,
+          sourceRect:       chatPanelRef.current?.getBoundingClientRect(),
+          eventType:        award.eventType as 'goal_completion' | 'first_vote' | 'planet_complete' | 'mission_complete' | 'bonus_mission',
+          titleOverride:    isGoalCompletion ? t('goalReached', missionLang) : undefined,
+          subtitleOverride: isGoalCompletion
+            ? (award.goalDescription || t('keepExploringUniverse', missionLang))
+            : undefined,
+        });
+      }
     }, readDelay);
 
     return () => clearTimeout(timer);
@@ -141,7 +147,7 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
       .catch(() => setLoading(false));
   }, [params.id]);
 
-  async function handleViewDiscovery() {
+  async function preloadInsights() {
     try {
       const summaryRes = await fetch('/api/student/planet-summaries');
       const summaryData = await summaryRes.json();
@@ -197,7 +203,27 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
       setSavedInsights([]);
       setSavedIntroducedTerms([]);
     }
+  }
+
+  async function handleViewDiscovery() {
+    await preloadInsights();
     setShowSummaryReview(true);
+  }
+
+  async function handleCelebrationTrigger(award: { amount: number; newBalance: number }) {
+    const [, nextData] = await Promise.all([
+      preloadInsights(),
+      fetch(`/api/student/planet-next?planetId=${params.id}${classId ? `&classId=${classId}` : ''}`)
+        .then(r => r.json())
+        .catch(() => ({ nextPlanet: null, missionProgress: null })),
+    ]);
+    setCelebrationAward(award);
+    setCelebrationNextPlanet((nextData as { nextPlanet?: NextPlanetInfo }).nextPlanet ?? null);
+    setCelebrationProgress(
+      (nextData as { missionProgress?: MissionProgressInfo }).missionProgress
+        ?? { completed: 1, total: 1, justCompletedIndex: 0 },
+    );
+    setShowCelebration(true);
   }
 
   if (loading) {
@@ -420,77 +446,40 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
               </div>
             )}
 
-            {/* Planet Summary Screen overlay — read-only "what I learned" review.
-                Opens automatically the instant the reward popup is dismissed
-                (fresh completion), and reopens on demand via the "what did I
-                discover" dock button (handleViewDiscovery) for a planet
-                completed at any point in the past. No lock/confirm step. */}
-            <AnimatePresence>
-              {showSummaryReview && (
-                <PlanetSummaryScreen
-                  insights={savedInsights}
-                  onDismiss={() => setShowSummaryReview(false)}
-                  language={missionLang}
-                  introducedTerms={savedIntroducedTerms}
-                />
-              )}
-            </AnimatePresence>
           </div>
 
         </aside>
       </div>
 
-      {/* ── Avatar celebration popup (planet complete) ─────────────────── */}
-      {showAvatarCelebration && (
-        <div
-          style={{
-            position: 'fixed', inset: 0, zIndex: 500,
-            background: 'rgba(6,6,18,0.85)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
-        >
-          <div style={{
-            width: '320px', borderRadius: '22px',
-            background: '#1a0a3a',
-            border: '1px solid rgba(6,214,160,0.35)',
-            overflow: 'hidden', textAlign: 'center',
-          }}>
-            {/* Avatar video */}
-            <div style={{ background: '#0d0d1a', padding: '24px 24px 0' }}>
-              <video
-                src={baseAvatarUrl?.replace('.png', '.mp4') ?? '/avatars/base/base-03.mp4'}
-                autoPlay loop muted playsInline
-                style={{
-                  width: '180px', height: '180px',
-                  objectFit: 'cover', borderRadius: '50%',
-                  border: '3px solid rgba(6,214,160,0.5)',
-                  display: 'block', margin: '0 auto',
-                }}
-              />
-            </div>
-            {/* Text */}
-            <div style={{ padding: '20px 24px' }}>
-              <div style={{ fontSize: '22px', marginBottom: '6px' }}>🌟</div>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff', marginBottom: '6px' }}>
-                {t('planetExplored', missionLang)}
-              </div>
-              <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.5, marginBottom: '20px' }}>
-                {t('orinProudOfYou', missionLang)}
-              </div>
-              <button
-                onClick={() => { setShowAvatarCelebration(false); handleViewDiscovery(); }}
-                style={{
-                  width: '100%', padding: '12px', borderRadius: '12px',
-                  border: 'none', background: '#06D6A0',
-                  color: '#0d0d1a', fontSize: '14px', fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                {t('seeMyDiscoveries', missionLang)}
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Planet Summary Screen — full-screen overlay. Opens automatically once
+          the avatar celebration is dismissed (fresh completion), and reopens
+          on demand via the "what did I discover" button (handleViewDiscovery). */}
+      <AnimatePresence>
+        {showSummaryReview && (
+          <PlanetSummaryScreen
+            insights={savedInsights}
+            onDismiss={() => setShowSummaryReview(false)}
+            language={missionLang}
+            introducedTerms={savedIntroducedTerms}
+            planetName={label}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── Planet completion celebration overlay (3-beat) ────────────── */}
+      {showCelebration && celebrationAward && celebrationProgress && (
+        <PlanetCelebrationOverlay
+          award={celebrationAward}
+          planetName={planet?.label ?? planet?.title ?? ''}
+          orinVideoUrl={baseAvatarUrl?.replace('.png', '.mp4') ?? '/avatars/base/base-03.mp4'}
+          insights={savedInsights}
+          introducedTerms={savedIntroducedTerms}
+          nextPlanet={celebrationNextPlanet}
+          missionProgress={celebrationProgress}
+          language={missionLang}
+          classId={classId ?? undefined}
+          onClose={() => setShowCelebration(false)}
+        />
       )}
 
     </motion.div>

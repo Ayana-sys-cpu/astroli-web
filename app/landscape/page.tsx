@@ -160,6 +160,8 @@ function LandscapeContent() {
   const missionLabel = mission ? `${t('missionLabel', uiLang)} ${String(mission.order).padStart(2, '0')}` : '…';
   const bigIdea      = mission?.question ?? '';
 
+  const allComplete = planets.length > 0 && planets.every(p => p.explored);
+
   // First planet passed to PipGuidePanel for the "Start Here" card navigation
   const firstPlanet = planets[0]
     ? { id: planets[0].id, label: planets[0].label }
@@ -213,6 +215,45 @@ function LandscapeContent() {
             </svg>
 
             <TopBar left={`${missionLabel} · ${bigIdea.toUpperCase()}`} showHome={!isPreview} showStore={!isPreview} lang={uiLang} />
+
+            {/* Mission-complete banner */}
+            <AnimatePresence>
+              {allComplete && !isPreview && (
+                <motion.div
+                  key="mission-complete-banner"
+                  initial={{ opacity: 0, y: -12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -12 }}
+                  transition={{ duration: 0.4, delay: 0.5 }}
+                  style={{
+                    position: 'absolute', top: 56, left: '50%',
+                    transform: 'translateX(-50%)',
+                    zIndex: 60,
+                    background: 'rgba(0,212,212,0.12)',
+                    border: '1px solid rgba(0,212,212,0.30)',
+                    borderRadius: 16,
+                    backdropFilter: 'blur(10px)',
+                    padding: '10px 22px',
+                    display: 'flex', alignItems: 'center', gap: 14,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  <span style={{ fontSize: 14, fontWeight: 700, color: '#00d4d4' }}>
+                    {t('missionComplete', uiLang)}
+                  </span>
+                  <button
+                    onClick={() => router.push('/home')}
+                    style={{
+                      padding: '5px 14px', borderRadius: 8, border: 'none',
+                      background: '#00d4d4', color: '#000',
+                      fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                    }}
+                  >
+                    {t('backToHome', uiLang)}
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Preview mode banner */}
             {isPreview && (

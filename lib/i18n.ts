@@ -415,6 +415,52 @@ const strings = {
     he: 'לחצו כדי לחקור את הכוכב הזה',
   },
 
+  // ── Planet Completion Celebration overlay ───────────────────────────────────
+  claimReward: {
+    en: 'Claim Reward',
+    he: 'קבל פרס',
+  },
+  claiming: {
+    en: 'Claiming…',
+    he: 'מקבל…',
+  },
+  whatDidILearn: {
+    en: 'What did I learn?',
+    he: 'מה למדתי?',
+  },
+  whereNext: {
+    en: 'Where next?',
+    he: 'לאן עכשיו?',
+  },
+  exploreNext: {
+    en: 'Explore {name}',
+    he: 'חקור את {name}',
+  },
+  celebrationBackToMap: {
+    en: 'Back to Map',
+    he: 'חזרה למפה',
+  },
+  skipCelebration: {
+    en: '✕ Skip',
+    he: '✕ דלג',
+  },
+  noInsightsYet: {
+    en: 'No key learnings captured — keep exploring!',
+    he: 'לא נשמרו תובנות — המשך לחקור!',
+  },
+  missionComplete: {
+    en: 'Mission Complete!',
+    he: '!משימה הושלמה',
+  },
+  coinsEarned: {
+    en: 'coins earned',
+    he: 'מטבעות הרווחת',
+  },
+  backToHome: {
+    en: 'Back to Home',
+    he: 'חזרה לדף הבית',
+  },
+
   // ── Planet drill-down — celebration / reward / fallbacks ───────────────────
   planetExplored: {
     en: 'Planet Explored!',
