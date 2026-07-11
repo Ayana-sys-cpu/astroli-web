@@ -83,7 +83,7 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
 
       return Promise.all([
         fetch(`${BOT_URL}/api/planet-voice/character?planetId=${encodeURIComponent(planetId)}&lang=${language}`).then(r => r.json()),
-        fetch(`${BOT_URL}/api/planet-voice/history?studentId=${encodeURIComponent(studentId)}&planetId=${encodeURIComponent(planetId)}`).then(r => r.json()),
+        fetch(`${BOT_URL}/api/planet-voice/history?studentId=${encodeURIComponent(studentId)}&planetId=${encodeURIComponent(planetId)}&lang=${language}`).then(r => r.json()),
       ]);
     }).then(([charData, histData]) => {
       if (!isMounted.current) return;
