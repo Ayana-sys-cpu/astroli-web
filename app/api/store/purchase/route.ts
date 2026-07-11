@@ -22,61 +22,35 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'item_not_found' }, { status: 400 });
   }
 
-  const { data: existing } = await supabaseAdmin
-    .from('student_inventory')
-    .select('id')
-    .eq('student_id', studentId)
-    .eq('item_id', itemId)
-    .maybeSingle();
+  // Debit + grant happen in one transaction inside the database function, so
+  // concurrent purchases can never spend the same coins twice.
+  const { data: purchase, error: purchaseError } = await supabaseAdmin.rpc(
+    'purchase_store_item',
+    {
+      p_student_id: studentId,
+      p_item_id:    itemId,
+      p_category:   item.category,
+      p_price:      item.price,
+    },
+  );
 
-  if (existing) return NextResponse.json({ error: 'already_owned' }, { status: 409 });
+  if (purchaseError) {
+    // 23505 = unique violation on (student_id, item_id): already owned.
+    if (purchaseError.code === '23505') {
+      return NextResponse.json({ error: 'already_owned' }, { status: 409 });
+    }
+    console.error('[store/purchase] purchase_store_item failed:', purchaseError);
+    return NextResponse.json({ error: 'purchase_not_persisted' }, { status: 500 });
+  }
 
-  const { data: balRow } = await supabaseAdmin
-    .from('student_coin_balances')
-    .select('balance')
-    .eq('student_id', studentId)
-    .maybeSingle();
-
-  const currentBalance = balRow?.balance ?? 0;
-  if (currentBalance < item.price) {
+  if (purchase.status === 'insufficient_balance') {
     return NextResponse.json(
-      { error: 'insufficient_balance', balance: currentBalance, required: item.price },
+      { error: 'insufficient_balance', balance: purchase.balance, required: item.price },
       { status: 400 },
     );
   }
 
-  const newBalance = currentBalance - item.price;
-
-  // Insert the inventory row first — if this fails nothing else has changed yet.
-  const { error: insertError } = await supabaseAdmin
-    .from('student_inventory')
-    .insert({
-      student_id:  studentId,
-      item_id:     itemId,
-      category:    item.category,
-      is_equipped: true,
-    });
-
-  if (insertError) {
-    console.error('[store/purchase] inventory insert failed:', insertError);
-    return NextResponse.json({ error: 'purchase_not_persisted' }, { status: 500 });
-  }
-
-  // Only reach here when the item was successfully inserted.
-  // Single-slot: unequip any previously equipped item, then deduct balance.
-  await supabaseAdmin
-    .from('student_inventory')
-    .update({ is_equipped: false })
-    .eq('student_id', studentId)
-    .eq('is_equipped', true)
-    .neq('item_id', itemId);
-
-  await supabaseAdmin
-    .from('student_coin_balances')
-    .upsert(
-      { student_id: studentId, balance: newBalance, updated_at: new Date().toISOString() },
-      { onConflict: 'student_id' },
-    );
+  const newBalance: number = purchase.new_balance;
 
   const { data: invRows } = await supabaseAdmin
     .from('student_inventory')
