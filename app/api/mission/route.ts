@@ -59,18 +59,12 @@ export async function GET(req: NextRequest) {
     ? rows[0]
     : (rows.find((r) => r.world_brief_summary != null) ?? rows[0]);
 
-  // ── Fetch planets + teaching goals for this mission instance ─────────────
-  const { data: planets, error: planetsError } = await supabaseAdmin
-    .from('planets')
-    .select('id, label, title, icon, hint, translations')
-    .eq('mission_id', mission.id);
+  // Planets arrive embedded via the missions→planets FK; teaching goals have
+  // no FK to planets (planet_id is a bare TEXT column), so they need their
+  // own query once the planet ids are known.
+  const planets = ((mission as any).planets ?? []) as any[];
 
-  if (planetsError) {
-    console.error('[GET /api/mission] planets lookup error:', planetsError);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-
-  const planetIds = (planets ?? []).map((p) => (p as any).id as string);
+  const planetIds = planets.map((p) => (p as any).id as string);
   const { data: teachingGoals } = planetIds.length
     ? await supabaseAdmin
         .from('planet_teaching_goals')
@@ -115,7 +109,7 @@ export async function GET(req: NextRequest) {
     openingMessage2:   (tx.opening_message_2 ?? mission.opening_message_2 as string | null) ?? '',
     missionBrief,
     chapter:           (tx.chapter ?? mission.chapter as string | null) ?? `Ch.${(mission as any).order}`,
-    planets: (planets ?? []).map((p): OrinPlanet => {
+    planets: planets.map((p): OrinPlanet => {
       const ptx: Record<string, any> = missionLanguage === 'he'
         ? ((p as any).translations as Record<string, any>)?.he ?? {}
         : {};
