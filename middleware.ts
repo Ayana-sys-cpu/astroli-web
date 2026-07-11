@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { VERIFIED_USER_HEADER, encodeVerifiedUserHeader } from './lib/verified-user-header';
 
 // Routes that do NOT require a session. Everything else under /api/* does.
 const PUBLIC_API_ROUTES = new Set([
@@ -126,7 +127,21 @@ export async function middleware(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  return supabaseResponse;
+  // Forward the verified user to route handlers in a signed header so
+  // requireAuth() can skip a second Supabase Auth round trip. A forged
+  // client-supplied value can never verify (HMAC with the service-role key),
+  // and this set() overwrites any inbound value on authenticated requests.
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!secret) {
+    return supabaseResponse; // degrade gracefully: handlers re-verify themselves
+  }
+  // req.headers already carries any cookies refreshed during getUser() above.
+  const forwardedHeaders = new Headers(req.headers);
+  forwardedHeaders.set(VERIFIED_USER_HEADER, await encodeVerifiedUserHeader(user, secret));
+  const response = NextResponse.next({ request: { headers: forwardedHeaders } });
+  // Keep any refreshed session cookies flowing back to the browser.
+  supabaseResponse.cookies.getAll().forEach((cookie) => response.cookies.set(cookie));
+  return response;
 }
 
 export const config = {
