@@ -51,7 +51,7 @@ describe('AllDiscoveriesView', () => {
   it('navigates to the planet page when a drill-down CTA is clicked', () => {
     render(<AllDiscoveriesView summaries={summaries} onClose={() => {}} lang="en" />);
     screen.getAllByText('Drill down to review →')[0].click();
-    expect(mockPush).toHaveBeenCalledWith('/landscape/planet-photosynthesis');
+    expect(mockPush).toHaveBeenCalledWith('/landscape/planet-photosynthesis?lang=en');
   });
 
   it('shows the empty state when there are no summaries', () => {

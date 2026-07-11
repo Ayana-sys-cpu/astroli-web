@@ -310,7 +310,7 @@ function HowToCard({ planets, firstPlanet, lang }: { planets: OrinPlanet[]; firs
       {suggested && (
         <motion.div
           whileHover={{ borderColor: 'rgba(168,85,247,0.35)', x: 2 }}
-          onClick={() => firstPlanet && router.push(`/landscape/${firstPlanet.id}`)}
+          onClick={() => firstPlanet && router.push(`/landscape/${firstPlanet.id}?lang=${lang}`)}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: '10px 12px', borderRadius: 10,
@@ -472,7 +472,7 @@ export function AllDiscoveriesView({ summaries, pipHistory, onClose, lang }: { s
               ))}
             </div>
             <button
-              onClick={() => router.push(`/landscape/${s.planetId}`)}
+              onClick={() => router.push(`/landscape/${s.planetId}?lang=${lang}`)}
               style={{
                 width: '100%', marginTop: 12, padding: '11px 14px', borderRadius: 12,
                 background: T.acDim, border: `1.5px solid ${T.acBdr}`,

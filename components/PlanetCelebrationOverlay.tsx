@@ -199,7 +199,7 @@ export default function PlanetCelebrationOverlay({
   function handleExploreNext() {
     if (!nextPlanet) return;
     onClose();
-    router.push(`/landscape/${nextPlanet.id}${classId ? `?classId=${classId}` : ''}`);
+    router.push(`/landscape/${nextPlanet.id}?lang=${language}${classId ? `&classId=${classId}` : ''}`);
   }
 
   function handleBackToMap() {

@@ -365,7 +365,7 @@ function LandscapeContent() {
                     key={p.id}
                     {...p}
                     lang={mission?.language === 'he' ? 'he' : 'en'}
-                    onClick={isPreview ? () => {} : () => router.push(`/landscape/${p.id}${classId ? `?classId=${classId}` : ''}`)}
+                    onClick={isPreview ? () => {} : () => router.push(`/landscape/${p.id}?lang=${uiLang}${classId ? `&classId=${classId}` : ''}`)}
                   />
                 ))}
               </div>

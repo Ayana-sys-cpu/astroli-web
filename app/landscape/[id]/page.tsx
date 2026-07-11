@@ -38,12 +38,13 @@ interface Planet {
 function PlanetPageContent({ params }: { params: { id: string } }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const classId = searchParams.get('classId');
+  const classId  = searchParams.get('classId');
+  const langParam = searchParams.get('lang');
   const [planet, setPlanet]           = useState<Planet | null>(null);
   const [loading, setLoading]         = useState(true);
   const [loadFailed, setLoadFailed]   = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
-  const [missionLang, setMissionLang] = useState<Lang>('en');
+  const [missionLang, setMissionLang] = useState<Lang>(langParam === 'he' ? 'he' : 'en');
   const [isAvatarThinking, setIsAvatarThinking] = useState(false);
   const { triggerReward } = useCoinReward();
   const [shownMsgCount, setShownMsgCount] = useState(0);
