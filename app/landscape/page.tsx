@@ -14,6 +14,8 @@ import MissionOverlay from '@/components/MissionOverlay';
 const PipGuidePanel = dynamic(() => import('@/components/PipGuidePanel'), { ssr: false });
 import { getBotName, loadStudent } from '@/lib/student-store';
 import { getPlanetMeta, PLANET_LAYOUT, PLANET_EDGES } from '@/lib/planet-meta';
+import type { OrinMission } from '@/lib/orin-guide-types';
+import type { MissionStatePayload } from '@/components/PipGuidePanel';
 
 interface Planet {
   id: string;
@@ -53,6 +55,9 @@ function LandscapeContent() {
   const [planetProgress, setPlanetProgress] = useState<Record<string, { goalsDiscovered: number; totalGoals: number; completed: boolean }>>({});
   const [loadError, setLoadError] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
+  // Pre-fetched for PipGuidePanel — null = loading (panel waits without self-fetching)
+  const [orinMission, setOrinMission] = useState<OrinMission | null>(null);
+  const [initialMissionState, setInitialMissionState] = useState<MissionStatePayload | null>(null);
   const isFirstVisit = useRef(false);
 
   useEffect(() => {
@@ -106,16 +111,18 @@ function LandscapeContent() {
           return;
         }
 
-        // planet-progress only needs the missionId we ALREADY have from the
-        // journey call — it does NOT depend on the mission body. So fetch the
-        // mission and its progress map concurrently instead of chaining them,
-        // removing a full round-trip from the path to the map reveal.
-        const [missionRes, progressRes] = await Promise.all([
+        // All three only need activeMissionId — fetch concurrently so none
+        // waits on the others.  mission-state would otherwise be tier 3 (fetched
+        // by PipGuidePanel on mount); pulling it up here removes that round-trip
+        // from the panel's critical path.
+        const [missionRes, progressRes, stateRes] = await Promise.all([
           fetch(`/api/student/mission?missionId=${activeMissionId}${classId ? `&classId=${classId}` : ''}`),
           fetch(`/api/student/planet-progress?missionId=${activeMissionId}`),
+          fetch(`/api/student/mission-state?missionId=${activeMissionId}`),
         ]);
         const { mission } = await missionRes.json();
         const { progress } = await progressRes.json().catch(() => ({ progress: null }));
+        const statePayload: MissionStatePayload | null = await stateRes.json().catch(() => null);
 
         if (!mission) {
           // 404/500 body without a mission — never reveal an empty map.
@@ -128,7 +135,20 @@ function LandscapeContent() {
         }
         setMission(mission);
         if (progress) setPlanetProgress(progress);
+        setInitialMissionState(statePayload);
         if (missionStatus) setReady(true);
+
+        // Tier 3: guide content for PipGuidePanel.  Needs the resolved language
+        // from tier 2 (class language may differ from mission.language).  This
+        // endpoint is publicly CDN-cached so it resolves fast.
+        try {
+          const orinRes = await fetch(`/api/mission?missionId=${activeMissionId}&lang=${mission.language}`);
+          const orinData: OrinMission = await orinRes.json();
+          setOrinMission(orinData);
+        } catch {
+          // Panel falls back to its loading state; a retry isn't needed since
+          // /api/mission is cached and failures are transient.
+        }
       } catch {
         setLoadError(true);
       }
@@ -391,6 +411,8 @@ function LandscapeContent() {
                       firstPlanet={firstPlanet}
                       onLaunch={() => setOrinOpen(false)}
                       language={mission?.language}
+                      orinMission={orinMission}
+                      initialMissionState={initialMissionState}
                     />
                   </motion.aside>
                 )}

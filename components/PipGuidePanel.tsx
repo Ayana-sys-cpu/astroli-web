@@ -80,12 +80,23 @@ function formatReturnMessage(rt: ReturnTrigger, lang: Lang): string {
   }
 }
 
+// Pre-fetched mission-state passed from the landscape page (mirrors GET /api/student/mission-state).
+export interface MissionStatePayload {
+  confirmedAt: string | null;
+  returnTrigger: ReturnTrigger | null;
+  pipMessages: Array<{ id: string; role: 'pip' | 'student'; content: string; triggerType: string; createdAt: string }>;
+}
+
 export interface PipGuidePanelProps {
   missionId?: string;
   missionOrder: number;
   firstPlanet?: { id: string; label: string };
   onLaunch?: () => void;
   language?: Lang;
+  /** Pre-fetched by the landscape page. null = parent loading (wait). undefined = self-fetch. */
+  orinMission?: OrinMission | null;
+  /** Pre-fetched by the landscape page. null = parent loading (wait). undefined = self-fetch. */
+  initialMissionState?: MissionStatePayload | null;
 }
 
 // =============================================================================
@@ -744,7 +755,7 @@ function CelebrationOverlay({ onDone }: { onDone: () => void }) {
 // CHANGE 4: flex-1 + overflow-y-auto for scrollable content area
 // =============================================================================
 
-export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, onLaunch, language }: PipGuidePanelProps) {
+export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, onLaunch, language, orinMission, initialMissionState }: PipGuidePanelProps) {
   const lang: Lang = language ?? 'en';
   const [mission,            setMission]            = useState<OrinMission | null>(null);
   const [hasConfirmed,       setHasConfirmed]       = useState<boolean | null>(null); // null = loading
@@ -784,8 +795,36 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
     ]);
   }, []);
 
+  // ── Apply mission state payload (shared by both code paths below) ──────────
+  const applyStatePayload = useCallback((stateData: MissionStatePayload | null) => {
+    setHasConfirmed(!!stateData?.confirmedAt);
+    if (stateData?.returnTrigger) setReturnTrigger(stateData.returnTrigger);
+    if (stateData?.pipMessages?.length) {
+      setHasPipHistory(true);
+      setMessages(stateData.pipMessages.map((m) => ({
+        id:   uid(),
+        role: m.role === 'student' ? ('user' as const) : ('pip' as const),
+        type: 'text' as const,
+        html: m.content,
+      })));
+    }
+  }, []);
+
   // ── Fetch mission data + mission state in parallel ─────────────────────────
+  // When the landscape page pre-fetches both (orinMission/initialMissionState props),
+  // apply them directly and skip the network calls.  null = parent still loading
+  // (wait for next render).  undefined = not provided → self-fetch as before.
   useEffect(() => {
+    if (orinMission !== undefined) {
+      if (!orinMission) return; // parent still loading — wait
+      setMission(orinMission);
+      if (initialMissionState === undefined) return; // not managed by parent — shouldn't happen
+      if (!initialMissionState) return;              // parent still loading state — wait
+      applyStatePayload(initialMissionState);
+      return;
+    }
+
+    // Self-fetch fallback for callers that don't pre-fetch (e.g. pip-guide page)
     const langParam = `&lang=${lang}`;
     const missionUrl = missionId
       ? `/api/mission?missionId=${missionId}${langParam}`
@@ -798,25 +837,10 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
     ])
       .then(([missionData, stateData]) => {
         setMission(missionData);
-        const confirmed = !!stateData?.confirmedAt;
-        setHasConfirmed(confirmed);
-        if (stateData?.returnTrigger) setReturnTrigger(stateData.returnTrigger);
-        // Pre-load persisted Pip message history (T019)
-        if (stateData?.pipMessages?.length > 0) {
-          setHasPipHistory(true);
-          setMessages(
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            stateData.pipMessages.map((m: any) => ({
-              id:   uid(),
-              role: m.role === 'student' ? 'user' : 'pip',
-              type: 'text',
-              html: m.content,
-            }))
-          );
-        }
+        applyStatePayload(stateData);
       })
       .catch(console.error);
-  }, [missionId, missionOrder, lang]);
+  }, [missionId, missionOrder, lang, orinMission, initialMissionState, applyStatePayload]);
 
   // ── Show opening sequence once both mission data and state are loaded ──────
   // Gates on hasConfirmed !== null so we never fire before mission-state resolves.
