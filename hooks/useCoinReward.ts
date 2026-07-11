@@ -24,6 +24,10 @@ interface CoinRewardContextValue {
   pillBalance: number | null;
   /** True while the balance pill should play its shake/scale/glow reaction. */
   pillPulse: boolean;
+  /** Fetches the coin balance from the server, once per page load. Call it from
+   *  anything that displays the balance (the store pill) — the provider itself
+   *  never fetches, so pages without a pill cost zero store-state API calls. */
+  ensureBalanceLoaded: () => void;
 }
 
 export const CoinRewardContext = createContext<CoinRewardContextValue | null>(null);

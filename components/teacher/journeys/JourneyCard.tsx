@@ -42,7 +42,7 @@ function hoursUntil(iso: string): number {
   return Math.max(0, Math.round((new Date(iso).getTime() - Date.now()) / 3_600_000));
 }
 
-export default function JourneyCard({ journey }: { journey: JourneyCardData }) {
+export default function JourneyCard({ journey, href }: { journey: JourneyCardData; href?: string | null }) {
   const router = useRouter();
   const badge  = BADGE[journey.status];
   const { from, mid, accent } = journey.coverGradient;
@@ -53,20 +53,23 @@ export default function JourneyCard({ journey }: { journey: JourneyCardData }) {
     journey.voteEndsAt !== null &&
     hoursUntil(journey.voteEndsAt) < 24;
 
+  const destination = href === undefined ? `/teacher/journey/${journey.id}` : href;
+  const isClickable = destination !== null;
+
   return (
     <>
       {isVotingUrgent && (
         <style>{`@keyframes pulse-voting{0%,100%{opacity:1}50%{opacity:.55}}`}</style>
       )}
       <div
-        role="button"
-        tabIndex={0}
-        onClick={() => router.push(`/teacher/journey/${journey.id}`)}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') router.push(`/teacher/journey/${journey.id}`); }}
+        role={isClickable ? 'button' : undefined}
+        tabIndex={isClickable ? 0 : undefined}
+        onClick={isClickable ? () => router.push(destination!) : undefined}
+        onKeyDown={isClickable ? e => { if (e.key === 'Enter' || e.key === ' ') router.push(destination!); } : undefined}
         className="glass-card"
         style={{
           overflow: 'hidden',
-          cursor: 'pointer',
+          cursor: isClickable ? 'pointer' : 'default',
           border: `1px solid ${CARD_BORDER[journey.status]}`,
           display: 'flex',
           flexDirection: 'column',

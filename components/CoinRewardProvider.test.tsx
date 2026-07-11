@@ -1,8 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import CoinRewardProvider from './CoinRewardProvider';
+import StoreButton from './StoreButton';
 import { useCoinReward } from '@/hooks/useCoinReward';
 import type { CoinRewardResult } from '@/hooks/useCoinReward';
+
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 function TestConsumer({ onReady }: { onReady: (trigger: (r: CoinRewardResult) => void) => void }) {
   const { triggerReward, pillBalance } = useCoinReward();
@@ -10,11 +13,70 @@ function TestConsumer({ onReady }: { onReady: (trigger: (r: CoinRewardResult) =>
   return <span data-testid="pill-balance">{pillBalance}</span>;
 }
 
+let fetchMock: ReturnType<typeof vi.fn>;
+
 beforeEach(() => {
-  global.fetch = vi.fn().mockResolvedValue({
+  fetchMock = vi.fn().mockResolvedValue({
     ok: true,
     json: async () => ({ balance: 10 }),
-  }) as unknown as typeof fetch;
+  });
+  global.fetch = fetchMock as unknown as typeof fetch;
+});
+
+describe('CoinRewardProvider — balance loads lazily, only for the pill', () => {
+  it('does not fetch the store state on mount (pages without the pill cost zero API calls)', async () => {
+    render(
+      <CoinRewardProvider>
+        <TestConsumer onReady={() => {}} />
+      </CoinRewardProvider>,
+    );
+
+    // Flush effects — still no request.
+    await act(async () => {});
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('fetches the balance once when the pill mounts, and never again for later pill mounts', async () => {
+    const { rerender } = render(
+      <CoinRewardProvider>
+        <StoreButton key="home-pill" />
+        <TestConsumer onReady={() => {}} />
+      </CoinRewardProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('pill-balance').textContent).toBe('10'));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // Navigate away (pill unmounts) and onto another pill page — the provider
+    // survives client-side navigation, so the balance must not be refetched.
+    rerender(
+      <CoinRewardProvider>
+        <TestConsumer onReady={() => {}} />
+      </CoinRewardProvider>,
+    );
+    rerender(
+      <CoinRewardProvider>
+        <StoreButton key="landscape-pill" />
+        <TestConsumer onReady={() => {}} />
+      </CoinRewardProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('pill-balance').textContent).toBe('10'));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('deduplicates concurrent pill mounts into a single request', async () => {
+    render(
+      <CoinRewardProvider>
+        <StoreButton />
+        <StoreButton />
+        <TestConsumer onReady={() => {}} />
+      </CoinRewardProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('pill-balance').textContent).toBe('10'));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('CoinRewardProvider — pill balance updates without requiring a claim click', () => {
@@ -22,6 +84,7 @@ describe('CoinRewardProvider — pill balance updates without requiring a claim 
     let trigger: ((r: CoinRewardResult) => void) | null = null;
     render(
       <CoinRewardProvider>
+        <StoreButton />
         <TestConsumer onReady={fn => { trigger = fn; }} />
       </CoinRewardProvider>,
     );
@@ -38,6 +101,32 @@ describe('CoinRewardProvider — pill balance updates without requiring a claim 
     });
 
     // No click on "Claim" happened — the pill must already reflect the new balance.
+    expect(screen.getByTestId('pill-balance').textContent).toBe('15');
+  });
+
+  it('keeps a reward-set balance even if the lazy fetch resolves afterwards with a stale value', async () => {
+    let resolveFetch: (value: unknown) => void;
+    fetchMock.mockReturnValue(new Promise(resolve => { resolveFetch = resolve; }));
+
+    let trigger: ((r: CoinRewardResult) => void) | null = null;
+    render(
+      <CoinRewardProvider>
+        <StoreButton />
+        <TestConsumer onReady={fn => { trigger = fn; }} />
+      </CoinRewardProvider>,
+    );
+
+    // Reward lands while the balance request is still in flight.
+    act(() => {
+      trigger!({ awarded: true, amount: 5, newBalance: 15, eventType: 'goal_completion' });
+    });
+    expect(screen.getByTestId('pill-balance').textContent).toBe('15');
+
+    await act(async () => {
+      resolveFetch!({ ok: true, json: async () => ({ balance: 10 }) });
+    });
+
+    // The stale in-flight response must not clobber the fresher reward balance.
     expect(screen.getByTestId('pill-balance').textContent).toBe('15');
   });
 });

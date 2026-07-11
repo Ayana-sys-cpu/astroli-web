@@ -12,10 +12,9 @@ vi.mock('@/lib/student-enrollment', () => ({
 const TABLES: Record<string, any[]> = {
   classes:              [{ id: 'class-1', title: 'World History', journey_id: 'journey-1', teacher_id: 'teacher-1' }],
   users:                [{ id: 'teacher-1', name: 'Mr. Lee' }],
-  missions:             [{ id: 'mission-1', journey_id: 'journey-1', question: 'Q', project_title: 'The Schism Mission', order: 1 }],
+  missions:             [{ id: 'mission-1', journey_id: 'journey-1', question: 'Q', project_title: 'The Schism Mission', order: 1, planets: [{ id: 'planet-1' }, { id: 'planet-2' }] }],
   class_mission_state:  [{ class_id: 'class-1', mission_id: 'mission-1', state: 'active' }],
   vote_sessions:        [],
-  planets:              [{ id: 'planet-1', mission_id: 'mission-1' }, { id: 'planet-2', mission_id: 'mission-1' }],
   planet_session_state: [{ planet_id: 'planet-1', completed: true }],
 };
 
@@ -25,12 +24,13 @@ vi.mock('@/lib/supabase-server', () => ({
       const rows = TABLES[table] ?? [];
       const result = Promise.resolve({ data: rows });
       const builder: any = {
-        select: () => builder,
-        eq:     () => builder,
-        in:     () => builder,
-        order:  () => builder,
-        then:   result.then.bind(result),
-        catch:  result.catch.bind(result),
+        select:      () => builder,
+        eq:          () => builder,
+        in:          () => builder,
+        order:       () => builder,
+        maybeSingle: () => Promise.resolve({ data: rows[0] ?? null }),
+        then:        result.then.bind(result),
+        catch:       result.catch.bind(result),
       };
       return builder;
     }),
@@ -65,6 +65,6 @@ describe('GET /api/student/home', () => {
     const res = await GET();
     const body = await res.json();
 
-    expect(body).toEqual({ journeys: [] });
+    expect(body).toEqual({ journeys: [], hasParent: false });
   });
 });

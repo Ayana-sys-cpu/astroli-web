@@ -3,6 +3,10 @@
 @tailwind utilities;
 
 :root {
+  /* Font families (defined here instead of next/font/google to avoid compile-time network fetches) */
+  --font-space: 'Space Grotesk', sans-serif;
+  --font-inter: 'Inter', sans-serif;
+  --font-caveat: 'Caveat', cursive;
   /* Primary accents */
   --color-magenta: #FF0080;
   --color-magenta-dim: rgba(255, 0, 128, 0.6);

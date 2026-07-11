@@ -298,12 +298,22 @@ export default function Store() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const { balance: sharedBalance, setBalance: setSharedBalance } = useCoinReward();
 
+  const [loadFailed,  setLoadFailed]  = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+
   useEffect(() => {
+    setLoading(true);
+    setLoadFailed(false);
     fetch('/api/store/state')
       .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); })
       .then((data: StoreState) => { setStoreState(data); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, []);
+      .catch(() => {
+        // Distinguish "load failed" from a real zero balance — a 0-coin grid
+        // with every item locked reads as "I lost all my coins".
+        setLoadFailed(true);
+        setLoading(false);
+      });
+  }, [loadAttempt]);
 
   const displayBalance = sharedBalance ?? storeState?.balance ?? 0;
 
@@ -430,7 +440,7 @@ export default function Store() {
             }}>
               <i className="ti ti-star-filled" style={{ fontSize: '13px', color: '#D4A017' }} />
               <span style={{ fontSize: '14px', fontWeight: 500, color: '#fde68a' }}>
-                {displayBalance}
+                {loadFailed && sharedBalance === null && !storeState ? '—' : displayBalance}
               </span>
             </div>
           </div>
@@ -490,7 +500,24 @@ export default function Store() {
 
           {/* Item grid */}
           <div style={{ flex: 1, padding: '16px 24px 24px', overflowY: 'auto' }}>
-            {loading ? <Skeleton /> : (
+            {loading ? <Skeleton /> : loadFailed && !storeState ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#fff' }}>
+                <div style={{ fontSize: '40px' }}>🛰️</div>
+                <p style={{ color: 'rgba(255,255,255,0.6)', margin: '12px 0 16px' }}>
+                  Couldn&apos;t reach the store
+                </p>
+                <button
+                  onClick={() => setLoadAttempt(a => a + 1)}
+                  style={{
+                    padding: '10px 22px', borderRadius: '12px',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    background: 'transparent', color: '#fff', cursor: 'pointer',
+                  }}
+                >
+                  Try again
+                </button>
+              </div>
+            ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
                 {categoryItems.map(item => (
                   <div

@@ -42,21 +42,21 @@ export async function GET(req: NextRequest) {
   if (!missionId) return NextResponse.json({ error: 'missionId is required' }, { status: 400 });
 
   try {
-    // 1. Load existing state row
-    const { data: stateRow } = await supabaseAdmin
-      .from('student_mission_state')
-      .select('confirmed_at, last_map_visit_at, last_visit_snapshot')
-      .eq('student_id', studentId)
-      .eq('mission_id', missionId)
-      .maybeSingle();
-
-    // 2. Load pip message history (chronological)
-    const { data: messageRows } = await supabaseAdmin
-      .from('pip_messages')
-      .select('id, role, content, trigger_type, created_at')
-      .eq('student_id', studentId)
-      .eq('mission_id', missionId)
-      .order('created_at', { ascending: true });
+    // 1+2. Load state row and pip message history (chronological) in parallel
+    const [{ data: stateRow }, { data: messageRows }] = await Promise.all([
+      supabaseAdmin
+        .from('student_mission_state')
+        .select('confirmed_at, last_map_visit_at, last_visit_snapshot')
+        .eq('student_id', studentId)
+        .eq('mission_id', missionId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from('pip_messages')
+        .select('id, role, content, trigger_type, created_at')
+        .eq('student_id', studentId)
+        .eq('mission_id', missionId)
+        .order('created_at', { ascending: true }),
+    ]);
 
     const pipMessages = (messageRows ?? []).map((m: PipMessageRow) => ({
       id:          m.id,
@@ -162,19 +162,20 @@ async function computeReturnTrigger(
   missionId: string,
   lastSnapshot: VisitSnapshot,
 ): Promise<{ trigger: ReturnTrigger; currentSnapshot: VisitSnapshot }> {
-  // 1. Get all planets for this mission (and the mission's language, so planet
-  //    titles are only translated when the mission is actually in Hebrew)
-  const { data: missionRow } = await supabaseAdmin
-    .from('missions')
-    .select('language')
-    .eq('id', missionId)
-    .maybeSingle();
+  // 1. Get all planets for this mission, in parallel with the mission's language
+  //    (so planet titles are only translated when the mission is actually in Hebrew)
+  const [{ data: missionRow }, { data: planets }] = await Promise.all([
+    supabaseAdmin
+      .from('missions')
+      .select('language')
+      .eq('id', missionId)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('planets')
+      .select('id, title, translations')
+      .eq('mission_id', missionId),
+  ]);
   const missionLang = (missionRow as { language?: string } | null)?.language ?? 'en';
-
-  const { data: planets } = await supabaseAdmin
-    .from('planets')
-    .select('id, title, translations, mission_id')
-    .eq('mission_id', missionId);
 
   const planetIds = (planets ?? []).map((p: { id: string }) => p.id);
 
@@ -239,10 +240,9 @@ async function computeReturnTrigger(
   // 6. Goal-based triggers — fetch goal text
   if (newGoalCount > 0 && mostRecentNewGoalPlanetId) {
     const goalText = await resolveNewGoalText(
-      studentId,
       mostRecentNewGoalPlanetId,
       lastSnapshot.planets[mostRecentNewGoalPlanetId]?.discoveredGoalCount ?? 0,
-      missionId,
+      missionLang,
     );
 
     return {
@@ -270,18 +270,10 @@ function getPlanetTitle(planet: { title: string; translations: unknown }, lang: 
 }
 
 async function resolveNewGoalText(
-  _studentId: string,
   planetId: string,
   prevCount: number,
-  missionId: string,
+  lang: string,
 ): Promise<string | null> {
-  const { data: mission } = await supabaseAdmin
-    .from('missions')
-    .select('language')
-    .eq('id', missionId)
-    .maybeSingle();
-  const lang = (mission as { language?: string } | null)?.language ?? 'en';
-
   const { data: goals } = await supabaseAdmin
     .from('planet_teaching_goals')
     .select('description, translations')

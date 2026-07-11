@@ -28,8 +28,10 @@ export async function GET(req: NextRequest) {
       id, "order", language, question, question_description,
       project_title, project_description, opening_message,
       world_brief_summary, world_brief_items, opening_message_2,
-      mission_brief, chapter, qa_answers, mission_qa_answers, translations
-    `);
+      mission_brief, chapter, qa_answers, mission_qa_answers, translations,
+      planets ( id, label, title, icon, hint, translations )
+    `)
+    .order('created_at', { referencedTable: 'planets' });
 
   if (missionId) {
     query = query.eq('id', missionId).limit(1);
@@ -136,5 +138,9 @@ export async function GET(req: NextRequest) {
     missionQaAnswers: (tx.mission_qa_answers ?? mission.mission_qa_answers as string[] | null) ?? [],
   };
 
-  return NextResponse.json(pipMission);
+  // Public curriculum content that only changes when a teacher edits it —
+  // let the CDN absorb the per-visit refetches from the guide panel.
+  return NextResponse.json(pipMission, {
+    headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=3600' },
+  });
 }

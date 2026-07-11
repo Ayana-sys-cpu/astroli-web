@@ -27,6 +27,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, supabaseAnon } from '@/lib/supabase-server';
+import { upsertAuthUserAndToken } from '@/lib/auth-token';
 import { parseBody, AuthCodeSchema } from '@/lib/validate';
 import { enrollStudentInJourneys } from '@/lib/enroll-student';
 
@@ -66,50 +67,6 @@ async function generateAlienName(): Promise<string> {
 function pickAvatarUrl(): string {
   const index = Math.floor(Math.random() * 10) + 1;
   return `/avatars/base/base-${String(index).padStart(2, '0')}.png`;
-}
-
-// ── Shared helpers (mirrors /api/auth/identify) ───────────────────────────────
-
-async function upsertAuthUserAndToken(
-  email: string,
-  metadata: { role: string; student_id?: string | null; teacher_id?: string | null },
-): Promise<{ authUserId: string; authToken: string } | null> {
-  // generateLink is idempotent: it finds the existing Supabase auth user by
-  // exact email, or creates one if none exists. It returns both the
-  // hashed_token (for verifyOtp) and the user's UUID — no separate
-  // createUser/findByEmail call needed.
-  const { data: link, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-    type:    'magiclink',
-    email,
-    options: { data: metadata },
-  });
-  if (linkError || !link) {
-    console.error('[google] generateLink', linkError);
-    return null;
-  }
-
-  const hashed_token = (link.properties as { hashed_token?: string }).hashed_token;
-  const authUserId   = (link as any).user?.id as string | undefined;
-
-  if (!hashed_token || !authUserId) {
-    console.error('[google] generateLink missing token or user id');
-    return null;
-  }
-
-  // Explicitly sync user_metadata — generateLink's options.data does NOT reliably
-  // update raw_user_meta_data for EXISTING auth users (it only embeds the data in
-  // the token for potential application at verifyOtp time, but in practice the
-  // existing user record is not updated). We must call updateUserById here.
-  //
-  // IMPORTANT: pass ONLY user_metadata — NEVER email_confirm: true.
-  // email_confirm: true clears confirmation_token in auth.users, which
-  // invalidates hashed_token and causes verifyOtp to 403 (previous bug).
-  const { error: metaErr } = await supabaseAdmin.auth.admin.updateUserById(authUserId, {
-    user_metadata: metadata,
-  });
-  if (metaErr) console.error('[google] updateUserById user_metadata failed:', metaErr);
-
-  return { authUserId, authToken: hashed_token };
 }
 
 // ── Route handler ─────────────────────────────────────────────────────────────
@@ -225,7 +182,7 @@ export async function POST(req: NextRequest) {
       const authResult = await upsertAuthUserAndToken(email, {
         role: 'parent', parent_id: parent.id, student_id: null, teacher_id: null,
         has_child: childLink !== null,
-      } as any);
+      }, 'google');
       if (!authResult) {
         return NextResponse.json({ error: 'Failed to create auth session' }, { status: 503 });
       }
@@ -327,7 +284,7 @@ export async function POST(req: NextRequest) {
 
     const authResult = await upsertAuthUserAndToken(email, {
       role: 'teacher', teacher_id: teacher.id, student_id: null,
-    });
+    }, 'google');
     if (!authResult) {
       return NextResponse.json({ error: 'Failed to create auth session' }, { status: 503 });
     }
@@ -405,7 +362,7 @@ export async function POST(req: NextRequest) {
 
   const authResult = await upsertAuthUserAndToken(email, {
     role: 'student', student_id: canonicalStudentId, teacher_id: null,
-  });
+  }, 'google');
   if (!authResult) {
     return NextResponse.json({ error: 'Failed to create auth session' }, { status: 503 });
   }

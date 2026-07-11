@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { headers } from 'next/headers';
 import type { User } from '@supabase/supabase-js';
 import { createSSRServerClient, supabaseAdmin } from './supabase-server';
+import { VERIFIED_USER_HEADER, decodeVerifiedUserHeader } from './verified-user-header';
 
 type AuthOk   = { ok: true;  user: User };
 type AuthFail = { ok: false; response: NextResponse };
@@ -18,6 +20,16 @@ export type AuthResult = AuthOk | AuthFail;
  *   // user.user_metadata.role        — 'student' | 'teacher'
  */
 export async function requireAuth(): Promise<AuthResult> {
+  // Fast path: the middleware already verified this request with Supabase Auth
+  // and forwarded the user in a signed header — skip a second network round trip.
+  const middlewareVerifiedUser = await decodeVerifiedUserHeader(
+    headers().get(VERIFIED_USER_HEADER),
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+  );
+  if (middlewareVerifiedUser) {
+    return { ok: true, user: middlewareVerifiedUser };
+  }
+
   const supabase = createSSRServerClient();
   const { data: { user }, error } = await supabase.auth.getUser();
 
@@ -75,12 +87,25 @@ export async function resolveStudentId(user: User): Promise<string | null> {
 }
 
 /**
- * Resolves a student_id from either a Supabase cookie session (web) or an
- * `x-student-id` request header (mobile). Returns null if neither is valid.
+ * Extracts the JWT from an `Authorization: Bearer <token>` header, if present.
+ */
+function bearerToken(req: NextRequest): string | null {
+  const header = req.headers.get('authorization');
+  if (!header?.toLowerCase().startsWith('bearer ')) return null;
+  const token = header.slice('bearer '.length).trim();
+  return token || null;
+}
+
+/**
+ * Resolves a student_id from either a Supabase cookie session (web) or a
+ * Supabase access token in the `Authorization: Bearer` header (mobile).
+ * Returns null if neither is valid.
  *
- * Mobile clients cannot establish cookie sessions, so they pass their known
- * student_id via the `x-student-id` header. We verify it exists in the DB
- * before trusting it.
+ * Mobile clients cannot establish cookie sessions, so they send the access
+ * token obtained at sign-in (POST /api/auth/session). The token is verified
+ * server-side and the student identity comes from the token's subject — a
+ * client-supplied `x-student-id` header is never trusted on its own, and if
+ * present it must match the token's student or the request is rejected.
  */
 export async function resolveStudentIdFromRequest(req: NextRequest): Promise<string | null> {
   // 1. Try cookie-based session (web frontend path).
@@ -89,19 +114,21 @@ export async function resolveStudentIdFromRequest(req: NextRequest): Promise<str
     return resolveStudentId(auth.user);
   }
 
-  // 2. Fall back to mobile header (x-student-id).
+  // 2. Mobile path: verify the bearer access token with Supabase Auth.
+  const token = bearerToken(req);
+  if (!token) return null;
+
+  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !user) return null;
+
+  const studentId = await resolveStudentId(user);
+  if (!studentId) return null;
+
+  // If the client also names a student, it must be the token's own student.
   const headerStudentId = req.headers.get('x-student-id');
-  if (!headerStudentId) return null;
+  if (headerStudentId && headerStudentId !== studentId) return null;
 
-  // Validate the student actually exists in the DB before trusting the header.
-  const { data } = await supabaseAdmin
-    .from('users')
-    .select('id')
-    .eq('id', headerStudentId)
-    .eq('role', 'student')
-    .maybeSingle();
-
-  return data?.id ?? null;
+  return studentId;
 }
 
 /**

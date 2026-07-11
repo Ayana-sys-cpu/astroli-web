@@ -41,6 +41,8 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
   const classId = searchParams.get('classId');
   const [planet, setPlanet]           = useState<Planet | null>(null);
   const [loading, setLoading]         = useState(true);
+  const [loadFailed, setLoadFailed]   = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [missionLang, setMissionLang] = useState<Lang>('en');
   const [isAvatarThinking, setIsAvatarThinking] = useState(false);
   const { triggerReward } = useCoinReward();
@@ -59,6 +61,7 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
   const [celebrationAward, setCelebrationAward] = useState<{ amount: number; newBalance: number } | null>(null);
   const [celebrationNextPlanet, setCelebrationNextPlanet] = useState<NextPlanetInfo | null>(null);
   const [celebrationProgress, setCelebrationProgress] = useState<MissionProgressInfo | null>(null);
+  const [celebrationVariant, setCelebrationVariant] = useState<'planet' | 'mission'>('planet');
   const chatPanelRef = useRef<HTMLElement>(null);
 
   useEffect(() => { isThinkingRef.current = isAvatarThinking; }, [isAvatarThinking]);
@@ -100,17 +103,23 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
       const isFinalGoal = planetVoice.completionReady;
       const isGoalCompletion = award.eventType === 'goal_completion';
       // When the final goal and planet_complete fire in the same turn, mergeAwards
-      // promotes the combined popup to 'planet_complete' (highest tier). We must
-      // check both event types so the celebration chain runs in either case.
+      // promotes the combined popup to the highest tier — 'mission_complete' when
+      // this was the last planet in the mission. All three shapes must open the
+      // celebration chain.
       const triggersCelebration =
         award.eventType === 'planet_complete' ||
+        award.eventType === 'mission_complete' ||
         (isGoalCompletion && isFinalGoal);
       // Anchor the entrance animation to the chat panel — the student's message and
       // the bot's acknowledgment live there, so the reward should visibly emerge from
       // that conversation rather than materialize out of nowhere at screen center.
       if (triggersCelebration) {
-        // Bypass CoinRewardModal for planet_complete — open the 3-beat overlay directly.
-        handleCelebrationTrigger({ amount: award.amount, newBalance: award.newBalance });
+        // Bypass CoinRewardModal — open the 3-beat overlay directly. Mission
+        // completion gets the mission-flavored variant (routes home at Beat 3).
+        handleCelebrationTrigger(
+          { amount: award.amount, newBalance: award.newBalance },
+          award.eventType === 'mission_complete' ? 'mission' : 'planet',
+        );
       } else {
         triggerReward({
           awarded:          true,
@@ -137,15 +146,28 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
   }
 
   useEffect(() => {
+    setLoadFailed(false);
+    setLoading(true);
     fetch(`/api/student/mission?planetId=${params.id}${classId ? `&classId=${classId}` : ''}`)
-      .then(r => r.json())
-      .then(({ planet }) => {
+      .then(r => {
+        // Expired session must go back to sign-in, not a "planet not found" dead end.
+        if (r.status === 401 || r.status === 403) { router.replace('/'); return null; }
+        if (!r.ok) throw new Error(`${r.status}`);
+        return r.json();
+      })
+      .then(data => {
+        if (!data) return; // redirected
+        const { planet } = data;
         setPlanet(planet);
         setMissionLang(planet?.missionLanguage === 'he' ? 'he' : 'en');
         setLoading(false);
       })
-      .catch(() => setLoading(false));
-  }, [params.id]);
+      .catch(() => {
+        // Transient failure (offline, 500) — offer retry instead of "not found".
+        setLoadFailed(true);
+        setLoading(false);
+      });
+  }, [params.id, classId, router, loadAttempt]);
 
   async function preloadInsights() {
     try {
@@ -210,13 +232,17 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
     setShowSummaryReview(true);
   }
 
-  async function handleCelebrationTrigger(award: { amount: number; newBalance: number }) {
+  async function handleCelebrationTrigger(
+    award: { amount: number; newBalance: number },
+    variant: 'planet' | 'mission' = 'planet',
+  ) {
     const [, nextData] = await Promise.all([
       preloadInsights(),
       fetch(`/api/student/planet-next?planetId=${params.id}${classId ? `&classId=${classId}` : ''}`)
         .then(r => r.json())
         .catch(() => ({ nextPlanet: null, missionProgress: null })),
     ]);
+    setCelebrationVariant(variant);
     setCelebrationAward(award);
     setCelebrationNextPlanet((nextData as { nextPlanet?: NextPlanetInfo }).nextPlanet ?? null);
     setCelebrationProgress(
@@ -230,6 +256,34 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <span className="w-5 h-5 rounded-full border-2 border-[#a855f7]/30 border-t-[#00C4CC] animate-spin" />
+      </div>
+    );
+  }
+
+  if (loadFailed) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <div style={{ fontSize: 38 }}>📡</div>
+          <p className="text-white/40 font-space text-sm mt-3 mb-4">{t('mapLoadError', missionLang)}</p>
+          <button
+            onClick={() => setLoadAttempt(a => a + 1)}
+            className="px-6 py-2.5 rounded-xl font-space text-xs tracking-[0.14em] uppercase"
+            style={{
+              border: '1px solid rgba(120,180,255,0.4)',
+              background: 'rgba(120,180,255,0.1)',
+              color: '#9ec1ff',
+              cursor: 'pointer',
+            }}
+          >
+            {t('tryAgain', missionLang)}
+          </button>
+          <div className="mt-3">
+            <button onClick={() => router.push(classId ? `/landscape?classId=${classId}` : '/landscape')} className="btn-ghost font-space text-xs">
+              {t('backToLandscape', missionLang)}
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -381,10 +435,6 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
             <span className="text-[9px] tracking-[0.18em] text-white/30 font-space uppercase">
               {figureEra ? `${t('temporalLink', missionLang)} · ${figureEra}` : `${t('planetLabel', missionLang)} · ${label.toUpperCase()}`}
             </span>
-            <div className="flex items-center gap-3">
-              <button className="text-white/25 hover:text-white/60 transition-colors text-xs">←</button>
-              <button className="text-white/25 hover:text-white/60 transition-colors text-xs">→</button>
-            </div>
             <button
               onClick={() => router.push(classId ? `/landscape?classId=${classId}` : '/landscape')}
               className="flex items-center gap-1.5 text-[9px] tracking-[0.15em] font-space text-white/30 hover:text-white/60 transition-colors uppercase"
@@ -478,6 +528,7 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
           missionProgress={celebrationProgress}
           language={missionLang}
           classId={classId ?? undefined}
+          variant={celebrationVariant}
           onClose={() => setShowCelebration(false)}
         />
       )}

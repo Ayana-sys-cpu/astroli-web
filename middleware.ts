@@ -9,7 +9,11 @@ const PUBLIC_API_ROUTES = new Set([
   '/api/auth/accept-invite',        // invite link completion — no session exists yet
   '/api/auth/create-invite-session', // Resend-based invite: generate Supabase action_link at click time
   '/api/auth/finalize-login',        // non-invite magic-link completion — enforces its own getUser
+  '/api/auth/dev-teacher-login',     // dev-only: one-click teacher session (delete before prod)
+  '/api/auth/dev-parent-login',      // dev-only: one-click parent session (delete before prod)
   '/api/auth/student-status',
+  '/api/auth/session',   // mobile: exchange sign-in authToken for a session — no session exists yet
+  '/api/auth/refresh',   // mobile: rotate refresh token — access token may already be expired
   '/api/vote-counts',
   '/api/winner',
   '/api/test/routing-check', // shadow session runner — auth via Bearer service role key
@@ -17,25 +21,27 @@ const PUBLIC_API_ROUTES = new Set([
 ]);
 
 /**
- * Mobile clients can't hold a Supabase cookie session, so they authenticate by
- * sending their student id in the `x-student-id` header (set after sign-in via
- * the public /api/auth/* endpoints). We verify the id is a real student in the
- * DB before letting the request through — a forged or unknown id is rejected.
- * Uses a direct Supabase REST call so this stays Edge-safe (no next/headers).
+ * Mobile clients can't hold a Supabase cookie session, so they authenticate
+ * with a Supabase access token in the `Authorization: Bearer` header (obtained
+ * at sign-in via POST /api/auth/session). We verify the token against Supabase
+ * Auth before letting the request through — a bare student id is never enough.
+ * Route handlers then derive the student identity from the same token
+ * (resolveStudentIdFromRequest), so a forged or mismatched id is rejected.
+ * Uses a direct Auth REST call so this stays Edge-safe (no next/headers).
  */
-async function isValidStudentHeader(studentId: string | null): Promise<boolean> {
-  if (!studentId || !/^[0-9a-f-]{36}$/i.test(studentId)) return false;
-  const base = process.env.SUPABASE_REST_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!base || !key) return false;
+async function isValidBearerToken(authorization: string | null): Promise<boolean> {
+  if (!authorization?.toLowerCase().startsWith('bearer ')) return false;
+  const token = authorization.slice('bearer '.length).trim();
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!token || !base || !anonKey) return false;
   try {
-    const res = await fetch(
-      `${base}users?id=eq.${studentId}&role=eq.student&select=id`,
-      { headers: { apikey: key, Authorization: `Bearer ${key}` } },
-    );
+    const res = await fetch(`${base}/auth/v1/user`, {
+      headers: { apikey: anonKey, Authorization: `Bearer ${token}` },
+    });
     if (!res.ok) return false;
-    const rows = await res.json();
-    return Array.isArray(rows) && rows.length > 0;
+    const user = await res.json();
+    return typeof user?.id === 'string';
   } catch {
     return false;
   }
@@ -111,9 +117,10 @@ export async function middleware(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    // Mobile fallback: allow requests carrying a DB-validated x-student-id
-    // through to the route handlers, which apply their own authorization.
-    if (await isValidStudentHeader(req.headers.get('x-student-id'))) {
+    // Mobile fallback: allow requests carrying a verified Supabase access
+    // token through to the route handlers, which apply their own authorization
+    // against the same token's subject.
+    if (await isValidBearerToken(req.headers.get('authorization'))) {
       return NextResponse.next({ request: req });
     }
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

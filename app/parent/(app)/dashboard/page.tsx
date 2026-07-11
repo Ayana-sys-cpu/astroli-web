@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import DrillDownHeader from '@/components/teacher/drill-down/DrillDownHeader';
 import AllTimeView from '@/components/teacher/drill-down/AllTimeView';
 import CrossJourneyInsights from '@/components/teacher/drill-down/CrossJourneyInsights';
-import ParentThisWeekView from '@/components/parent/ParentThisWeekView';
+import ThisWeekView from '@/components/teacher/drill-down/ThisWeekView';
 import SetupChecklist, { type SetupStep } from './SetupChecklist';
 import type { DrillDownResponse } from '@/lib/drill-down-types';
 
@@ -36,7 +36,7 @@ export default function ParentDashboardPage() {
         setSetupData(setup);
 
         if (setup.setupState.step === 'active') {
-          const pr = await fetch('/api/parent/dashboard/progress', { signal: ctrl.signal });
+          const pr = await fetch('/api/parent/student/drill-down', { signal: ctrl.signal });
           if (pr.status === 401 || pr.status === 403) { router.replace('/'); return; }
           const pd: DrillDownResponse = await pr.json();
           setProgressData(pd);
@@ -170,7 +170,7 @@ export default function ParentDashboardPage() {
       {/* Main content */}
       {selectedJourneyId && (
         mainTab === 'this-week' ? (
-          <ParentThisWeekView
+          <ThisWeekView
             data={data}
             selectedJourneyId={selectedJourneyId}
             onSwitchToAllTime={() => setMainTab('all-time')}

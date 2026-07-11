@@ -13,7 +13,7 @@ export default function StorePage() {
       className="relative h-screen bg-black overflow-hidden flex flex-col"
     >
       <StarField count={80} seed={42} />
-      <TopBar />
+      <TopBar left="✦ STORE" />
 
       <div className="flex flex-1 flex-col pt-14 overflow-hidden">
         <Store />

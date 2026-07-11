@@ -1,24 +1,7 @@
 import type { Metadata } from 'next';
-import { Space_Grotesk, Inter, Caveat } from 'next/font/google';
 import CoinRewardProvider from '@/components/CoinRewardProvider';
 import IconFontActivator from '@/components/IconFontActivator';
 import './globals.css';
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ['latin'],
-  variable: '--font-space',
-  weight: ['300', '400', '500', '600', '700'],
-});
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-inter',
-  weight: ['400', '500'],
-});
-const caveat = Caveat({
-  subsets: ['latin'],
-  variable: '--font-caveat',
-  weight: ['400', '600', '700'],
-});
 
 export const metadata: Metadata = {
   title: 'Astroli — Enter the Mission',
@@ -27,8 +10,16 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${spaceGrotesk.variable} ${inter.variable} ${caveat.variable}`}>
+    <html lang="en">
       <head>
+        {/* Fonts loaded in-browser (not at compile time) to avoid next/font/google
+            network fetches during Next.js compilation. */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@400;500&family=Caveat:wght@400;600;700&display=swap"
+          rel="stylesheet"
+        />
         {/* Icon webfont — pinned (no @latest) and loaded non-render-blocking.
             media="print" lets the page paint immediately without waiting on the
             CDN; <IconFontActivator> flips it to media="all" after hydration so

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { CoinRewardContext } from '@/hooks/useCoinReward';
@@ -26,15 +26,24 @@ export default function CoinRewardProvider({ children }: { children: React.React
   const [pillPulse, setPillPulse] = useState(false);
   const [burst, setBurst] = useState<Burst | null>(null);
   const pillPulseTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const balanceLoadStarted = useRef(false);
 
-  useEffect(() => {
+  // The provider wraps every page, but /api/store/state costs auth checks and
+  // DB queries — so the balance is only fetched on demand, when something that
+  // displays it (the store pill) actually mounts. One request per page load,
+  // shared by all pill mounts; pages without a pill never hit the API.
+  const ensureBalanceLoaded = useCallback(() => {
+    if (balanceLoadStarted.current) return;
+    balanceLoadStarted.current = true;
     fetch('/api/store/state')
       .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); })
       .then((data: { balance: number }) => {
-        setBalance(data.balance);
-        setPillBalance(data.balance);
+        // A reward can land while this request is in flight — its balance is
+        // fresher than the fetched one, so never overwrite a known value.
+        setBalance(prev => prev ?? data.balance);
+        setPillBalance(prev => prev ?? data.balance);
       })
-      .catch(() => {});
+      .catch(() => { balanceLoadStarted.current = false; });
   }, []);
 
   const triggerReward = useCallback((result: CoinRewardResult) => {
@@ -100,7 +109,7 @@ export default function CoinRewardProvider({ children }: { children: React.React
   const current = queue[0] ?? null;
 
   return (
-    <CoinRewardContext.Provider value={{ triggerReward, balance, setBalance, pillBalance, pillPulse }}>
+    <CoinRewardContext.Provider value={{ triggerReward, balance, setBalance, pillBalance, pillPulse, ensureBalanceLoaded }}>
       <div style={{ position: 'relative', minHeight: '100dvh' }}>
         {children}
         {current && (

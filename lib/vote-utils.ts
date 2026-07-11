@@ -3,6 +3,15 @@ export function toDatetimeLocal(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+export type VoteSubmitFailure = 'session_closed' | 'retryable';
+
+// POST /api/votes returns 404 when the session is missing or no longer open,
+// and 409 on a state conflict — both mean "this vote just concluded", so the
+// page should re-fetch journey state instead of letting the student retry.
+export function classifyVoteSubmitFailure(status: number): VoteSubmitFailure {
+  return status === 404 || status === 409 ? 'session_closed' : 'retryable';
+}
+
 export function formatCountdown(endIso: string): string {
   const diff = Math.max(0, new Date(endIso).getTime() - Date.now());
   const s = Math.floor(diff / 1000) % 60;

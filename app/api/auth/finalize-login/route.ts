@@ -7,7 +7,7 @@
 //
 // Invite links do NOT hit this route — they go straight to /auth/accept-invite.
 //
-// Response: 200 { redirect: '/teacher' | '/syncing' }
+// Response: 200 { redirect: '/teacher' | '/parent' | '/syncing' }
 //           401 { error: 'invalid_link' }    — no valid session
 //           404 { error: 'not_registered' }  — email not in our users table
 //           500 { error: 'service_error' }   — DB error during lookup
@@ -28,19 +28,28 @@ export async function POST() {
     return NextResponse.json({ error: 'invalid_link' }, { status: 401 });
   }
 
-  // ── Whitelist check — fail closed on DB error ─────────────────────────────
-  const { data: whitelist, error: whitelistError } = await supabaseAdmin
-    .from('authorized_teachers')
-    .select('email')
-    .eq('email', email)
-    .maybeSingle();
+  // ── Whitelist checks (teacher + parent) — fail closed on DB error ──────────
+  const [
+    { data: teacherWhitelist, error: teacherWhitelistError },
+    { data: parentWhitelist,  error: parentWhitelistError  },
+  ] = await Promise.all([
+    supabaseAdmin.from('authorized_teachers').select('email').eq('email', email).maybeSingle(),
+    supabaseAdmin.from('authorized_parents').select('email').eq('email', email).maybeSingle(),
+  ]);
 
-  if (whitelistError) {
-    console.error('[finalize-login] whitelist lookup error:', whitelistError.message);
+  if (teacherWhitelistError) {
+    console.error('[finalize-login] teacher whitelist lookup error:', teacherWhitelistError.message);
+    return NextResponse.json({ error: 'service_error' }, { status: 500 });
+  }
+  if (parentWhitelistError) {
+    console.error('[finalize-login] parent whitelist lookup error:', parentWhitelistError.message);
     return NextResponse.json({ error: 'service_error' }, { status: 500 });
   }
 
-  const isTeacher = whitelist !== null;
+  const isTeacher = teacherWhitelist !== null;
+  // Also trust role=parent already stamped via admin API (e.g. dev-parent-login)
+  const isParent  = parentWhitelist !== null
+    || (user.user_metadata?.role === 'parent' && !!user.user_metadata?.parent_id);
 
   // ── User record lookup ────────────────────────────────────────────────────
   const { data: userRecord, error: lookupError } = await supabaseAdmin
@@ -60,8 +69,10 @@ export async function POST() {
 
   // ── Stamp user_metadata (mirrors the Google SSO path) ────────────────────
   const metadata = isTeacher
-    ? { role: 'teacher', teacher_id: userRecord.id, student_id: null }
-    : { role: 'student', student_id: userRecord.id, teacher_id: null };
+    ? { role: 'teacher', teacher_id: userRecord.id, student_id: null, parent_id: null }
+    : isParent
+      ? { role: 'parent',  parent_id: userRecord.id,  student_id: null, teacher_id: null }
+      : { role: 'student', student_id: userRecord.id, teacher_id: null, parent_id: null };
 
   await supabaseAdmin.auth.admin.updateUserById(user.id, { user_metadata: metadata });
 
@@ -71,5 +82,6 @@ export async function POST() {
     .update({ auth_user_id: user.id })
     .eq('id', userRecord.id);
 
-  return NextResponse.json({ redirect: isTeacher ? '/teacher' : '/syncing' });
+  const redirect = isTeacher ? '/teacher' : isParent ? '/parent' : '/syncing';
+  return NextResponse.json({ redirect });
 }

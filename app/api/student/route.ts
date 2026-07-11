@@ -207,6 +207,13 @@ export async function DELETE(req: NextRequest) {
 // Returns the student record, or null (200) when the email is not found.
 // Returns 503 when env vars are missing, 502 when Supabase itself errors —
 // so the client can distinguish "not found" from "lookup failed".
+//
+// This endpoint is unauthenticated (mobile sign-in calls it before any session
+// exists), so it must never expose more than the fields the mobile
+// StudentRecord consumes — no select=*, no apple_user_id, no role.
+const STUDENT_LOOKUP_COLUMNS =
+  'id,email,full_name,first_name,alien_name,base_avatar_url,avatar_url,area_of_interest';
+
 export async function GET(req: NextRequest) {
   if (missingConfig()) {
     console.error('[GET /api/student] Missing SUPABASE_REST_URL or SUPABASE_SERVICE_ROLE_KEY');
@@ -226,7 +233,7 @@ export async function GET(req: NextRequest) {
   let res: Response;
   try {
     res = await fetch(
-      `${SUPABASE_URL}users?${filter}&select=*`,
+      `${SUPABASE_URL}users?${filter}&select=${STUDENT_LOOKUP_COLUMNS}`,
       { headers: supabaseHeaders() },
     );
   } catch (err) {

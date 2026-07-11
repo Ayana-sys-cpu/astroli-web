@@ -75,11 +75,11 @@ export default function TopBar({ left, center, showUser = true, showHome = true,
           >
             {t('backToMap', lang)}
           </button>
-        ) : (
+        ) : left ? (
           <span className="text-[10px] tracking-[0.22em] text-white/35 font-space uppercase">
-            {left ?? 'MISSION 03 · WHO OWNS THE TRUTH?'}
+            {left}
           </span>
-        )}
+        ) : null}
       </div>
 
       {center && (

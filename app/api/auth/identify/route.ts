@@ -15,42 +15,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
+import { upsertAuthUserAndToken } from '@/lib/auth-token';
 import { parseBody, AccessTokenSchema } from '@/lib/validate';
-
-// ── Auth helpers ───────────────────────────────────────────────────────────────
-
-async function upsertAuthUserAndToken(
-  email: string,
-  metadata: { role: string; student_id?: string | null; teacher_id?: string | null },
-): Promise<{ authUserId: string; authToken: string } | null> {
-  const { data: link, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-    type:    'magiclink',
-    email,
-    options: { data: metadata },
-  });
-  if (linkError || !link) {
-    console.error('[identify] generateLink', linkError);
-    return null;
-  }
-
-  const hashed_token = (link.properties as { hashed_token?: string }).hashed_token;
-  const authUserId   = (link as any).user?.id as string | undefined;
-
-  if (!hashed_token || !authUserId) {
-    console.error('[identify] generateLink missing token or user id');
-    return null;
-  }
-
-  // Explicitly sync user_metadata — generateLink's options.data does NOT reliably
-  // update raw_user_meta_data for EXISTING auth users. See google/route.ts for
-  // the full explanation. Pass ONLY user_metadata — never email_confirm: true.
-  const { error: metaErr } = await supabaseAdmin.auth.admin.updateUserById(authUserId, {
-    user_metadata: metadata,
-  });
-  if (metaErr) console.error('[identify] updateUserById user_metadata failed:', metaErr);
-
-  return { authUserId, authToken: hashed_token };
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -139,7 +105,7 @@ async function handlePOST(req: NextRequest) {
         student_id: null,
         teacher_id: null,
         has_child:  childLink !== null,
-      } as any);
+      }, 'identify');
 
       if (!authResult) {
         console.error('[identify] upsertAuthUserAndToken failed for parent:', email);
@@ -225,7 +191,7 @@ async function handlePOST(req: NextRequest) {
       role:       'teacher',
       teacher_id: teacher.id,
       student_id: null,
-    });
+    }, 'identify');
 
     if (!authResult) {
       console.error('[identify] upsertAuthUserAndToken failed for teacher:', email);
@@ -273,7 +239,7 @@ async function handlePOST(req: NextRequest) {
     role:       'student',
     student_id: student.id,
     teacher_id: null,
-  });
+  }, 'identify');
 
   if (!authResult) {
     console.error('[identify] upsertAuthUserAndToken failed for student:', email);

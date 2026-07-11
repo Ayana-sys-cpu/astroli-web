@@ -32,6 +32,9 @@ interface Props {
   language: Lang;
   classId?: string;
   onClose: () => void;
+  // 'mission' — the planet just completed was the last one, finishing the whole
+  // mission: Beat 1/3 texts celebrate the mission and Beat 3 routes to /home.
+  variant?: 'planet' | 'mission';
 }
 
 type Beat = 1 | 2 | 3;
@@ -78,6 +81,7 @@ export default function PlanetCelebrationOverlay({
   insights, introducedTerms,
   nextPlanet, missionProgress,
   language, classId, onClose,
+  variant = 'planet',
 }: Props) {
   const router = useRouter();
   const { setBalance } = useCoinReward();
@@ -203,6 +207,11 @@ export default function PlanetCelebrationOverlay({
     router.push(classId ? `/landscape?classId=${classId}` : '/landscape');
   }
 
+  function handleBackToHome() {
+    onClose();
+    router.push('/home');
+  }
+
   // ── Progress bar ───────────────────────────────────────────────────────────
 
   const { completed, total } = missionProgress;
@@ -303,9 +312,14 @@ export default function PlanetCelebrationOverlay({
                 textAlign: 'center',
               }}
             >
-              {/* Planet name */}
-              <p style={{ fontSize: 11, color: C.ts, letterSpacing: '0.14em', textTransform: 'uppercase', margin: '0 0 12px' }}>
-                {planetName}
+              {/* Planet name — or mission-complete headline for the mission variant */}
+              <p style={{
+                fontSize: variant === 'mission' ? 15 : 11,
+                color: variant === 'mission' ? C.gold : C.ts,
+                fontWeight: variant === 'mission' ? 800 : 400,
+                letterSpacing: '0.14em', textTransform: 'uppercase', margin: '0 0 12px',
+              }}>
+                {variant === 'mission' ? t('missionComplete', language) : planetName}
               </p>
 
               {/* Coins */}
@@ -501,7 +515,7 @@ export default function PlanetCelebrationOverlay({
               )}
 
               {/* Mission complete state */}
-              {!nextPlanet ? (
+              {variant === 'mission' || !nextPlanet ? (
                 <div
                   ref={cardB3Ref}
                   style={{
@@ -509,22 +523,52 @@ export default function PlanetCelebrationOverlay({
                     borderRadius: 22, padding: '32px 28px', textAlign: 'center',
                   }}
                 >
-                  <p style={{ fontSize: 22, fontWeight: 800, color: C.tp, margin: '0 0 8px' }}>
+                  <p style={{ fontSize: 22, fontWeight: 800, color: variant === 'mission' ? C.gold : C.tp, margin: '0 0 8px' }}>
                     {t('missionComplete', language)}
                   </p>
                   <p style={{ fontSize: 13, color: C.ts, margin: '0 0 24px' }}>
-                    {t('uncoveredEverySecret', language)}
+                    {variant === 'mission'
+                      ? t('entireMissionComplete', language)
+                      : t('uncoveredEverySecret', language)}
                   </p>
-                  <button
-                    onClick={handleBackToMap}
-                    style={{
-                      width: '100%', padding: '15px 20px', borderRadius: 14,
-                      background: C.ac, border: 'none', cursor: 'pointer',
-                      color: '#000', fontSize: 15, fontWeight: 800,
-                    }}
-                  >
-                    {t('celebrationBackToMap', language)}
-                  </button>
+                  {variant === 'mission' ? (
+                    <>
+                      <button
+                        onClick={handleBackToHome}
+                        style={{
+                          width: '100%', padding: '15px 20px', borderRadius: 14,
+                          background: C.ac, border: 'none', cursor: 'pointer',
+                          color: '#000', fontSize: 15, fontWeight: 800,
+                          marginBottom: 10,
+                        }}
+                      >
+                        {t('chooseNextMission', language)}
+                      </button>
+                      <button
+                        onClick={handleBackToMap}
+                        style={{
+                          width: '100%', padding: '12px 20px', borderRadius: 14,
+                          background: 'transparent',
+                          border: `1px solid ${C.bdr}`,
+                          cursor: 'pointer',
+                          color: C.ts, fontSize: 14, fontWeight: 600,
+                        }}
+                      >
+                        {t('celebrationBackToMap', language)}
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={handleBackToMap}
+                      style={{
+                        width: '100%', padding: '15px 20px', borderRadius: 14,
+                        background: C.ac, border: 'none', cursor: 'pointer',
+                        color: '#000', fontSize: 15, fontWeight: 800,
+                      }}
+                    >
+                      {t('celebrationBackToMap', language)}
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div

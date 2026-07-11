@@ -41,16 +41,22 @@ export async function GET() {
   const journeyIds = Array.from(new Set(classes.map((c: any) => c.journey_id)));
   const teacherIds = Array.from(new Set(classes.map((c: any) => c.teacher_id)));
 
+  // Planets come embedded on missions, and the student's completed planets are
+  // fetched by student alone (not filtered to the active missions' planet ids),
+  // so both can join this batch instead of running as two sequential round-trips
+  // afterwards. The intersection happens in memory below.
   const [
     { data: teacherRows },
     { data: missionRows },
     { data: stateRows },
     { data: voteSessionRows },
+    { data: completedPlanetRows },
   ] = await Promise.all([
     supabaseAdmin.from('users').select('id, name').in('id', teacherIds.length > 0 ? teacherIds : ['__none__']),
-    supabaseAdmin.from('missions').select('id, journey_id, question, project_title, language, translations, "order"').in('journey_id', journeyIds).order('"order"'),
+    supabaseAdmin.from('missions').select('id, journey_id, question, project_title, language, translations, "order", planets(id)').in('journey_id', journeyIds).order('"order"'),
     supabaseAdmin.from('class_mission_state').select('class_id, mission_id, state').in('class_id', classIds),
     supabaseAdmin.from('vote_sessions').select('id, class_id, ends_at').eq('status', 'open').in('class_id', classIds),
+    supabaseAdmin.from('planet_session_state').select('planet_id').eq('student_id', studentId).eq('completed', true),
   ]);
 
   const teacherNameById = new Map((teacherRows ?? []).map((t: any) => [t.id, t.name as string | null]));
@@ -65,39 +71,20 @@ export async function GET() {
   const stateByClassAndMission = new Map((stateRows ?? []).map((r: any) => [`${r.class_id}:${r.mission_id}`, r.state]));
   const voteSessionByClass = new Map((voteSessionRows ?? []).map((s: any) => [s.class_id, s]));
 
-  // Find each class's active mission (if any) so we can fetch planet counts
-  // for just those missions in one batch, not once per class.
+  const planetsByMission = new Map<string, string[]>(
+    (missionRows ?? []).map((m: any) => [m.id, ((m.planets ?? []) as any[]).map((p) => p.id as string)]),
+  );
+
+  const exploredPlanetIds = new Set(
+    (completedPlanetRows ?? []).map((s: any) => s.planet_id),
+  );
+
   const activeMissionIdByClass = new Map<string, string>();
   for (const c of classes as any[]) {
     const missions = missionsByJourney.get(c.journey_id) ?? [];
     const active = missions.find((m: any) => stateByClassAndMission.get(`${c.id}:${m.id}`) === 'active');
     if (active) activeMissionIdByClass.set(c.id, active.id);
   }
-  const activeMissionIds = Array.from(new Set(activeMissionIdByClass.values()));
-
-  const { data: planetRows } = await supabaseAdmin
-    .from('planets')
-    .select('id, mission_id')
-    .in('mission_id', activeMissionIds.length > 0 ? activeMissionIds : ['__none__']);
-
-  const planetsByMission = new Map<string, string[]>();
-  for (const p of planetRows ?? []) {
-    const list = planetsByMission.get(p.mission_id) ?? [];
-    list.push(p.id);
-    planetsByMission.set(p.mission_id, list);
-  }
-
-  const allPlanetIds = (planetRows ?? []).map((p: any) => p.id);
-  const { data: sessionStateRows } = await supabaseAdmin
-    .from('planet_session_state')
-    .select('planet_id')
-    .eq('student_id', studentId)
-    .eq('completed', true)
-    .in('planet_id', allPlanetIds.length > 0 ? allPlanetIds : ['__none__']);
-
-  const exploredPlanetIds = new Set(
-    (sessionStateRows ?? []).map((s: any) => s.planet_id),
-  );
 
   const journeys: HomeJourney[] = (classes as any[]).map((c) => {
     const missions = missionsByJourney.get(c.journey_id) ?? [];

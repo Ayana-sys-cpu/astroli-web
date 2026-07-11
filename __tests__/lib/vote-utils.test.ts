@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { toDatetimeLocal, formatCountdown } from '@/lib/vote-utils';
+import { toDatetimeLocal, formatCountdown, classifyVoteSubmitFailure } from '@/lib/vote-utils';
 
 describe('toDatetimeLocal', () => {
   it('formats a date to datetime-local string with zero-padded components', () => {
@@ -40,5 +40,24 @@ describe('formatCountdown', () => {
   it('formats multiple days correctly', () => {
     const future = new Date(Date.now() + 3 * 86_400_000 + 12 * 3_600_000 + 0).toISOString();
     expect(formatCountdown(future)).toMatch(/^3d 12h 0m$/);
+  });
+});
+
+describe('classifyVoteSubmitFailure', () => {
+  it('classifies 404 as session_closed (teacher concluded the vote between load and click)', () => {
+    expect(classifyVoteSubmitFailure(404)).toBe('session_closed');
+  });
+
+  it('classifies 409 as session_closed', () => {
+    expect(classifyVoteSubmitFailure(409)).toBe('session_closed');
+  });
+
+  it('classifies server errors as retryable', () => {
+    expect(classifyVoteSubmitFailure(500)).toBe('retryable');
+  });
+
+  it('classifies auth and validation failures as retryable', () => {
+    expect(classifyVoteSubmitFailure(400)).toBe('retryable');
+    expect(classifyVoteSubmitFailure(403)).toBe('retryable');
   });
 });

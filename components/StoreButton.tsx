@@ -1,10 +1,15 @@
 'use client';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCoinReward } from '@/hooks/useCoinReward';
 
 export default function StoreButton() {
   const router = useRouter();
-  const { pillBalance, pillPulse } = useCoinReward();
+  const { pillBalance, pillPulse, ensureBalanceLoaded } = useCoinReward();
+
+  useEffect(() => {
+    ensureBalanceLoaded();
+  }, [ensureBalanceLoaded]);
 
   return (
     <>

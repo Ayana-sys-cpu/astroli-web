@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { supabaseSignOut } from '@/lib/session';
 
 const AVATAR_COLORS = [
@@ -28,14 +29,21 @@ const JourneysIcon = () => (
   </svg>
 );
 
+interface Journey {
+  id: string;
+  title: string;
+}
+
 interface ParentSidebarProps {
   childName: string | null;
   childId: string;
+  journeys: Journey[];
 }
 
-export default function ParentSidebar({ childName, childId }: ParentSidebarProps) {
+export default function ParentSidebar({ childName, childId, journeys }: ParentSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [journeysOpen, setJourneysOpen] = useState(false);
 
   const initials = (childName ?? '')
     .split(' ')
@@ -115,9 +123,57 @@ export default function ParentSidebar({ childName, childId }: ParentSidebarProps
         <Link href="/parent/dashboard" style={navItemStyle(isActive('/parent/dashboard'))}>
           <HomeIcon /> HOME
         </Link>
-        <Link href="/parent/journeys" style={navItemStyle(isActive('/parent/journeys'))}>
-          <JourneysIcon /> JOURNEYS
-        </Link>
+
+        {/* Journeys — label navigates, chevron toggles sub-list */}
+        <div style={{
+          display: 'flex', alignItems: 'center', borderRadius: 8, overflow: 'hidden',
+          background: isActive('/parent/journeys') ? 'rgba(139,0,255,0.08)' : 'transparent',
+          border: isActive('/parent/journeys') ? '1px solid rgba(139,0,255,0.2)' : '1px solid transparent',
+        }}>
+          <Link
+            href="/parent/journeys"
+            style={{ ...navItemStyle(isActive('/parent/journeys')), flex: 1, background: 'transparent', border: 'none', borderRadius: 0 }}
+          >
+            <JourneysIcon /> JOURNEYS
+          </Link>
+          {journeys.length > 0 && (
+            <button
+              onClick={() => setJourneysOpen(o => !o)}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                padding: '8px 10px',
+                color: isActive('/parent/journeys') ? '#1a1a2e' : 'rgba(26,26,46,0.45)',
+                display: 'flex', alignItems: 'center',
+                transition: 'transform 0.2s',
+                transform: journeysOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+              }}
+              aria-label={journeysOpen ? 'Collapse journeys' : 'Expand journeys'}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {journeysOpen && journeys.length > 0 && (
+          <div style={{ paddingLeft: 12, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {journeys.map(j => (
+              <Link key={j.id} href="/parent/journeys" style={{
+                ...navItemStyle(false),
+                fontSize: 11,
+                padding: '6px 10px',
+                fontWeight: 400,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}>
+                <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'rgba(139,0,255,0.3)', flexShrink: 0 }} />
+                {j.title}
+              </Link>
+            ))}
+          </div>
+        )}
       </nav>
 
       {/* Child profile at bottom */}

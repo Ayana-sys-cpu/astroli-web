@@ -19,6 +19,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
+import { upsertAuthUserAndToken } from '@/lib/auth-token';
 import { enrollStudentInJourneys } from '@/lib/enroll-student';
 import { parseBody, AccessTokenSchema } from '@/lib/validate';
 
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
   // ── 2. Look up in users ──────────────────────────────────────────────────
   const { data, error } = await supabaseAdmin
     .from('users')
-    .select('id, first_name, base_avatar_url, avatar_url, alien_name')
+    .select('id, role, first_name, base_avatar_url, avatar_url, alien_name')
     .eq('email', email)
     .maybeSingle();
 
@@ -70,7 +71,21 @@ export async function POST(req: NextRequest) {
     // Idempotent upsert: safe to call on every sign-in.
     enrollStudentInJourneys(data.id, accessToken).catch(() => {});
 
+    // Issue a sign-in token so mobile can open a real Supabase session
+    // (POST /api/auth/session) instead of authenticating with a bare student
+    // id. Students only — never mint student-scoped auth for other roles.
+    let authToken: string | null = null;
+    if (data.role === 'student') {
+      const authResult = await upsertAuthUserAndToken(
+        email,
+        { role: 'student', student_id: data.id, teacher_id: null },
+        'student-status',
+      );
+      authToken = authResult?.authToken ?? null;
+    }
+
     return NextResponse.json({
+      authToken,
       exists:             true,
       onboardingComplete: true,
       studentId:          data.id,

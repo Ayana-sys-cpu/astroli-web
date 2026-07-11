@@ -30,10 +30,12 @@ interface Props {
 // instant the last goal is reached (finalizePlanetCompletion, astorli-bot),
 // this is purely a review surface.
 export default function PlanetSummaryScreen({
-  insights, onDismiss, language = 'en', introducedTerms = [],
+  insights, onDismiss, language = 'en', introducedTerms = [], planetName,
 }: Props) {
   const displayText = (i: SummaryInsight & { studentAddition?: string | null }) =>
     i.studentAddition || i.insightText;
+
+  const contentDelay = 0.4 + insights.length * 0.15;
 
   return (
     <motion.div
@@ -42,95 +44,107 @@ export default function PlanetSummaryScreen({
       exit={{ opacity: 0 }}
       transition={{ duration: 0.35 }}
       style={{
-        position: 'absolute', inset: 0, zIndex: 50,
+        position: 'fixed', inset: 0, zIndex: 200,
         background: T.bg,
-        display: 'flex', flexDirection: 'column',
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
         overflowY: 'auto',
       }}
     >
-      {/* Orin frames the moment */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1, duration: 0.3 }}
-        style={{ padding: '28px 20px 0', display: 'flex', alignItems: 'center', gap: 12 }}
-      >
-        <div style={{
-          width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-          background: 'radial-gradient(circle at 35% 35%, #80ffcc, #00aa77 60%, #003322)',
-          border: `1px solid rgba(6,214,160,0.5)`,
-        }} />
-        <p style={{ fontSize: 15, fontWeight: 700, color: T.orin, margin: 0, lineHeight: 1.4 }}>
-          {t('hereWhatICaught', language)}
-        </p>
-      </motion.div>
+      {/* Inner column — constrained width so content stays readable on wide screens */}
+      <div style={{ width: '100%', maxWidth: 680, display: 'flex', flexDirection: 'column', flex: 1, padding: '0 24px' }}>
 
-      {/* Insight cards stagger in */}
-      <div style={{ padding: '20px 20px 0', display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
-        {insights.map((insight, idx) => (
-          <motion.div
-            key={insight.goalSlug || idx}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25 + idx * 0.15, duration: 0.3, ease: 'easeOut' }}
-            style={{
-              background: T.card,
-              border: `1px solid ${T.bdr}`,
-              borderRadius: 12,
-              padding: '14px 16px',
-            }}
-          >
-            {insight.termName && (
-              <p style={{ fontSize: 13, fontWeight: 700, color: T.ac, margin: '0 0 4px 0' }}>
-                {insight.termName}
-              </p>
-            )}
-            <p style={{ fontSize: 13, color: T.tp, lineHeight: 1.65, margin: 0 }}>
-              {displayText(insight)}
-            </p>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Introduced terms */}
-      {introducedTerms.length > 0 && (
+        {/* Header: Orin orb + title + planet name */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 + insights.length * 0.15, duration: 0.3 }}
-          style={{ padding: '16px 20px 0' }}
+          transition={{ delay: 0.1, duration: 0.3 }}
+          style={{ padding: '36px 0 0', display: 'flex', alignItems: 'center', gap: 14 }}
         >
-          <p style={{
-            fontSize: 10, fontWeight: 700, color: T.ts,
-            textTransform: 'uppercase', letterSpacing: '0.14em',
-            margin: '0 0 10px 0',
-          }}>
-            {t('termsEncountered', language)}
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {introducedTerms.map((term, i) => <TermRow key={i} term={term} />)}
+          <div style={{
+            width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+            background: 'radial-gradient(circle at 35% 35%, #80ffcc, #00aa77 60%, #003322)',
+            border: `1.5px solid rgba(6,214,160,0.5)`,
+          }} />
+          <div>
+            <p style={{ fontSize: 16, fontWeight: 700, color: T.orin, margin: 0, lineHeight: 1.3 }}>
+              {t('hereWhatICaught', language)}
+            </p>
+            {planetName && (
+              <p style={{ fontSize: 11, color: T.ts, margin: '3px 0 0', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                {planetName}
+              </p>
+            )}
           </div>
         </motion.div>
-      )}
 
-      {/* Bottom action */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 + insights.length * 0.15, duration: 0.3 }}
-        style={{ padding: '24px 20px 32px' }}
-      >
-        <button
-          onClick={onDismiss}
-          style={{
-            width: '100%', padding: '15px 20px', borderRadius: 14,
-            background: T.ac, border: 'none', cursor: 'pointer',
-            color: '#000', fontSize: 15, fontWeight: 800,
-          }}
+        {/* Insight cards stagger in */}
+        <div style={{ padding: '24px 0 0', display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
+          {insights.map((insight, idx) => (
+            <motion.div
+              key={insight.goalSlug || idx}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 + idx * 0.15, duration: 0.3, ease: 'easeOut' }}
+              style={{
+                background: T.card,
+                border: `1px solid ${T.bdr}`,
+                borderRadius: 14,
+                padding: '16px 20px',
+              }}
+            >
+              {insight.termName && (
+                <p style={{ fontSize: 12, fontWeight: 700, color: T.ac, margin: '0 0 6px 0', letterSpacing: '0.06em' }}>
+                  {insight.termName}
+                </p>
+              )}
+              <p style={{ fontSize: 14, color: T.tp, lineHeight: 1.7, margin: 0 }}>
+                {displayText(insight)}
+              </p>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Introduced terms */}
+        {introducedTerms.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: contentDelay, duration: 0.3 }}
+            style={{ padding: '20px 0 0' }}
+          >
+            <p style={{
+              fontSize: 10, fontWeight: 700, color: T.ts,
+              textTransform: 'uppercase', letterSpacing: '0.14em',
+              margin: '0 0 10px 0',
+            }}>
+              {t('termsEncountered', language)}
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {introducedTerms.map((term, i) => <TermRow key={i} term={term} />)}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Bottom action */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: contentDelay + 0.1, duration: 0.3 }}
+          style={{ padding: '28px 0 40px' }}
         >
-          {t('closeReview', language)}
-        </button>
-      </motion.div>
+          <button
+            onClick={onDismiss}
+            style={{
+              width: '100%', padding: '16px 20px', borderRadius: 14,
+              background: T.ac, border: 'none', cursor: 'pointer',
+              color: '#000', fontSize: 15, fontWeight: 800,
+            }}
+          >
+            {t('closeReview', language)}
+          </button>
+        </motion.div>
+
+      </div>
     </motion.div>
   );
 }

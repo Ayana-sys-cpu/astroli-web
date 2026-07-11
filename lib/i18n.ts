@@ -460,6 +460,14 @@ const strings = {
     en: 'Back to Home',
     he: 'חזרה לדף הבית',
   },
+  entireMissionComplete: {
+    en: 'You explored every planet in this mission!',
+    he: 'חקרת את כל כוכבי הלכת במשימה הזו!',
+  },
+  chooseNextMission: {
+    en: 'Choose Your Next Mission',
+    he: 'בחר את המשימה הבאה שלך',
+  },
 
   // ── Planet drill-down — celebration / reward / fallbacks ───────────────────
   planetExplored: {
@@ -544,6 +552,14 @@ const strings = {
     en: 'SYNCING…',
     he: 'מסנכרן…',
   },
+  mapLoadError: {
+    en: 'This part of the galaxy slipped out of range.',
+    he: 'החלק הזה של הגלקסיה יצא מהטווח.',
+  },
+  tryAgain: {
+    en: 'Try again',
+    he: 'נסה שוב',
+  },
 
   // ── Vote screen ─────────────────────────────────────────────────────────────
   voteTopBar: {
@@ -553,6 +569,10 @@ const strings = {
   voteSyncing: {
     en: 'SYNCING VOTE DATA…',
     he: 'מסנכרן נתוני הצבעה…',
+  },
+  voteSubmitError: {
+    en: "Something glitched in the cosmos — your vote didn't send. Tap to try again.",
+    he: 'משהו השתבש בקוסמוס — ההצבעה שלך לא נשלחה. הקש לניסיון נוסף.',
   },
   chooseYourMission: {
     en: 'Choose your mission, {name}.',
@@ -569,6 +589,10 @@ const strings = {
   voteClosed: {
     en: 'VOTE CLOSED',
     he: 'ההצבעה נסגרה',
+  },
+  voteJustClosed: {
+    en: 'This vote just closed — showing the results…',
+    he: 'ההצבעה הרגע נסגרה — מציג את התוצאות…',
   },
   closesIn: {
     en: 'CLOSES IN {time}',

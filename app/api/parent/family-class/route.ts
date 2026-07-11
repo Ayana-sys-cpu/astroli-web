@@ -45,18 +45,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Journey not found' }, { status: 422 });
   }
 
-  // Check family class doesn't already exist
-  const { data: existingClass } = await supabaseAdmin
-    .from('classes')
-    .select('id')
-    .eq('teacher_id', parentId)
-    .eq('type', 'family')
-    .maybeSingle();
-
-  if (existingClass) {
-    return NextResponse.json({ error: 'Journey already selected and locked' }, { status: 409 });
-  }
-
   // Verify parent has a linked child
   const { data: link } = await supabaseAdmin
     .from('parent_child_link')

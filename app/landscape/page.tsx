@@ -51,6 +51,8 @@ function LandscapeContent() {
   const [ready, setReady]             = useState(false);
   const [baseAvatarUrl, setBaseAvatarUrl] = useState<string | null>(null);
   const [planetProgress, setPlanetProgress] = useState<Record<string, { goalsDiscovered: number; totalGoals: number; completed: boolean }>>({});
+  const [loadError, setLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const isFirstVisit = useRef(false);
 
   useEffect(() => {
@@ -75,6 +77,7 @@ function LandscapeContent() {
   // Student normal mode — fetch via student session.
   useEffect(() => {
     if (isPreview) return;
+    setLoadError(false);
     (async () => {
       try {
         const journeyRes = await fetch(`/api/student/journey${classId ? `?classId=${classId}` : ''}`);
@@ -95,7 +98,13 @@ function LandscapeContent() {
           }
           return;
         }
-        if (!activeMissionId) return;
+        if (!activeMissionId) {
+          // Journey is active but no mission has started — the hub is the only
+          // sensible destination; staying here would strand the student on a
+          // blank starfield.
+          router.replace('/home');
+          return;
+        }
 
         // planet-progress only needs the missionId we ALREADY have from the
         // journey call — it does NOT depend on the mission body. So fetch the
@@ -108,6 +117,11 @@ function LandscapeContent() {
         const { mission } = await missionRes.json();
         const { progress } = await progressRes.json().catch(() => ({ progress: null }));
 
+        if (!mission) {
+          // 404/500 body without a mission — never reveal an empty map.
+          setLoadError(true);
+          return;
+        }
         if (!missionStatus) {
           isFirstVisit.current = true;
           setShowOverlay(true);
@@ -116,10 +130,10 @@ function LandscapeContent() {
         if (progress) setPlanetProgress(progress);
         if (missionStatus) setReady(true);
       } catch {
-        // stay — next focus/poll will retry
+        setLoadError(true);
       }
     })();
-  }, [isPreview, router, classId]);
+  }, [isPreview, router, classId, loadAttempt]);
 
   const handleAcceptMission = () => {
     setShowOverlay(false);
@@ -175,6 +189,47 @@ function LandscapeContent() {
       className="relative min-h-screen bg-black overflow-hidden flex flex-col"
     >
       <StarField count={130} seed={55} />
+
+      {/* Loading / error states — never strand the student on a bare starfield */}
+      {!ready && !showOverlay && (
+        loadError ? (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-5">
+            <div style={{ fontSize: 38 }}>📡</div>
+            <p className="text-[12px] tracking-[0.2em] font-space uppercase text-white/50 text-center px-8">
+              {t('mapLoadError', uiLang)}
+            </p>
+            <button
+              onClick={() => setLoadAttempt(a => a + 1)}
+              className="px-6 py-2.5 rounded-xl font-space text-[12px] tracking-[0.14em] uppercase"
+              style={{
+                border: '1px solid rgba(120,180,255,0.4)',
+                background: 'rgba(120,180,255,0.1)',
+                color: '#9ec1ff',
+                cursor: 'pointer',
+              }}
+            >
+              {t('tryAgain', uiLang)}
+            </button>
+            <button
+              onClick={() => router.push('/home')}
+              className="text-[11px] font-space tracking-[0.2em] uppercase underline underline-offset-4"
+              style={{ color: 'rgba(255,255,255,0.35)', cursor: 'pointer' }}
+            >
+              {t('backToHome', uiLang)}
+            </button>
+          </div>
+        ) : (
+          <div className="absolute inset-0 z-10 flex items-center justify-center">
+            <motion.div
+              animate={{ opacity: [0.3, 0.7, 0.3] }}
+              transition={{ duration: 1.6, repeat: Infinity }}
+              className="text-[10px] tracking-[0.3em] font-space uppercase text-white/40"
+            >
+              {t('syncingShort', uiLang)}
+            </motion.div>
+          </div>
+        )
+      )}
 
       {/* Mission overlay — first visit only */}
       <AnimatePresence>

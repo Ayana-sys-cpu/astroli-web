@@ -10,6 +10,7 @@ export default function RevealPage() {
   const [displayUrl, setDisplayUrl] = useState<string | null>(null);
   const [showName, setShowName] = useState(false);
   const [showCTA, setShowCTA] = useState(false);
+  const [saving, setSaving]   = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const firstName = getFirstName();
@@ -36,6 +37,8 @@ export default function RevealPage() {
   }, [displayUrl]);
 
   const handleBegin = async () => {
+    if (saving) return; // double-tap on slow Wi-Fi would re-fire the PATCH
+    setSaving(true);
     saveBaseAvatarUrl(baseUrl);
     saveAlienName(alienName);
     markOnboardingComplete();
@@ -214,8 +217,9 @@ export default function RevealPage() {
           >
             <motion.button
               onClick={handleBegin}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
+              disabled={saving}
+              whileHover={saving ? undefined : { scale: 1.02 }}
+              whileTap={saving ? undefined : { scale: 0.97 }}
               className="w-full max-w-md rounded-full font-space font-bold text-white relative overflow-hidden"
               style={{
                 height: 56,
@@ -224,6 +228,8 @@ export default function RevealPage() {
                 border: 'none',
                 letterSpacing: '0.18em',
                 fontSize: 14,
+                opacity: saving ? 0.7 : 1,
+                cursor: saving ? 'default' : 'pointer',
               }}
             >
               <motion.span
@@ -235,7 +241,12 @@ export default function RevealPage() {
                 animate={{ backgroundPosition: ['250% 0', '-250% 0'] }}
                 transition={{ duration: 2.6, repeat: Infinity, ease: 'linear' }}
               />
-              <span className="relative z-10">BEGIN YOUR JOURNEY ✦</span>
+              <span className="relative z-10 flex items-center justify-center gap-2">
+                {saving && (
+                  <span className="inline-block w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                )}
+                {saving ? 'LAUNCHING…' : 'BEGIN YOUR JOURNEY ✦'}
+              </span>
             </motion.button>
 
             <p className="text-[11px] tracking-[0.25em] font-space uppercase" style={{ color: 'rgba(255,255,255,0.25)' }}>

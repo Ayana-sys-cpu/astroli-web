@@ -8,6 +8,7 @@ import TopBar from '@/components/TopBar';
 import OrinOrb from '@/components/OrinOrb';
 import { getFirstName } from '@/lib/student-store';
 import { useCoinReward } from '@/hooks/useCoinReward';
+import { classifyVoteSubmitFailure, type VoteSubmitFailure } from '@/lib/vote-utils';
 import { t, type Lang } from '@/lib/i18n';
 
 interface VoteMission {
@@ -63,6 +64,7 @@ function VotePageContent() {
   const [state, setState] = useState<JourneyState | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submitFailure, setSubmitFailure] = useState<VoteSubmitFailure | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [previousVoteId, setPreviousVoteId] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
@@ -164,6 +166,7 @@ function VotePageContent() {
   async function submitVote() {
     if (!selectedId || !state?.voteSessionId || submitting) return;
     setSubmitting(true);
+    setSubmitFailure(null);
     try {
       // studentId comes from the server session — not sent in the body.
       const res = await fetch('/api/votes', {
@@ -177,9 +180,16 @@ function VotePageContent() {
         setConfirmed(true);
         if (state?.voteSessionId) loadCounts(state.voteSessionId);
         if (data.coinReward?.awarded) triggerReward(data.coinReward);
+      } else {
+        const failure = classifyVoteSubmitFailure(res.status);
+        setSubmitFailure(failure);
+        // Session concluded between load and click — re-fetch so the student
+        // lands on the results/awaiting view instead of a dead button. The
+        // notice covers the gap until the fresh state renders.
+        if (failure === 'session_closed') await load();
       }
     } catch {
-      // swallow — let student retry
+      setSubmitFailure('retryable');
     } finally {
       setSubmitting(false);
     }
@@ -519,6 +529,18 @@ function VotePageContent() {
                   />
                 )}
               </motion.button>
+
+              {submitFailure && (
+                <motion.p
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-2 text-center text-[11px] font-space"
+                  style={{ color: 'rgba(255,107,154,0.85)' }}
+                  dir={lang === 'he' ? 'rtl' : undefined}
+                >
+                  {t(submitFailure === 'session_closed' ? 'voteJustClosed' : 'voteSubmitError', lang)}
+                </motion.p>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
