@@ -21,6 +21,7 @@ interface Props {
   onDismiss:        () => void;
   language?:        Lang;
   introducedTerms?: MissionTerm[];
+  planetName?:      string;
 }
 
 // Read-only "what I learned here" view — shown automatically once a planet
