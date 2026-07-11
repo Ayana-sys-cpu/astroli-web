@@ -14,7 +14,7 @@ import { resolveStudentIdFromRequest } from '@/lib/auth';
 // class_mission_state for this specific class's progress.
 //
 // The ?studentId= query param is intentionally ignored — identity comes from
-// the verified web session cookie, or a DB-validated x-student-id header (mobile).
+// the verified web session cookie, or a verified bearer token (mobile).
 export async function GET(req: NextRequest) {
   const studentId = await resolveStudentIdFromRequest(req);
   if (!studentId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

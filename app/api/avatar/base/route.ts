@@ -27,7 +27,7 @@ function getAvailableAvatars(): string[] {
 // Assigns a random base avatar to the authenticated student if one is not
 // already set. The student_id comes from the verified session cookie —
 // any student_id in the request body is intentionally ignored. Identity comes
-// from the web session cookie or a DB-validated x-student-id header (mobile).
+// from the web session cookie or a verified bearer token (mobile).
 export async function POST(req: NextRequest) {
   const studentId = await resolveStudentIdFromRequest(req);
   if (!studentId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

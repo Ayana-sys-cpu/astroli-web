@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { enrollStudentInJourneys } from '@/lib/enroll-student';
-import { requireAuth, resolveStudentId } from '@/lib/auth';
+import { resolveStudentIdFromRequest } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { z, parseBody } from '@/lib/validate';
 
@@ -142,10 +142,9 @@ export async function POST(req: NextRequest) {
 // authenticated student. The student_id is read from the verified session —
 // any student_id supplied in the body is intentionally ignored.
 export async function PATCH(req: NextRequest) {
-  const auth = await requireAuth();
-  if (!auth.ok) return auth.response;
-
-  const studentId = await resolveStudentId(auth.user);
+  // Cookie session (web) or verified bearer token (mobile) — the student
+  // identity always comes from the credential, never from client input.
+  const studentId = await resolveStudentIdFromRequest(req);
   if (!studentId) {
     return NextResponse.json({ error: 'Forbidden: student session required' }, { status: 403 });
   }
@@ -181,10 +180,9 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'Server configuration error' }, { status: 503 });
   }
 
-  const auth = await requireAuth();
-  if (!auth.ok) return auth.response;
-
-  const studentId = await resolveStudentId(auth.user);
+  // Cookie session (web) or verified bearer token (mobile) — the student
+  // identity always comes from the credential, never from client input.
+  const studentId = await resolveStudentIdFromRequest(req);
   if (!studentId) {
     return NextResponse.json({ error: 'Forbidden: student session required' }, { status: 403 });
   }
