@@ -60,6 +60,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 
+  // Dedup key = voteSessionId so the reward fires once per mission's voting
+  // phase, not once ever (spec SC-004: "exactly once per student per mission").
+  // Each teacher-opened vote session maps to one mission cycle, so this is
+  // "first vote of each mission" — null is intentionally avoided because
+  // Postgres UNIQUE treats NULLs as distinct and would disable dedup.
   const coinReward = await awardCoins(supabaseAdmin, studentId, 'first_vote', voteSessionId);
 
   return NextResponse.json({
