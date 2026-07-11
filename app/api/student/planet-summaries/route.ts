@@ -73,12 +73,14 @@ export async function GET(req: NextRequest) {
       missionLanguage[m.id] = (m as any).language ?? 'en';
     }
 
-    // Build planet metadata lookup
+    // Build planet metadata lookup — planet title uses UI language (langFilter), not
+    // the planet's own mission language, so titles stay consistent across contexts.
     const planetMeta: Record<string, { title: string; language: string }> = {};
     for (const p of planetRows ?? []) {
-      const lang = missionLanguage[(p as any).mission_id] ?? 'en';
-      const ptx  = lang === 'he' ? (((p as any).translations as Record<string, any>)?.he ?? {}) : {};
-      planetMeta[p.id] = { title: ptx.title ?? p.title, language: lang };
+      const missionLang = missionLanguage[(p as any).mission_id] ?? 'en';
+      const displayLang = langFilter ?? missionLang;
+      const ptx = displayLang === 'he' ? (((p as any).translations as Record<string, any>)?.he ?? {}) : {};
+      planetMeta[p.id] = { title: ptx.title ?? p.title, language: missionLang };
     }
 
     // Build teaching goals by planet
@@ -102,13 +104,12 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 3. Build response: one entry per planet with discovered goals
-    //    If ?lang= is provided, only include planets from missions in that language.
-    const filteredSessions = langFilter
-      ? activeSessions.filter(s => (planetMeta[s.planet_id as string]?.language ?? 'en') === langFilter)
-      : activeSessions;
-
-    const result = filteredSessions.map(session => {
+    // 3. Build response: one entry per planet with discovered goals.
+    //    Always include all planets — never filter by language. Use langFilter
+    //    (the UI language) to pick which description text to show, so Hebrew
+    //    discoveries appear in English when viewed from an English journey and
+    //    vice-versa.
+    const result = activeSessions.map(session => {
       const perkinsMap = (session.perkins_map as Record<string, number | null>) ?? {};
       const discoveredGoalIds = new Set(
         Object.entries(perkinsMap)
@@ -116,17 +117,14 @@ export async function GET(req: NextRequest) {
           .map(([k]) => k),
       );
 
-      const meta     = planetMeta[session.planet_id as string];
-      const lang     = meta?.language ?? 'en';
-      const allGoals = goalsByPlanet[session.planet_id as string] ?? [];
+      const meta        = planetMeta[session.planet_id as string];
+      const displayLang = langFilter ?? meta?.language ?? 'en';
+      const allGoals    = goalsByPlanet[session.planet_id as string] ?? [];
 
       const insights = allGoals
         .filter(g => discoveredGoalIds.has(g.id))
         .map(g => {
-          const gtx = lang === 'he' ? ((g.translations as Record<string, any>)?.he ?? {}) : {};
-          if (lang === 'he' && !gtx.description) {
-            console.warn(`[planet-summaries] missing he translation for teaching goal ${g.id} (planet ${session.planet_id}) — falling back to English`);
-          }
+          const gtx = displayLang === 'he' ? ((g.translations as Record<string, any>)?.he ?? {}) : {};
           return {
             insightText:     (gtx.description as string | undefined) ?? g.description,
             studentAddition: studentAdditionByGoalId[g.id] ?? null,
