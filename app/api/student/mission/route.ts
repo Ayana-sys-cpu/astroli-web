@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
       .select(`
         id, journey_id, question, question_description, project_title, project_description,
         opening_message, language, translations, "order",
-        planets ( id, title, label, short_title, planet_question, content, opening_message, character_figure, character_year, character_location, student_reveal_message, media_url, media_type, translations )
+        planets ( id, title, label, short_title, planet_question, translations )
       `)
       .eq('id', missionId)
       .order('created_at', { referencedTable: 'planets' })
@@ -87,19 +87,11 @@ export async function GET(req: NextRequest) {
         planets: (data.planets ?? []).map((p: any) => {
           const ptx = ((p.translations as Record<string, any>) ?? {})[language] ?? {};
           return {
-            id:                   p.id,
-            title:                ptx.title          ?? p.title,
-            label:                ptx.label          ?? p.label          ?? null,
-            shortTitle:           ptx.short_title    ?? p.short_title    ?? null,
-            planetQuestion:       ptx.planet_question ?? p.planet_question ?? null,
-            content:              ptx.content        ?? p.content,
-            openingMessage:       ptx.opening_message ?? p.opening_message ?? null,
-            characterFigure:      ptx.character_figure   ?? p.character_figure  ?? null,
-            characterYear:        p.character_year    ?? null,
-            characterLocation:    ptx.character_location ?? p.character_location ?? null,
-            studentRevealMessage: ptx.student_reveal_message ?? p.student_reveal_message ?? null,
-            mediaUrl:             p.media_url,
-            mediaType:            p.media_type,
+            id:            p.id,
+            title:         ptx.title           ?? p.title,
+            label:         ptx.label           ?? p.label           ?? null,
+            shortTitle:    ptx.short_title      ?? p.short_title     ?? null,
+            planetQuestion: ptx.planet_question ?? p.planet_question ?? null,
           };
         }),
       },

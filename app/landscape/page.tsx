@@ -23,8 +23,6 @@ interface Planet {
   label: string | null;
   shortTitle: string | null;
   planetQuestion: string | null;
-  content: string;
-  openingMessage: string | null;
 }
 
 interface Mission {

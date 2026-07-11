@@ -53,7 +53,7 @@ export async function GET() {
     { data: completedPlanetRows },
   ] = await Promise.all([
     supabaseAdmin.from('users').select('id, name').in('id', teacherIds.length > 0 ? teacherIds : ['__none__']),
-    supabaseAdmin.from('missions').select('id, journey_id, question, project_title, language, translations, "order", planets(id)').in('journey_id', journeyIds).order('"order"'),
+    supabaseAdmin.from('missions').select('id, journey_id, question, project_title, language, "order", translations->he, planets(id)').in('journey_id', journeyIds).order('"order"'),
     supabaseAdmin.from('class_mission_state').select('class_id, mission_id, state').in('class_id', classIds),
     supabaseAdmin.from('vote_sessions').select('id, class_id, ends_at').eq('status', 'open').in('class_id', classIds),
     supabaseAdmin.from('planet_session_state').select('planet_id').eq('student_id', studentId).eq('completed', true),
@@ -97,7 +97,7 @@ export async function GET() {
     const classLanguage: 'en' | 'he' = (c as any).language === 'he' ? 'he' : 'en';
     if (activeMissionId) {
       const mission = missions.find((m: any) => m.id === activeMissionId);
-      const tx = classLanguage === 'he' ? ((mission?.translations as Record<string, Record<string, string>> | null)?.he ?? {}) : {};
+      const tx = classLanguage === 'he' ? ((mission?.he as Record<string, string> | null) ?? {}) : {};
       const rawTitle = mission?.project_title ?? mission?.question ?? 'Mission';
       const title = tx.question ?? tx.project_title ?? rawTitle;
       const planetIds = planetsByMission.get(activeMissionId) ?? [];
