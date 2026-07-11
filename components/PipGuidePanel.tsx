@@ -786,7 +786,7 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
 
   // ── Fetch mission data + mission state in parallel ─────────────────────────
   useEffect(() => {
-    const langParam = lang === 'he' ? '&lang=he' : '';
+    const langParam = `&lang=${lang}`;
     const missionUrl = missionId
       ? `/api/mission?missionId=${missionId}${langParam}`
       : `/api/mission?order=${missionOrder}${langParam}`;

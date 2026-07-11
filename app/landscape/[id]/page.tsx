@@ -149,7 +149,7 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
 
   async function preloadInsights() {
     try {
-      const summaryRes = await fetch('/api/student/planet-summaries');
+      const summaryRes = await fetch(`/api/student/planet-summaries?lang=${missionLang}`);
       const summaryData = await summaryRes.json();
       const match = (summaryData.summaries ?? []).find(
         (s: { planetId: string }) => s.planetId === params.id,
