@@ -20,34 +20,19 @@ export async function POST(req: NextRequest) {
   const item = CATALOGUE_BY_ID[itemId];
   if (!item) return NextResponse.json({ error: 'item_not_found' }, { status: 400 });
 
-  const { data: ownedRow } = await supabaseAdmin
-    .from('student_inventory')
-    .select('id, is_equipped')
-    .eq('student_id', studentId)
-    .eq('item_id', itemId)
-    .maybeSingle();
+  // Single-slot toggle runs as one transaction in Postgres — two rapid equips
+  // used to interleave and could leave nothing equipped.
+  const { data: result, error: equipError } = await supabaseAdmin.rpc(
+    'equip_store_item',
+    { p_student_id: studentId, p_item_id: itemId },
+  );
 
-  if (!ownedRow) return NextResponse.json({ error: 'not_owned' }, { status: 400 });
-
-  if (ownedRow.is_equipped) {
-    await supabaseAdmin
-      .from('student_inventory')
-      .update({ is_equipped: false })
-      .eq('student_id', studentId)
-      .eq('item_id', itemId);
-  } else {
-    // Single-slot: unequip everything across all categories before equipping this item
-    await supabaseAdmin
-      .from('student_inventory')
-      .update({ is_equipped: false })
-      .eq('student_id', studentId)
-      .eq('is_equipped', true);
-
-    await supabaseAdmin
-      .from('student_inventory')
-      .update({ is_equipped: true })
-      .eq('student_id', studentId)
-      .eq('item_id', itemId);
+  if (equipError) {
+    console.error('[store/equip] equip_store_item failed:', equipError);
+    return NextResponse.json({ error: 'equip_failed' }, { status: 500 });
+  }
+  if (result.status === 'not_owned') {
+    return NextResponse.json({ error: 'not_owned' }, { status: 400 });
   }
 
   const { data: invRows } = await supabaseAdmin
