@@ -185,6 +185,7 @@ model Vote {
   class           Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, vote_session_id], map: "votes_student_session_unique")
+  @@index([vote_session_id, classId, bigIdeaId])
   @@index([classId])
   @@map("votes")
 }
@@ -306,7 +307,7 @@ model vote_sessions {
   class      Class     @relation(fields: [class_id], references: [id], onDelete: Cascade)
   votes      Vote[]
 
-  @@index([class_id])
+  @@index([class_id, status])
   @@index([status])
 }
 
