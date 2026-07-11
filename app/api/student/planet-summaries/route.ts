@@ -14,6 +14,8 @@ export async function GET(req: NextRequest) {
   const studentId = await resolveStudentIdFromRequest(req);
   if (!studentId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const langFilter = (new URL(req.url).searchParams.get('lang') ?? null) as 'en' | 'he' | null;
+
   try {
     // 1. Find sessions where the student has discovered at least one goal
     const { data: sessions, error: sessionError } = await supabaseAdmin
@@ -101,7 +103,12 @@ export async function GET(req: NextRequest) {
     }
 
     // 3. Build response: one entry per planet with discovered goals
-    const result = activeSessions.map(session => {
+    //    If ?lang= is provided, only include planets from missions in that language.
+    const filteredSessions = langFilter
+      ? activeSessions.filter(s => (planetMeta[s.planet_id as string]?.language ?? 'en') === langFilter)
+      : activeSessions;
+
+    const result = filteredSessions.map(session => {
       const perkinsMap = (session.perkins_map as Record<string, number | null>) ?? {};
       const discoveredGoalIds = new Set(
         Object.entries(perkinsMap)

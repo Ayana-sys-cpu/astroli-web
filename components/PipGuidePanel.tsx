@@ -858,7 +858,7 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
 
   async function handleViewDiscoveries() {
     try {
-      const res = await fetch('/api/student/planet-summaries');
+      const res = await fetch(`/api/student/planet-summaries?lang=${lang}`);
       const data = await res.json();
       setAllSummaries(data.summaries ?? []);
     } catch {
