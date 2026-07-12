@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
-import type { OrinMission, OrinPlanet, MissionTerm, WorldBriefItem } from '@/lib/orin-guide-types';
+import type { OrinMission, OrinPlanet, MissionTerm } from '@/lib/orin-guide-types';
 
 function slugToLabel(slug: string): string {
   return slug
@@ -26,8 +26,7 @@ export async function GET(req: NextRequest) {
     .from('missions')
     .select(`
       id, "order", language, question, question_description,
-      project_title, project_description, opening_message,
-      world_brief_summary, world_brief_items, opening_message_2,
+      project_title, project_description, opening_message, opening_message_2,
       mission_brief, chapter, qa_answers, mission_qa_answers, translations,
       planets ( id, label, title, icon, hint, translations )
     `)
@@ -54,10 +53,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Mission not found' }, { status: 404 });
   }
 
-  // When querying by order (legacy), prefer a backfilled row
-  const mission = missionId
-    ? rows[0]
-    : (rows.find((r) => r.world_brief_summary != null) ?? rows[0]);
+  const mission = rows[0];
 
   // Planets arrive embedded via the missions→planets FK; teaching goals have
   // no FK to planets (planet_id is a bare TEXT column), so they need their
@@ -100,9 +96,6 @@ export async function GET(req: NextRequest) {
     order:             (mission as any).order as number,
     language:          missionLanguage,
     question:          q,
-    worldBrief:        (tx.question_description ?? mission.question_description ?? '') as string,
-    worldBriefSummary: (tx.world_brief_summary ?? mission.world_brief_summary as string | null) ?? '',
-    worldBriefItems:   (tx.world_brief_items ?? mission.world_brief_items as WorldBriefItem[] | null) ?? [],
     projectTitle:      (tx.project_title ?? mission.project_title ?? '') as string,
     projectObjective,
     openingMessage:    (tx.opening_message ?? mission.opening_message ?? '') as string,

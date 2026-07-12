@@ -21,7 +21,7 @@ interface ReturnTrigger {
   goalCount: number | null;
 }
 
-interface PipMessageRow {
+interface GuideMessageRow {
   id: string;
   role: 'pip' | 'student';
   content: string;
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
   if (!missionId) return NextResponse.json({ error: 'missionId is required' }, { status: 400 });
 
   try {
-    // 1+2. Load state row and pip message history (chronological) in parallel
+    // 1+2. Load state row and guide message history (chronological) in parallel
     const [{ data: stateRow }, { data: messageRows }] = await Promise.all([
       supabaseAdmin
         .from('student_mission_state')
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
         .order('created_at', { ascending: true }),
     ]);
 
-    const pipMessages = (messageRows ?? []).map((m: PipMessageRow) => ({
+    const guideMessages = (messageRows ?? []).map((m: GuideMessageRow) => ({
       id:          m.id,
       role:        m.role,
       content:     m.content,
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
     // 3. First visit — no confirmed_at yet
     if (!stateRow?.confirmed_at) {
       await upsertVisitTimestamp(studentId, missionId, null);
-      return NextResponse.json({ confirmedAt: null, returnTrigger: null, pipMessages });
+      return NextResponse.json({ confirmedAt: null, returnTrigger: null, pipMessages: guideMessages });
     }
 
     // 4. Confirmed student — compute return trigger
@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       confirmedAt:   stateRow.confirmed_at,
       returnTrigger: trigger,
-      pipMessages,
+      pipMessages:   guideMessages,
     });
   } catch (err) {
     console.error('[mission-state GET]', err);

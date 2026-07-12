@@ -1,7 +1,7 @@
-// src/astroli-web/__tests__/components/PipGuidePanel.test.tsx
+// src/astroli-web/__tests__/components/OrinGuidePanel.test.tsx
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { AllDiscoveriesView, type LockedPlanetSummary } from '@/components/PipGuidePanel';
+import { AllDiscoveriesView, type LockedPlanetSummary } from '@/components/OrinGuidePanel';
 
 const mockPush = vi.hoisted(() => vi.fn());
 vi.mock('next/navigation', () => ({

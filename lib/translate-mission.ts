@@ -20,8 +20,6 @@ interface MissionRow {
   opening_message_2: string | null;
   project_title: string | null;
   project_description: string | null;
-  world_brief_summary: string | null;
-  world_brief_items: Array<{ title: string; body: string }> | null;
   qa_answers: string[] | null;
   mission_qa_answers: string[] | null;
   chapter: string | null;
@@ -51,8 +49,6 @@ interface TranslationPayload {
     opening_message_2: string;
     project_title: string;
     project_description: string;
-    world_brief_summary: string;
-    world_brief_items: Array<{ title: string; body: string }>;
     qa_answers: string[];
     mission_qa_answers: string[];
     chapter: string;
@@ -253,7 +249,7 @@ export async function translateMission(missionId: string): Promise<void> {
     .from('missions')
     .select(`
       id, question, question_description, opening_message, opening_message_2,
-      project_title, project_description, world_brief_summary, world_brief_items,
+      project_title, project_description,
       qa_answers, mission_qa_answers, chapter, mission_brief
     `)
     .eq('id', missionId)
@@ -279,8 +275,6 @@ export async function translateMission(missionId: string): Promise<void> {
       opening_message_2:    m.opening_message_2 ?? '',
       project_title:        m.project_title ?? '',
       project_description:  m.project_description ?? '',
-      world_brief_summary:  m.world_brief_summary ?? '',
-      world_brief_items:    (m.world_brief_items ?? []) as Array<{ title: string; body: string }>,
       qa_answers:           m.qa_answers ?? [],
       mission_qa_answers:   m.mission_qa_answers ?? [],
       chapter:              m.chapter ?? '',

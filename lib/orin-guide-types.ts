@@ -9,19 +9,11 @@ export interface MissionTerm {
   definition: string;
 }
 
-export interface WorldBriefItem {
-  title: string;
-  body:  string;
-}
-
 export interface OrinMission {
   id:                string;
   order:             number;
   language:          'en' | 'he';
   question:          string;
-  worldBrief:        string;
-  worldBriefSummary: string;
-  worldBriefItems:   WorldBriefItem[];
   projectTitle:      string;
   projectObjective:  string;
   openingMessage:    string;

@@ -3,16 +3,22 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { OrinMission, OrinPlanet, MissionTerm, WorldBriefItem } from '@/lib/orin-guide-types';
+import type { OrinMission, OrinPlanet, MissionTerm } from '@/lib/orin-guide-types';
 import { t, type Lang } from '@/lib/i18n';
-import { getFirstName } from '@/lib/student-store';
+import { getFirstName, getBotName } from '@/lib/student-store';
 import { getSessionStudentId } from '@/lib/session';
 import { askOrin } from '@/lib/orin-qa';
 import { TermRow } from '@/components/TermRow';
-import { useAutoResizeTextarea } from '@/hooks/useAutoResizeTextarea';
+import { ChatAvatarOrb } from '@/components/chat/ChatAvatarOrb';
+import { CharacterMessageRow } from '@/components/chat/CharacterMessageRow';
+import { CharacterMessageBubble } from '@/components/chat/CharacterMessageBubble';
+import { ChatTypingIndicator } from '@/components/chat/ChatTypingIndicator';
+import { StudentMessageBubble } from '@/components/chat/StudentMessageBubble';
+import { ChatInputDock } from '@/components/chat/ChatInputDock';
+import { ORIN_GUIDE_SPEAKER, ORIN_GUIDE_STUDENT, ORIN_GUIDE_INPUT } from '@/components/chat/chat-themes';
 
 // =============================================================================
-// Design tokens — matches pip-guide/page.tsx exactly
+// Design tokens — used by OrinGuidePanel
 // =============================================================================
 
 const T = {
@@ -24,7 +30,7 @@ const T = {
   b2:    '#1f1f38',
   tp:    '#e2e8f0',
   ts:    '#8896a8',
-  tm:    '#3d4a60',
+  tm:    '#5c6f85',
   ac:    '#a855f7',
   acDim: 'rgba(168,85,247,0.10)',
   acBdr: 'rgba(168,85,247,0.25)',
@@ -34,7 +40,7 @@ const T = {
 // Types
 // =============================================================================
 
-type DockState = 'cta-brief' | 'cta-howto' | 'lock' | 'understand' | 'done';
+type DockState = 'cta-howto' | 'lock' | 'understand' | 'done';
 
 interface ReturnTrigger {
   type: 'return-planet' | 'return-goals' | 'return-goal' | 'return-no-activity';
@@ -54,7 +60,6 @@ export interface LockedPlanetSummary {
 type ChatMsg =
   | { id: string; role: 'orin' | 'user'; type: 'text';    html: string }
   | { id: string; role: 'user';          type: 'chip';    icon: string; text: string }
-  | { id: string; role: 'orin';           type: 'brief';   items: WorldBriefItem[]; summary: string }
   | { id: string; role: 'orin';           type: 'mission'; chapter: string; title: string; objective: string; terms?: MissionTerm[] }
   | { id: string; role: 'orin';           type: 'howto';   planets: OrinPlanet[] }
   | { id: string; role: 'orin';           type: 'typing' };
@@ -62,14 +67,36 @@ type ChatMsg =
 let _idCounter = 0;
 function uid() { return `msg_${++_idCounter}_${Date.now()}`; }
 
-// Chat messages render through dangerouslySetInnerHTML (scripted mission text is
-// authored HTML). Free text — the student's question and the live bot's reply —
-// must be escaped before entering that pipeline.
+// All chat messages pass through sanitizeHtml before dangerouslySetInnerHTML.
+// escapeHtml is used when converting plain text (student input, bot replies) into
+// the html field so entities are preserved after sanitizeHtml's DOMParser round-trip.
 function escapeHtml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+
+// Only these tags are allowed in chat messages.
+// All attributes are stripped; everything else is flattened to text.
+const SAFE_TAGS = new Set(['br', 'strong', 'em', 'b', 'i']);
+
+function sanitizeHtml(raw: string): string {
+  // SSR fallback: chat content is never present during SSR, so plain text is fine.
+  if (typeof document === 'undefined') return raw.replace(/<[^>]*>/g, '');
+  const { body } = new DOMParser().parseFromString(raw, 'text/html');
+  function walk(node: Node): string {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return escapeHtml(node.textContent ?? '');
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return '';
+    const el = node as Element;
+    const tag = el.tagName.toLowerCase();
+    const inner = Array.from(el.childNodes).map(walk).join('');
+    if (!SAFE_TAGS.has(tag)) return inner;
+    return tag === 'br' ? '<br>' : `<${tag}>${inner}</${tag}>`;
+  }
+  return Array.from(body.childNodes).map(walk).join('');
 }
 
 function applyTemplate(template: string, vars: Record<string, string>): string {
@@ -108,6 +135,10 @@ export interface OrinGuidePanelProps {
   firstPlanet?: { id: string; label: string };
   onLaunch?: () => void;
   language?: Lang;
+  /** Student's circular avatar image URL — replaces the generic purple orb in messages. */
+  avatarUrl?: string | null;
+  /** Called each time Orin pushes a real message — used by the parent to replay the avatar video. */
+  onOrinMessage?: () => void;
   /** Pre-fetched by the landscape page. null = parent loading (wait). undefined = self-fetch. */
   orinMission?: OrinMission | null;
   /** Pre-fetched by the landscape page. null = parent loading (wait). undefined = self-fetch. */
@@ -115,138 +146,24 @@ export interface OrinGuidePanelProps {
 }
 
 // =============================================================================
-// Orin avatar orb
+// Orin avatar — circular image when avatarUrl is available, purple orb fallback
 // =============================================================================
 
-function OrinOrb({ size = 28 }: { size?: number }) {
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      background: 'radial-gradient(circle at 35% 35%, #e9d5ff, #7c3aed 60%, #2e1065)',
-      boxShadow: `0 0 ${size * 0.6}px rgba(168,85,247,0.55)`,
-      border: `1px solid rgba(168,85,247,0.5)`,
-    }} />
-  );
-}
-
-// =============================================================================
-// Typing indicator
-// =============================================================================
-
-function TypingBubble() {
-  return (
-    <div className="flex items-start gap-2 px-4">
-      <OrinOrb size={24} />
-      <div style={{
-        background: T.s2, border: `1px solid ${T.b1}`,
-        borderRadius: '4px 14px 14px 14px', padding: '10px 14px',
-      }}>
-        <div className="flex gap-1.5 items-center">
-          {[0, 1, 2].map((i) => (
-            <motion.span
-              key={i}
-              style={{ width: 6, height: 6, borderRadius: '50%', background: T.ac, display: 'block' }}
-              animate={{ opacity: [0.25, 1, 0.25] }}
-              transition={{ duration: 1.1, repeat: Infinity, delay: i * 0.2, ease: 'easeInOut' }}
-            />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// =============================================================================
-// World Brief — colored left-stripe cards, expanded by default
-// =============================================================================
-
-const STRIPE_COLORS = ['#9d4edd', '#f4a20e', '#ef4444'];
-
-function WorldBrief({ items, summary, lang }: { items: WorldBriefItem[]; summary: string; lang: Lang }) {
-  const [open, setOpen] = useState(true);
-
-  return (
-    <div style={{
-      background: T.s2, border: `1px solid ${T.b1}`,
-      borderRadius: 14, overflow: 'hidden', width: '100%',
-    }}>
-      {/* Header — click to toggle */}
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={() => setOpen((o) => !o)}
-        onKeyDown={(e) => e.key === 'Enter' && setOpen((o) => !o)}
+function OrinAvatar({ size = 28, avatarUrl }: { size?: number; avatarUrl?: string | null }) {
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt="Orin"
         style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '11px 14px', cursor: 'pointer',
-          borderBottom: open ? `1px solid ${T.b1}` : 'none',
+          width: size, height: size, borderRadius: '50%', flexShrink: 0,
+          objectFit: 'cover',
+          border: '1px solid rgba(168,85,247,0.5)',
         }}
-      >
-        <span style={{ fontSize: 14, flexShrink: 0 }}>📡</span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <span style={{
-            fontSize: 9, fontWeight: 800, color: T.ac,
-            textTransform: 'uppercase', letterSpacing: '0.14em', marginRight: 6,
-          }}>
-            {t('worldBriefLabel', lang)}
-          </span>
-          <span style={{ fontSize: 11, color: T.tm }}>{summary}</span>
-        </div>
-        <span style={{
-          fontSize: 10, color: T.tm, flexShrink: 0, display: 'inline-block',
-          transform: open ? 'rotate(0deg)' : 'rotate(-90deg)',
-          transition: 'transform 0.2s',
-        }}>▾</span>
-      </div>
-
-      {/* Colored stripe cards */}
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.22, ease: 'easeOut' }}
-            style={{ overflow: 'hidden' }}
-          >
-            <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {items.map((item, i) => (
-                <div
-                  key={i}
-                  style={{
-                    display: 'flex', borderRadius: 8, overflow: 'hidden',
-                    background: 'rgba(255,255,255,0.02)',
-                    border: '1px solid rgba(255,255,255,0.06)',
-                  }}
-                >
-                  {/* Colored left stripe */}
-                  <div style={{
-                    width: 4, flexShrink: 0,
-                    background: STRIPE_COLORS[i] ?? STRIPE_COLORS[0],
-                  }} />
-                  {/* Text content */}
-                  <div style={{ padding: '10px 12px', flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      fontSize: 9, fontWeight: 800, letterSpacing: '0.12em',
-                      textTransform: 'uppercase',
-                      color: STRIPE_COLORS[i] ?? STRIPE_COLORS[0],
-                      marginBottom: 5,
-                    }}>
-                      {item.title}
-                    </div>
-                    <div
-                      style={{ fontSize: 12, color: T.ts, lineHeight: 1.62 }}
-                      dangerouslySetInnerHTML={{ __html: item.body }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
+      />
+    );
+  }
+  return <ChatAvatarOrb theme={ORIN_GUIDE_SPEAKER.orb} size={size} />;
 }
 
 // =============================================================================
@@ -262,12 +179,12 @@ function MissionCard({ chapter, title, objective, terms, lang }: { chapter: stri
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
         <span style={{
-          fontSize: 9, fontWeight: 800, color: T.ac,
+          fontSize: 11, fontWeight: 800, color: T.ac,
           background: T.acDim, border: `1px solid ${T.acBdr}`,
           padding: '3px 8px', borderRadius: 20,
           letterSpacing: '0.12em', textTransform: 'uppercase',
         }}>{chapter}</span>
-        <span style={{ fontSize: 9, color: T.tm, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{t('missionProject', lang)}</span>
+        <span style={{ fontSize: 11, color: T.tm, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{t('missionProject', lang)}</span>
       </div>
       <div style={{ fontSize: 19, fontWeight: 900, color: T.tp, lineHeight: 1.2, marginBottom: 10 }}>
         {title}
@@ -278,7 +195,7 @@ function MissionCard({ chapter, title, objective, terms, lang }: { chapter: stri
       {terms && terms.length > 0 && (
         <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid rgba(255,255,255,0.06)` }}>
           <div style={{
-            fontSize: 9, fontWeight: 800, color: T.ac,
+            fontSize: 11, fontWeight: 800, color: T.ac,
             textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 8,
           }}>
             {t('keyTermsLabel', lang)}
@@ -306,7 +223,7 @@ function HowToCard({ planets, firstPlanet, lang }: { planets: OrinPlanet[]; firs
       borderRadius: 14, padding: '16px', width: '100%',
     }}>
       <div style={{
-        fontSize: 9, fontWeight: 800, color: T.ts,
+        fontSize: 11, fontWeight: 800, color: T.ts,
         textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 10,
       }}>
         {t('howToExplore', lang)}
@@ -350,78 +267,36 @@ function HowToCard({ planets, firstPlanet, lang }: { planets: OrinPlanet[]; firs
 // Message bubble — dispatches to correct renderer per type
 // =============================================================================
 
-function MessageBubble({ msg, firstPlanet, lang }: { msg: ChatMsg; firstPlanet?: { id: string; label: string }; lang: Lang }) {
-  if (msg.type === 'typing') return <TypingBubble />;
+function MessageBubble({ msg, firstPlanet, lang, avatarUrl }: { msg: ChatMsg; firstPlanet?: { id: string; label: string }; lang: Lang; avatarUrl?: string | null }) {
+  const avatar = <OrinAvatar size={24} avatarUrl={avatarUrl} />;
+
+  if (msg.type === 'typing') return <ChatTypingIndicator speaker={ORIN_GUIDE_SPEAKER} avatar={avatar} />;
 
   if (msg.role === 'user') {
     if (msg.type === 'chip') {
-      return (
-        <div className="flex justify-end px-4">
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            background: T.acDim, border: `1.5px solid ${T.acBdr}`,
-            borderRadius: '14px 4px 14px 14px', padding: '9px 14px',
-          }}>
-            <span style={{ fontSize: 14 }}>{msg.icon}</span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: T.ac }}>{msg.text}</span>
-          </div>
-        </div>
-      );
+      return <StudentMessageBubble theme={ORIN_GUIDE_STUDENT} icon={msg.icon}>{msg.text}</StudentMessageBubble>;
     }
-    return (
-      <div className="flex justify-end px-4">
-        <div style={{
-          background: T.acDim, border: `1.5px solid ${T.acBdr}`,
-          borderRadius: '14px 4px 14px 14px', padding: '10px 14px', maxWidth: '85%',
-        }}>
-          <p style={{ fontSize: 13, color: T.ac, margin: 0 }}>{msg.html}</p>
-        </div>
-      </div>
-    );
+    return <StudentMessageBubble theme={ORIN_GUIDE_STUDENT}>{msg.html}</StudentMessageBubble>;
   }
 
   switch (msg.type) {
     case 'text':
-      return (
-        <div className="flex items-start gap-2 px-4">
-          <OrinOrb size={24} />
-          <div style={{
-            background: T.s2, border: `1px solid ${T.b1}`,
-            borderRadius: '4px 14px 14px 14px', padding: '12px 14px', maxWidth: '90%',
-          }}>
-            <p
-              style={{ fontSize: 13, lineHeight: 1.68, color: T.ts, margin: 0 }}
-              dangerouslySetInnerHTML={{ __html: msg.html }}
-            />
-          </div>
-        </div>
-      );
-    case 'brief':
-      return (
-        <div className="flex items-start gap-2 px-4">
-          <OrinOrb size={24} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <WorldBrief items={msg.items} summary={msg.summary} lang={lang} />
-          </div>
-        </div>
-      );
+      return <CharacterMessageBubble speaker={ORIN_GUIDE_SPEAKER} avatar={avatar} html={sanitizeHtml(msg.html)} maxWidth="90%" />;
     case 'mission':
       return (
-        <div className="flex items-start gap-2 px-4">
-          <OrinOrb size={24} />
+        <CharacterMessageRow speaker={ORIN_GUIDE_SPEAKER} avatar={avatar}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <MissionCard chapter={msg.chapter} title={msg.title} objective={msg.objective} terms={msg.terms} lang={lang} />
           </div>
-        </div>
+        </CharacterMessageRow>
       );
     case 'howto':
       return (
-        <div className="flex items-start gap-2 px-4">
-          <OrinOrb size={24} />
+        <CharacterMessageRow speaker={ORIN_GUIDE_SPEAKER} avatar={avatar}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <HowToCard planets={msg.planets} firstPlanet={firstPlanet} lang={lang} />
           </div>
-        </div>
+        </CharacterMessageRow>
       );
     default:
       return null;
@@ -432,7 +307,7 @@ function MessageBubble({ msg, firstPlanet, lang }: { msg: ChatMsg; firstPlanet?:
 // All Discoveries overlay
 // =============================================================================
 
-export function AllDiscoveriesView({ summaries, orinHistory, onClose, lang }: { summaries: LockedPlanetSummary[]; orinHistory?: { html: string }[]; onClose: () => void; lang: Lang }) {
+export function AllDiscoveriesView({ summaries, orinHistory, onClose, lang, botName, avatarUrl }: { summaries: LockedPlanetSummary[]; orinHistory?: { html: string }[]; onClose: () => void; lang: Lang; botName?: string; avatarUrl?: string | null }) {
   const router = useRouter();
   return (
     <motion.div
@@ -511,10 +386,10 @@ export function AllDiscoveriesView({ summaries, orinHistory, onClose, lang }: { 
       {orinHistory && orinHistory.length > 0 && (
         <div style={{ marginTop: 8 }}>
           <div style={{
-            fontSize: 9, fontWeight: 800, color: T.ts,
+            fontSize: 11, fontWeight: 800, color: T.ts,
             textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 10,
           }}>
-            {t('whatOrinToldMe', lang)}
+            {t('whatOrinToldMe', lang).replace('{name}', botName ?? 'Orin')}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {orinHistory.map((m, idx) => (
@@ -523,10 +398,10 @@ export function AllDiscoveriesView({ summaries, orinHistory, onClose, lang }: { 
                 borderRadius: '4px 14px 14px 14px', padding: '12px 14px',
                 display: 'flex', gap: 10, alignItems: 'flex-start',
               }}>
-                <OrinOrb size={20} />
+                <OrinAvatar size={20} avatarUrl={avatarUrl} />
                 <p
                   style={{ fontSize: 12, color: T.ts, lineHeight: 1.65, margin: 0 }}
-                  dangerouslySetInnerHTML={{ __html: m.html }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(m.html) }}
                 />
               </div>
             ))}
@@ -541,49 +416,9 @@ export function AllDiscoveriesView({ summaries, orinHistory, onClose, lang }: { 
 // Dock components
 // =============================================================================
 
-function CtaBriefDock({ onGenerate, lang }: { onGenerate: () => void; lang: Lang }) {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <button
-      onClick={onGenerate}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        width: '100%', display: 'flex', alignItems: 'center', gap: 14,
-        padding: '15px 18px',
-        background: hovered ? T.s3 : T.s2,
-        border: `1.5px solid ${hovered ? 'rgba(0,212,212,0.4)' : T.b2}`,
-        borderRadius: 14, cursor: 'pointer', transition: 'all 0.15s',
-      }}
-    >
-      <div style={{
-        width: 38, height: 38, borderRadius: 10,
-        background: T.acDim, border: `1px solid ${T.acBdr}`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-      }}>
-        <span style={{ fontSize: 18 }}>🌐</span>
-      </div>
-      <div style={{ flex: 1, textAlign: 'left' }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: T.tp }}>{t('generateWorldBrief', lang)}</div>
-        <div style={{ fontSize: 11, color: T.ts, marginTop: 2 }}>{t('worldBriefSubtitle', lang)}</div>
-      </div>
-      <span style={{ color: T.ac, fontSize: 16 }}>→</span>
-    </button>
-  );
-}
-
 function CtaHowtoDock({ onShowHowTo, onSend, lang }: { onShowHowTo: () => void; onSend: (text: string) => void; lang: Lang }) {
   const [hovered, setHovered] = useState(false);
-  const [val, setVal] = useState('');
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  useAutoResizeTextarea(inputRef, val);
-
-  const send = () => {
-    if (!val.trim()) return;
-    onSend(val.trim());
-    setVal('');
-    inputRef.current?.focus();
-  };
+  const [draft, setDraft] = useState('');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -603,38 +438,13 @@ function CtaHowtoDock({ onShowHowTo, onSend, lang }: { onShowHowTo: () => void; 
         <span style={{ color: T.ac, fontSize: 16 }}>→</span>
       </button>
 
-      <div style={{
-        display: 'flex', gap: 8, alignItems: 'flex-end',
-        background: T.s2, border: `1px solid ${T.b1}`,
-        borderRadius: 12, padding: '10px 4px 10px 14px',
-      }}>
-        <textarea
-          ref={inputRef}
-          rows={1}
-          value={val}
-          onChange={(e) => setVal(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-          placeholder={t('askAnythingShort', lang)}
-          style={{
-            flex: 1, background: 'none', border: 'none', outline: 'none',
-            resize: 'none', overflowY: 'auto',
-            fontSize: 13, lineHeight: 1.4, color: T.tp,
-            // @ts-ignore — caretColor is valid CSS
-            caretColor: T.ac,
-          }}
-        />
-        <button
-          onClick={send}
-          disabled={!val.trim()}
-          style={{
-            padding: '9px 14px', borderRadius: 8, border: 'none',
-            cursor: val.trim() ? 'pointer' : 'default',
-            background: val.trim() ? T.ac : T.b2,
-            color: val.trim() ? '#000' : T.tm,
-            fontSize: 13, fontWeight: 800, transition: 'all 0.15s', flexShrink: 0,
-          }}
-        >→</button>
-      </div>
+      <ChatInputDock
+        value={draft}
+        onChange={setDraft}
+        onSend={() => { onSend(draft.trim()); setDraft(''); }}
+        placeholder={t('askAnythingShort', lang)}
+        theme={ORIN_GUIDE_INPUT}
+      />
     </div>
   );
 }
@@ -654,52 +464,18 @@ function LockDock() {
   );
 }
 
-function UnderstandDock({ onGotIt, onSend, lang }: { onGotIt: () => void; onSend: (text: string) => void; lang: Lang }) {
-  const [val, setVal] = useState('');
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  useAutoResizeTextarea(inputRef, val);
-
-  const send = () => {
-    if (!val.trim()) return;
-    onSend(val.trim());
-    setVal('');
-    inputRef.current?.focus();
-  };
+function UnderstandDock({ onGotIt, onSend, onInvestigate, lang }: { onGotIt: () => void; onSend: (text: string) => void; onInvestigate?: () => void; lang: Lang }) {
+  const [draft, setDraft] = useState('');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{
-        display: 'flex', gap: 8, alignItems: 'flex-end',
-        background: T.s2, border: `1px solid ${T.b1}`,
-        borderRadius: 12, padding: '10px 4px 10px 14px',
-      }}>
-        <textarea
-          ref={inputRef}
-          rows={1}
-          value={val}
-          onChange={(e) => setVal(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-          placeholder={t('askAnythingEra', lang)}
-          style={{
-            flex: 1, background: 'none', border: 'none', outline: 'none',
-            resize: 'none', overflowY: 'auto',
-            fontSize: 13, lineHeight: 1.4, color: T.tp,
-            // @ts-ignore — caretColor is valid CSS
-            caretColor: T.ac,
-          }}
-        />
-        <button
-          onClick={send}
-          disabled={!val.trim()}
-          style={{
-            padding: '9px 14px', borderRadius: 8, border: 'none',
-            cursor: val.trim() ? 'pointer' : 'default',
-            background: val.trim() ? T.ac : T.b2,
-            color: val.trim() ? '#000' : T.tm,
-            fontSize: 13, fontWeight: 800, transition: 'all 0.15s', flexShrink: 0,
-          }}
-        >→</button>
-      </div>
+      <ChatInputDock
+        value={draft}
+        onChange={setDraft}
+        onSend={() => { onSend(draft.trim()); setDraft(''); }}
+        placeholder={t('askAnythingEra', lang)}
+        theme={ORIN_GUIDE_INPUT}
+      />
 
       <button
         onClick={onGotIt}
@@ -714,6 +490,22 @@ function UnderstandDock({ onGotIt, onSend, lang }: { onGotIt: () => void; onSend
       >
         {t('gotItReady', lang)}
       </button>
+
+      {onInvestigate && (
+        <button
+          onClick={onInvestigate}
+          style={{
+            width: '100%', padding: '13px 18px', borderRadius: 12,
+            background: 'rgba(168,85,247,0.12)', border: `1.5px solid rgba(168,85,247,0.40)`,
+            color: T.ac, fontSize: 14, fontWeight: 800, cursor: 'pointer',
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(168,85,247,0.22)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(168,85,247,0.12)'; }}
+        >
+          {t('letsInvestigate', lang)}
+        </button>
+      )}
     </div>
   );
 }
@@ -729,53 +521,18 @@ function DoneDock({ lang }: { lang: Lang }) {
 }
 
 // =============================================================================
-// Celebration overlay — fixed full-viewport, escapes the sidebar container
-// =============================================================================
-
-function CelebrationOverlay({ onDone }: { onDone: () => void }) {
-  useEffect(() => {
-    const timer = setTimeout(onDone, 2500);
-    return () => clearTimeout(timer);
-  }, [onDone]);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.3 }}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 9999,
-        background: 'rgba(5,5,16,0.85)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        backdropFilter: 'blur(4px)',
-      }}
-    >
-      <motion.div
-        initial={{ scale: 1 }}
-        animate={{ scale: [1, 4.5, 4], opacity: [1, 1, 0] }}
-        transition={{ duration: 2.2, ease: 'easeInOut' }}
-        style={{
-          width: 28, height: 28, borderRadius: '50%',
-          background: 'radial-gradient(circle at 35% 35%, #00ffff, #0088aa 60%, #003344)',
-          boxShadow: '0 0 60px rgba(0,212,212,0.9), 0 0 120px rgba(0,212,212,0.5)',
-        }}
-      />
-    </motion.div>
-  );
-}
-
-// =============================================================================
 // OrinGuidePanel — sidebar-embedded component (no full-page wrapper or header)
 // CHANGE 4: flex-1 + overflow-y-auto for scrollable content area
 // =============================================================================
 
-export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, onLaunch, language, orinMission, initialMissionState }: OrinGuidePanelProps) {
+export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, onLaunch, language, avatarUrl, onOrinMessage, orinMission, initialMissionState }: OrinGuidePanelProps) {
   const lang: Lang = language ?? 'en';
+  const router = useRouter();
+  const botName = getBotName();
+  const onOrinMessageRef = useRef(onOrinMessage);
   const [mission,            setMission]            = useState<OrinMission | null>(null);
   const [hasConfirmed,       setHasConfirmed]       = useState<boolean | null>(null); // null = loading
   const [returnTrigger,      setReturnTrigger]      = useState<ReturnTrigger | null>(null);
-  const [showCelebration,    setShowCelebration]    = useState(false);
 
   const [messages,           setMessages]           = useState<ChatMsg[]>([]);
   const [hasOrinHistory,      setHasOrinHistory]      = useState(false);
@@ -783,6 +540,7 @@ export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, o
   const [qaIdx,              setQaIdx]              = useState(0);
   const [allSummaries,       setAllSummaries]       = useState<LockedPlanetSummary[]>([]);
   const [showAllDiscoveries, setShowAllDiscoveries] = useState(false);
+  const [hasDiscoveries,     setHasDiscoveries]     = useState<boolean | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom on new messages
@@ -790,8 +548,22 @@ export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, o
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
 
+  // Keep onOrinMessage ref current so push() doesn't need it as a dep
+  useEffect(() => { onOrinMessageRef.current = onOrinMessage; }, [onOrinMessage]);
+
+  // Check on mount whether the student has any saved discoveries
+  useEffect(() => {
+    fetch(`/api/student/planet-summaries?lang=${lang}`)
+      .then((r) => r.json())
+      .then((data) => setHasDiscoveries((data.summaries ?? []).length > 0))
+      .catch(() => setHasDiscoveries(false));
+  }, [lang]);
+
   const push = useCallback((msg: ChatMsg) => {
     setMessages((prev) => [...prev.filter((m) => m.type !== 'typing'), msg]);
+    if (msg.role === 'orin' && msg.type !== 'typing') {
+      onOrinMessageRef.current?.();
+    }
   }, []);
 
   const saveOrinMessage = useCallback((content: string, triggerType: string) => {
@@ -864,19 +636,19 @@ export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, o
     if (!mission || hasConfirmed === null || hasOrinHistory) return;
 
     if (hasConfirmed) {
-      // Return visitor — show context-aware return message (T015)
+      // Return visitor — show context-aware return message; skip the how-to (they already know)
       const html = returnTrigger ? formatReturnMessage(returnTrigger, lang) : t('returnNoActivity', lang);
       const triggerType = returnTrigger ? `return-${returnTrigger.type}` : 'return-no-activity';
       const t1 = setTimeout(() => showTyping(), 300);
       const t2 = setTimeout(() => {
         push({ id: uid(), role: 'orin', type: 'text', html });
         saveOrinMessage(html, triggerType);
-        setDock('cta-howto');
+        setDock('done');
       }, 1400);
       return () => { clearTimeout(t1); clearTimeout(t2); };
     }
 
-    // First-time visitor — existing opening flow
+    // First-time visitor — opening message, then how-to card appears automatically
     const t1 = setTimeout(() => showTyping(), 300);
     const t2 = setTimeout(() => {
       const rawFirst = getFirstName();
@@ -890,9 +662,13 @@ export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, o
         .replace(/\n/g, '<br>');
       push({ id: uid(), role: 'orin', type: 'text', html });
       saveOrinMessage(html, 'opening');
-      setDock('cta-howto');
     }, 1600);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    const t3 = setTimeout(() => showTyping(), 2000);
+    const t4 = setTimeout(() => {
+      push({ id: uid(), role: 'orin', type: 'howto', planets: mission.planets });
+      setDock('understand');
+    }, 3400);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mission, hasConfirmed, hasOrinHistory, saveOrinMessage]);
 
@@ -900,27 +676,13 @@ export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, o
     try {
       const res = await fetch(`/api/student/planet-summaries?lang=${lang}`);
       const data = await res.json();
-      setAllSummaries(data.summaries ?? []);
+      const summaries = data.summaries ?? [];
+      setAllSummaries(summaries);
+      setHasDiscoveries(summaries.length > 0);
     } catch {
       setAllSummaries([]);
     }
     setShowAllDiscoveries(true);
-  }
-
-  function handleGenerateBrief() {
-    setDock('lock');
-    push({ id: uid(), role: 'user', type: 'chip', icon: '🌐', text: t('generateWorldBrief', lang) });
-    setTimeout(showTyping, 400);
-    setTimeout(() => {
-      push({ id: uid(), role: 'orin', type: 'brief', items: mission!.worldBriefItems, summary: mission!.worldBriefSummary });
-      setTimeout(showTyping, 300);
-      setTimeout(() => {
-        const briefText = t('takeYourTime', lang);
-        push({ id: uid(), role: 'orin', type: 'text', html: briefText });
-        saveOrinMessage(briefText, 'brief');
-        setDock('understand');
-      }, 1300);
-    }, 1700);
   }
 
   function handleShowHowTo() {
@@ -962,35 +724,34 @@ export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, o
   }
 
   function handleGotIt() {
-    // Show celebration overlay; after it fades, push message + save to DB (T010)
-    setShowCelebration(true);
-    const celebrationText = t('celebrationMessage', lang);
-    setTimeout(() => {
-      setShowCelebration(false);
-      push({ id: uid(), role: 'orin', type: 'text', html: celebrationText });
-      setDock('done');
-      setHasConfirmed(true);
-      if (missionId) {
-        fetch('/api/student/mission-state', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ missionId }),
-        });
-        fetch('/api/student/pip-messages', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ missionId, messages: [{ role: 'pip', content: celebrationText, triggerType: 'celebration' }] }),
-        });
-      }
-    }, 2500);
+    if (missionId) {
+      fetch('/api/student/mission-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ missionId }),
+      });
+    }
+    onLaunch?.();
+  }
+
+  function handleInvestigate() {
+    if (missionId) {
+      fetch('/api/student/mission-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ missionId }),
+      });
+    }
+    if (firstPlanet) {
+      router.push(`/landscape/${firstPlanet.id}?lang=${lang}`);
+    }
   }
 
   function renderDock() {
     switch (dock) {
-      case 'cta-brief':  return null;
       case 'cta-howto':  return <CtaHowtoDock onShowHowTo={handleShowHowTo} onSend={handleHowToSend} lang={lang} />;
       case 'lock':       return <LockDock />;
-      case 'understand': return <UnderstandDock onGotIt={handleGotIt} onSend={handleQA} lang={lang} />;
+      case 'understand': return <UnderstandDock onGotIt={handleGotIt} onSend={handleQA} onInvestigate={firstPlanet ? handleInvestigate : undefined} lang={lang} />;
       case 'done':       return <DoneDock lang={lang} />;
     }
   }
@@ -1008,11 +769,6 @@ export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, o
     // flex column fills the sidebar, content area scrolls; relative for AllDiscoveriesView overlay
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden relative" dir={lang === 'he' ? 'rtl' : 'ltr'}>
 
-      {/* Celebration overlay — fixed, escapes sidebar bounds (T009) */}
-      <AnimatePresence>
-        {showCelebration && <CelebrationOverlay onDone={() => setShowCelebration(false)} />}
-      </AnimatePresence>
-
       {/* All Discoveries overlay */}
       <AnimatePresence>
         {showAllDiscoveries && (
@@ -1021,6 +777,8 @@ export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, o
             orinHistory={messages.filter((m) => m.role === 'orin' && m.type === 'text') as { html: string }[]}
             onClose={() => setShowAllDiscoveries(false)}
             lang={lang}
+            botName={botName}
+            avatarUrl={avatarUrl}
           />
         )}
       </AnimatePresence>
@@ -1036,7 +794,7 @@ export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, o
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.25, ease: 'easeOut' }}
             >
-              <MessageBubble msg={msg} firstPlanet={firstPlanet} lang={lang} />
+              <MessageBubble msg={msg} firstPlanet={firstPlanet} lang={lang} avatarUrl={avatarUrl} />
             </motion.div>
           ))}
         </AnimatePresence>
@@ -1045,22 +803,42 @@ export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, o
 
       {/* Dock — stays pinned at bottom */}
       <div className="border-t border-white/5 p-3 flex-shrink-0 flex flex-col gap-2">
-        {/* Discovery button — always visible in every dock state (T021) */}
-        <button
-          onClick={handleViewDiscoveries}
-          style={{
-            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '12px 16px',
-            background: 'rgba(155,92,255,0.08)',
-            border: '1.5px solid rgba(155,92,255,0.35)',
-            borderRadius: 12, cursor: 'pointer', transition: 'all 0.15s',
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(155,92,255,0.15)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(155,92,255,0.08)'; }}
-        >
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#c084fc' }}>{t('whatIDiscoveredAll', lang)}</div>
-          <span style={{ fontSize: 14, color: '#c084fc' }}>✦</span>
-        </button>
+        {/* Discovery button — shown only once the student has at least one saved discovery */}
+        <AnimatePresence mode="wait">
+          {hasDiscoveries === true ? (
+            <motion.button
+              key="discoveries-btn"
+              onClick={handleViewDiscoveries}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '12px 16px',
+                background: 'rgba(155,92,255,0.08)',
+                border: '1.5px solid rgba(155,92,255,0.35)',
+                borderRadius: 12, cursor: 'pointer', transition: 'background 0.15s, border-color 0.15s',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(155,92,255,0.15)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(155,92,255,0.08)'; }}
+            >
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#c084fc' }}>{t('whatIDiscoveredAll', lang)}</div>
+              <span style={{ fontSize: 14, color: '#c084fc' }}>✦</span>
+            </motion.button>
+          ) : hasDiscoveries === false ? (
+            <motion.p
+              key="discoveries-hint"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              style={{ fontSize: 11, color: T.tm, textAlign: 'center', margin: 0, padding: '6px 4px' }}
+            >
+              {t('discoveriesHint', lang)}
+            </motion.p>
+          ) : null}
+        </AnimatePresence>
 
         <AnimatePresence mode="wait">
           <motion.div

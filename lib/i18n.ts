@@ -11,7 +11,7 @@ const strings = {
     he: 'הופעל',
   },
   acceptMission: {
-    en: '✦ ACCEPT MISSION',
+    en: '✦ Accept mission',
     he: '✦ קבל משימה',
   },
   missionLabel: {
@@ -45,20 +45,8 @@ const strings = {
     he: 'אני ממליץ להתחיל עם:',
   },
   exploreArrow: {
-    en: 'EXPLORE →',
+    en: 'Explore →',
     he: 'לחקור →',
-  },
-  generateWorldBrief: {
-    en: 'Generate World Brief',
-    he: 'צור תקציר עולמי',
-  },
-  worldBriefSubtitle: {
-    en: 'Understand the historical context first',
-    he: 'הבן את ההקשר ההיסטורי תחילה',
-  },
-  worldBriefLabel: {
-    en: 'World Brief',
-    he: 'תקציר עולמי',
   },
   missionProject: {
     en: 'Mission Project',
@@ -69,27 +57,31 @@ const strings = {
     he: 'שאל אותי כל דבר על התקופה הזו…',
   },
   askAnythingShort: {
-    en: 'Ask me anything…',
+    en: 'Ask me about this mission…',
     he: 'שאל אותי כל דבר…',
   },
   gotItReady: {
-    en: 'Got it — I\'m ready to answer →',
-    he: 'הבנתי — אני מוכן לענות →',
+    en: 'Got it — start exploring →',
+    he: 'הבנתי — התחל לחקור →',
+  },
+  letsInvestigate: {
+    en: "Let's investigate →",
+    he: 'בואו נחקור →',
   },
   askAnythingMission: {
     en: 'Ask me anything about this mission…',
     he: 'שאל אותי כל דבר על המשימה הזו…',
   },
   gotItAccept: {
-    en: 'Got it — Accept Mission →',
+    en: 'Got it — Accept mission →',
     he: 'הבנתי — קבל משימה →',
   },
   launchMission: {
-    en: '🚀 Launch Mission',
+    en: '🚀 Launch mission',
     he: '🚀 התחל משימה',
   },
   missionActive: {
-    en: '✦ Mission Active · Explore the planets',
+    en: '✦ Mission active — keep going',
     he: '✦ משימה פעילה · חקור את הכוכבים',
   },
   loading: {
@@ -101,11 +93,11 @@ const strings = {
     he: 'הבנתי',
   },
   acceptMissionChip: {
-    en: 'Got it — Accept Mission',
+    en: 'Got it — Accept mission',
     he: 'הבנתי — קבל משימה',
   },
   launchMissionChip: {
-    en: 'Launch Mission',
+    en: 'Launch mission',
     he: 'התחל משימה',
   },
   readyBuild: {
@@ -115,10 +107,6 @@ const strings = {
   missionBegins: {
     en: 'Your mission begins, Traveler. Explore each planet, <strong style="color:#e2e8f0">save every insight</strong> you find with ✦, and return when you\'re ready to build your case.',
     he: 'המשימה שלך מתחילה, חוקר. חקור כל כוכב לכת, <strong style="color:#e2e8f0">שמור כל תובנה</strong> שתמצא עם ✦, וחזור כשאתה מוכן לבנות את הטיעון שלך.',
-  },
-  takeYourTime: {
-    en: 'Take your time with that. <strong style="color:#e2e8f0">Ask me anything</strong> about this era — or click <em style="color:#00d4d4">Got it</em> when you feel ready to weigh in.',
-    he: 'קח את הזמן שלך. <strong style="color:#e2e8f0">שאל אותי כל דבר</strong> על התקופה הזו — או לחץ על <em style="color:#00d4d4">הבנתי</em> כשאתה מרגיש מוכן.',
   },
   thatsYourMission: {
     en: 'That\'s your mission. Take a moment to look it over — <strong style="color:#e2e8f0">ask me anything</strong> about what\'s expected, or accept when you\'re ready.',
@@ -168,11 +156,11 @@ const strings = {
 
   // ── Planet page (landscape/[id]) ────────────────────────────────────────────
   backToMap: {
-    en: '← MAP',
+    en: '← Map',
     he: '← מפה',
   },
   backToLandscape: {
-    en: '← BACK TO LANDSCAPE',
+    en: '← Back to landscape',
     he: '← חזרה למפה',
   },
   yourMission: {
@@ -289,23 +277,23 @@ const strings = {
     he: 'בחר משימה',
   },
   ctaPickMission: {
-    en: 'CHOOSE MISSION →',
+    en: 'Choose mission →',
     he: 'בחר משימה →',
   },
   ctaContinueMission: {
-    en: 'CONTINUE MISSION →',
+    en: 'Continue mission →',
     he: 'המשך משימה →',
   },
   ctaVoteNow: {
-    en: 'VOTE NOW →',
+    en: 'Vote now →',
     he: 'הצבע עכשיו →',
   },
   ctaViewResults: {
-    en: 'VIEW RESULTS →',
+    en: 'View results →',
     he: 'צפה בתוצאות →',
   },
   ctaRevisitJourney: {
-    en: 'REVISIT JOURNEY →',
+    en: 'Revisit journey →',
     he: 'בקר מחדש במסע →',
   },
   planetsExploredLabel: {
@@ -368,6 +356,10 @@ const strings = {
     en: "You haven't discovered anything yet — start exploring!",
     he: 'עוד לא גילית כלום — התחל לחקור!',
   },
+  discoveriesHint: {
+    en: 'Your discoveries will appear here as you explore.',
+    he: 'הגילויים שלך יופיעו כאן כשתחקור.',
+  },
   planetLockedCelebration: {
     en: "Planet locked! Here's what you discovered ✦",
     he: 'כוכב ננעל! הנה מה שגילית ✦',
@@ -395,7 +387,7 @@ const strings = {
     he: 'תצוגה מקדימה למורה · ניווט לכוכבים מושבת',
   },
   back: {
-    en: '← BACK',
+    en: '← Back',
     he: '← חזרה',
   },
   signOut: {
@@ -417,7 +409,7 @@ const strings = {
 
   // ── Planet Completion Celebration overlay ───────────────────────────────────
   claimReward: {
-    en: 'Claim Reward',
+    en: 'Claim reward',
     he: 'קבל פרס',
   },
   claiming: {
@@ -465,7 +457,7 @@ const strings = {
     he: 'חקרת את כל כוכבי הלכת במשימה הזו!',
   },
   chooseNextMission: {
-    en: 'Choose Your Next Mission',
+    en: 'Choose your next mission',
     he: 'בחר את המשימה הבאה שלך',
   },
 
@@ -511,8 +503,8 @@ const strings = {
     he: 'לספירה',
   },
   whatOrinToldMe: {
-    en: 'What Orin told me',
-    he: 'מה אורין אמר לי',
+    en: 'What {name} told me',
+    he: 'מה {name} אמר לי',
   },
   travelerName: {
     en: 'Traveler',
@@ -669,7 +661,7 @@ const strings = {
     he: 'אפשר לשנות את ההצבעה עד סגירת החלון',
   },
   changeVote: {
-    en: 'CHANGE VOTE',
+    en: 'Change vote',
     he: 'שינוי הצבעה',
   },
   submitting: {
@@ -677,11 +669,11 @@ const strings = {
     he: 'שולח…',
   },
   castMyVote: {
-    en: 'CAST MY VOTE ✦',
+    en: 'Cast my vote ✦',
     he: 'הצבע ✦',
   },
   selectMissionFirst: {
-    en: 'SELECT A MISSION FIRST',
+    en: 'Select a mission first',
     he: 'בחרו משימה תחילה',
   },
   missionSelectedImminent: {

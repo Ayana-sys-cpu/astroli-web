@@ -6,24 +6,16 @@ import { type PlanetCharacter, type PlanetVoiceMessage } from '@/hooks/usePlanet
 import { t, type Lang } from '@/lib/i18n';
 import GalaxyChip from '@/components/GalaxyChip';
 import { parseKeywordChips } from '@/lib/parseKeywordChips';
-import { useAutoResizeTextarea } from '@/hooks/useAutoResizeTextarea';
+import { CharacterMessageBubble } from '@/components/chat/CharacterMessageBubble';
+import { ChatTypingIndicator } from '@/components/chat/ChatTypingIndicator';
+import { StudentMessageBubble } from '@/components/chat/StudentMessageBubble';
+import { ChatInputDock } from '@/components/chat/ChatInputDock';
+import { PLANET_FIGURE_SPEAKER, PLANET_ORIN_SPEAKER, PLANET_STUDENT, PLANET_INPUT } from '@/components/chat/chat-themes';
 
-// Design tokens — matches OrinGuidePanel exactly
+// Panel-surface tokens; chat bubble/input colors live in components/chat/chat-themes.ts
 const T = {
-  s2:    '#000000',
-  s3:    '#080808',
-  b1:    '#111111',
-  b2:    '#161616',
-  tp:    '#e2e8f0',
-  ts:    '#8896a8',
-  tm:    '#3d4a60',
-  ac:    '#00d4d4',
-  acDim: 'rgba(0,212,212,0.10)',
-  acBdr: 'rgba(0,212,212,0.25)',
-  fig:   '#a090d4',
-  figDim: 'rgba(160,144,212,0.10)',
-  figBdr: 'rgba(160,144,212,0.25)',
-  orin:  '#06D6A0',
+  b1: '#111111',
+  ts: '#8896a8',
 } as const;
 
 interface Props {
@@ -48,51 +40,6 @@ interface Props {
   onViewDiscovery?: () => void;
 }
 
-function FigureOrb({ size = 24 }: { size?: number }) {
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      background: 'radial-gradient(circle at 35% 35%, #d0c0ff, #7755bb 60%, #2a1a44)',
-      border: '1px solid rgba(160,144,212,0.5)',
-      animation: 'figOrbPulse 3s ease-in-out infinite',
-    }} />
-  );
-}
-
-function OrinOrb({ size = 24 }: { size?: number }) {
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      background: 'radial-gradient(circle at 35% 35%, #80ffcc, #00aa77 60%, #003322)',
-      border: '1px solid rgba(6,214,160,0.5)',
-      animation: 'orinOrbPulse 2s ease-in-out infinite',
-    }} />
-  );
-}
-
-function TypingBubble() {
-  return (
-    <div className="flex items-start gap-2 px-4">
-      <FigureOrb size={24} />
-      <div style={{
-        background: 'rgba(119,85,187,0.10)', border: '1px solid rgba(160,144,212,0.18)',
-        borderRadius: '4px 14px 14px 14px', padding: '10px 14px',
-      }}>
-        <div className="flex gap-1.5 items-center">
-          {[0, 1, 2].map(i => (
-            <motion.span
-              key={i}
-              style={{ width: 6, height: 6, borderRadius: '50%', background: T.fig, display: 'block' }}
-              animate={{ opacity: [0.25, 1, 0.25] }}
-              transition={{ duration: 1.1, repeat: Infinity, delay: i * 0.2, ease: 'easeInOut' }}
-            />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function PlanetVoicePanel({
   character, messages, input, setInput, send, sendText, loading, thinking,
   studentFirstName, missionTitle, openingGreeting, studentRevealMessage,
@@ -103,9 +50,6 @@ export default function PlanetVoicePanel({
   const lang  = missionLang;
   const isRtl = lang === 'he';
   const bottomRef  = useRef<HTMLDivElement>(null);
-  const inputRef   = useRef<HTMLTextAreaElement>(null);
-  useAutoResizeTextarea(inputRef, input);
-  const [inputFocused, setInputFocused] = useState(false);
   const [hintOpen, setHintOpen] = useState(false);
   // Greeting starts ready if history already exists (returning user), otherwise animate in
   const [greetingReady, setGreetingReady] = useState(() => messages.length > 0);
@@ -139,7 +83,7 @@ export default function PlanetVoicePanel({
       <div className="flex-1 overflow-y-auto min-h-0 py-4 flex flex-col gap-3">
 
         {/* Typing indicator for opening greeting — shown while greetingReady is false */}
-        {openingGreeting && !greetingReady && <TypingBubble />}
+        {openingGreeting && !greetingReady && <ChatTypingIndicator speaker={PLANET_FIGURE_SPEAKER} />}
 
         {/* Opening greeting — fades in after the typing animation completes */}
         {openingGreeting && greetingReady && (
@@ -147,28 +91,14 @@ export default function PlanetVoicePanel({
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25 }}
-            className="flex items-start gap-2 px-4"
           >
-            <FigureOrb size={24} />
-            <div style={{
-              background: 'rgba(119,85,187,0.10)', border: '1px solid rgba(160,144,212,0.18)',
-              borderRadius: '4px 14px 14px 14px',
-              padding: '12px 14px', maxWidth: '90%',
-            }}>
-              <div style={{
-                fontSize: 9, fontWeight: 800, color: T.fig,
-                textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 5,
-              }}>
-                {figureName}
-              </div>
-              <p style={{ fontSize: 13, lineHeight: 1.68, color: T.ts, margin: 0, ...(isRtl && { direction: 'rtl', textAlign: 'right' }) }}>
-                {parseKeywordChips(openingGreeting ?? '').map((seg, i) =>
-                  seg.type === 'keyword'
-                    ? <GalaxyChip key={i} term={seg.value} />
-                    : <span key={i}>{seg.value}</span>
-                )}
-              </p>
-            </div>
+            <CharacterMessageBubble speaker={PLANET_FIGURE_SPEAKER} label={figureName} maxWidth="90%" isRtl={isRtl}>
+              {parseKeywordChips(openingGreeting ?? '').map((seg, i) =>
+                seg.type === 'keyword'
+                  ? <GalaxyChip key={i} term={seg.value} />
+                  : <span key={i}>{seg.value}</span>
+              )}
+            </CharacterMessageBubble>
           </motion.div>
         )}
 
@@ -185,17 +115,10 @@ export default function PlanetVoicePanel({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.22 }}
-                  className="flex justify-end px-4"
                 >
-                  <div style={{
-                    background: T.figDim, border: `1.5px solid ${T.figBdr}`,
-                    borderRadius: '14px 4px 14px 14px',
-                    padding: '10px 14px', maxWidth: '85%',
-                  }}>
-                    <p style={{ fontSize: 13, color: T.fig, margin: 0, lineHeight: 1.6, ...(isRtl && { direction: 'rtl', textAlign: 'right' }) }}>
-                      {msg.content}
-                    </p>
-                  </div>
+                  <StudentMessageBubble theme={PLANET_STUDENT} isRtl={isRtl}>
+                    {msg.content}
+                  </StudentMessageBubble>
                 </motion.div>
               );
             }
@@ -209,27 +132,10 @@ export default function PlanetVoicePanel({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.22 }}
-                  className="flex items-start gap-2 px-4"
                 >
-                  <OrinOrb size={24} />
-                  <div style={{
-                    flex: 1, background: 'rgba(0,255,209,0.04)',
-                    border: `1px solid rgba(6,214,160,0.2)`,
-                    borderLeft: `2px solid ${T.orin}`,
-                    borderRadius: '4px 14px 14px 14px',
-                    padding: '12px 14px',
-                    boxShadow: '0 0 16px rgba(0,255,209,0.04)',
-                  }}>
-                    <div style={{
-                      fontSize: 9, fontWeight: 800, color: T.orin,
-                      textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 5,
-                    }}>
-                      ORIN · {t('guideLabel', lang)}
-                    </div>
-                    <p style={{ fontSize: 13, lineHeight: 1.68, color: T.ts, margin: 0, ...(isRtl && { direction: 'rtl', textAlign: 'right' }) }}>
-                      {msg.content}
-                    </p>
-                  </div>
+                  <CharacterMessageBubble speaker={PLANET_ORIN_SPEAKER} label={`ORIN · ${t('guideLabel', lang)}`} fill isRtl={isRtl}>
+                    {msg.content}
+                  </CharacterMessageBubble>
                 </motion.div>
               );
             }
@@ -242,29 +148,14 @@ export default function PlanetVoicePanel({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.22 }}
-                className="flex items-start gap-2 px-4"
               >
-                <FigureOrb size={24} />
-                <div style={{
-                  background: 'rgba(119,85,187,0.10)',
-                  border: '1px solid rgba(160,144,212,0.18)',
-                  borderRadius: '4px 14px 14px 14px',
-                  padding: '12px 14px', flex: 1,
-                }}>
-                  <div style={{
-                    fontSize: 9, fontWeight: 800, color: T.fig,
-                    textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 5,
-                  }}>
-                    {figureName}
-                  </div>
-                  <p style={{ fontSize: 13, lineHeight: 1.68, color: T.ts, margin: 0, ...(isRtl && { direction: 'rtl', textAlign: 'right' }) }}>
-                    {parseKeywordChips(msg.content).map((seg, i) =>
-                      seg.type === 'keyword'
-                        ? <GalaxyChip key={i} term={seg.value} />
-                        : <span key={i}>{seg.value}</span>
-                    )}
-                  </p>
-                </div>
+                <CharacterMessageBubble speaker={PLANET_FIGURE_SPEAKER} label={figureName} fill isRtl={isRtl}>
+                  {parseKeywordChips(msg.content).map((seg, i) =>
+                    seg.type === 'keyword'
+                      ? <GalaxyChip key={i} term={seg.value} />
+                      : <span key={i}>{seg.value}</span>
+                  )}
+                </CharacterMessageBubble>
               </motion.div>
             );
           })}
@@ -280,7 +171,7 @@ export default function PlanetVoicePanel({
               exit={{ opacity: 0 }}
               transition={{ duration: 0.18 }}
             >
-              <TypingBubble />
+              <ChatTypingIndicator speaker={PLANET_FIGURE_SPEAKER} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -424,50 +315,17 @@ export default function PlanetVoicePanel({
 
       {/* ── Input dock — hidden while CTA is shown, visible once conversation starts ── */}
       {messages.length > 0 && <div style={{ borderTop: `1px solid ${T.b1}`, padding: '12px', flexShrink: 0 }}>
-        <div style={{
-          display: 'flex', gap: 8, alignItems: 'flex-end',
-          background: T.s2,
-          border: `1px solid ${inputFocused ? 'rgba(155,92,255,0.5)' : T.b1}`,
-          boxShadow: inputFocused ? '0 0 16px rgba(155,92,255,0.12)' : 'none',
-          borderRadius: 12, padding: '10px 4px 10px 14px',
-          transition: 'border-color 0.2s, box-shadow 0.2s',
-        }}>
-          <textarea
-            ref={inputRef}
-            rows={1}
-            value={input}
-            disabled={loading}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !loading) { e.preventDefault(); send(); } }}
-            onFocus={() => setInputFocused(true)}
-            onBlur={() => setInputFocused(false)}
-            placeholder={loading
-              ? t('figurePlaceholderThinking', lang).replace('{name}', character.name.split(' ')[0])
-              : t('askAnythingShort', lang)}
-            style={{
-              flex: 1, background: 'none', border: 'none', outline: 'none',
-              resize: 'none', overflowY: 'auto',
-              fontSize: 13, lineHeight: 1.4, color: T.tp,
-              // @ts-ignore
-              caretColor: T.ac,
-              opacity: loading ? 0.4 : 1,
-              direction: isRtl ? 'rtl' : undefined,
-            }}
-          />
-          <button
-            onClick={send}
-            disabled={loading || !input.trim()}
-            style={{
-              padding: '9px 14px', borderRadius: 8, border: 'none', flexShrink: 0,
-              cursor: (!loading && input.trim()) ? 'pointer' : 'default',
-              background: (!loading && input.trim()) ? T.fig : T.b2,
-              color: (!loading && input.trim()) ? '#fff' : T.tm,
-              fontSize: 13, fontWeight: 800, transition: 'all 0.15s',
-            }}
-          >
-            {isRtl ? '←' : '→'}
-          </button>
-        </div>
+        <ChatInputDock
+          value={input}
+          onChange={setInput}
+          onSend={send}
+          disabled={loading}
+          placeholder={loading
+            ? t('figurePlaceholderThinking', lang).replace('{name}', character.name.split(' ')[0])
+            : t('askAnythingShort', lang)}
+          theme={PLANET_INPUT}
+          isRtl={isRtl}
+        />
       </div>}
     </div>
   );

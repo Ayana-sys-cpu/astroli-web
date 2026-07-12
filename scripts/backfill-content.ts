@@ -56,7 +56,7 @@ const headers = {
   Prefer:          'return=minimal',
 };
 
-// ── Pip-guide metadata (same as in app/api/teacher/connect/route.ts) ─────────
+// ── Guide metadata (same as in app/api/teacher/connect/route.ts) ─────────────
 
 const PLANET_META: Record<string, { icon: string; hint: string }> = {
   Church:     { icon: '⛪', hint: 'Spiritual power & excommunication' },

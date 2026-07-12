@@ -1,5 +1,5 @@
 'use client';
-import { Suspense, useState, useEffect, useRef } from 'react';
+import { Suspense, useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
@@ -62,10 +62,23 @@ function LandscapeContent() {
   const [orinMission, setOrinMission] = useState<OrinMission | null>(null);
   const [initialMissionState, setInitialMissionState] = useState<MissionStatePayload | null>(null);
   const isFirstVisit = useRef(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   // True when the home orbit just played the hyperdrive launch — keep the same
   // streak overlay running here (instead of the SYNCING text) until the map or
   // the mission intro appears, so the transition reads as one continuous warp.
   const [warpEntry, setWarpEntry] = useState(false);
+
+  // Derive the mp4 counterpart of the avatar png for the header video.
+  const videoUrl = baseAvatarUrl?.replace(/\.png$/, '.mp4') ?? null;
+
+  // Replays the header video from the start — called by OrinGuidePanel each
+  // time Orin sends a new message so the avatar animates in sync with the text.
+  const replayVideo = useCallback(() => {
+    const vid = videoRef.current;
+    if (!vid) return;
+    vid.currentTime = 0;
+    vid.play().catch(() => {});
+  }, []);
 
   useEffect(() => {
     setBotName(getBotName());
@@ -129,7 +142,7 @@ function LandscapeContent() {
         if (!hasActiveJourney) {
           if (hasActiveVote) {
             // No classId means this came from a caller that never had one
-            // (onboarding, pip-guide) — preserve the old direct-to-vote hop
+            // (onboarding, guide-only) — preserve the old direct-to-vote hop
             // for that case; otherwise this is a real mismatch on a known
             // class (e.g. mission was reset), so keep the classId scoping.
             router.replace(classId ? `/vote?classId=${classId}` : '/vote');
@@ -426,17 +439,20 @@ function LandscapeContent() {
                     transition={{ delay: 0.4, type: 'spring', damping: 24, stiffness: 180 }}
                     className="panel w-[290px] flex-shrink-0 flex flex-col overflow-hidden min-h-0"
                   >
-                    {/* Panel header — unchanged */}
+                    {/* Panel header */}
                     <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 flex-shrink-0">
                       <div className="flex items-center gap-2.5">
-                        {baseAvatarUrl
-                          ? <motion.img
-                              src={baseAvatarUrl}
-                              alt={botName}
-                              className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+                        {videoUrl
+                          ? <video
+                              ref={videoRef}
+                              src={videoUrl}
+                              className="w-14 h-14 rounded-full object-cover flex-shrink-0"
                               style={{ border: '1px solid rgba(0,245,212,0.4)', boxShadow: '0 0 8px rgba(0,245,212,0.3)' }}
+                              autoPlay
+                              muted
+                              playsInline
                             />
-                          : <OrinOrb size={28} />}
+                          : <OrinOrb size={56} />}
                         <p className="text-[9px] tracking-[0.2em] text-[#00F5D4]/60 font-space uppercase">
                           {botName.toUpperCase()} · {t('guideLabel', uiLang)}
                         </p>
@@ -456,6 +472,8 @@ function LandscapeContent() {
                       firstPlanet={firstPlanet}
                       onLaunch={() => setOrinOpen(false)}
                       language={mission?.language}
+                      avatarUrl={baseAvatarUrl}
+                      onOrinMessage={replayVideo}
                       orinMission={orinMission}
                       initialMissionState={initialMissionState}
                     />
