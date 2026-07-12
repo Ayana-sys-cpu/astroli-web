@@ -9,6 +9,8 @@ import { t } from '@/lib/i18n';
 import Planet from '@/components/Planet';
 import dynamic from 'next/dynamic';
 import MissionOverlay from '@/components/MissionOverlay';
+import HyperdriveStreaks from '@/components/HyperdriveStreaks';
+import { WARP_ENTRY_FLAG } from '@/app/home/MissionOrbit';
 // Heavy guide panel (~1000 lines) — only mounts when the teacher-guide sidebar
 // is opened, so it's split out of this page's first-load bundle.
 const OrinGuidePanel = dynamic(() => import('@/components/OrinGuidePanel'), { ssr: false });
@@ -60,10 +62,20 @@ function LandscapeContent() {
   const [orinMission, setOrinMission] = useState<OrinMission | null>(null);
   const [initialMissionState, setInitialMissionState] = useState<MissionStatePayload | null>(null);
   const isFirstVisit = useRef(false);
+  // True when the home orbit just played the hyperdrive launch — keep the same
+  // streak overlay running here (instead of the SYNCING text) until the map or
+  // the mission intro appears, so the transition reads as one continuous warp.
+  const [warpEntry, setWarpEntry] = useState(false);
 
   useEffect(() => {
     setBotName(getBotName());
     setBaseAvatarUrl(loadStudent()?.baseAvatarUrl ?? null);
+    try {
+      if (sessionStorage.getItem(WARP_ENTRY_FLAG)) {
+        sessionStorage.removeItem(WARP_ENTRY_FLAG);
+        setWarpEntry(true);
+      }
+    } catch {}
   }, []);
 
   // Teacher preview mode — fetch via teacher API, skip student session.
@@ -262,7 +274,7 @@ function LandscapeContent() {
               {t('backToHome', uiLang)}
             </button>
           </div>
-        ) : (
+        ) : !warpEntry ? (
           <div className="absolute inset-0 z-10 flex items-center justify-center">
             <motion.div
               animate={{ opacity: [0.3, 0.7, 0.3] }}
@@ -272,8 +284,24 @@ function LandscapeContent() {
               {t('syncingShort', uiLang)}
             </motion.div>
           </div>
-        )
+        ) : null
       )}
+
+      {/* Warp-entry takeover — continues the home orbit's hyperdrive animation
+          until the map (or the mission intro overlay) is ready to show. */}
+      <AnimatePresence>
+        {warpEntry && !ready && !showOverlay && !loadError && (
+          <motion.div
+            key="warp-entry-overlay"
+            style={{ position: 'fixed', inset: 0, zIndex: 90, overflow: 'hidden' }}
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0, transition: { duration: 0.6 } }}
+          >
+            <div style={{ position: 'absolute', inset: 0, background: '#070510' }} />
+            <HyperdriveStreaks />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Mission overlay — first visit only, never in review mode */}
       <AnimatePresence>

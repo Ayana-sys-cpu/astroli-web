@@ -1,11 +1,17 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { PLANET_STATE_THEME } from '@/lib/planet-state-themes';
 import { t } from '@/lib/i18n';
 import type { MissionSummary } from '@/lib/student-home';
+import HyperdriveStreaks from '@/components/HyperdriveStreaks';
+
+// Handoff flag: set just before navigating so the landscape page knows to keep
+// the hyperdrive overlay running (instead of its SYNCING text) until the map
+// is ready. Read-and-cleared by app/landscape/page.tsx.
+export const WARP_ENTRY_FLAG = 'astroli-warp-entry';
 
 export interface MissionOrbitProps {
   missions:      MissionSummary[];
@@ -45,67 +51,6 @@ function OrbitPlanet({ mission, orbitState: state, index, classId, language, red
   const router    = useRouter();
   const [hovered,    setHovered]    = useState(false);
   const [activating, setActivating] = useState(false);
-  const hyperCanvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  useEffect(() => {
-    if (!activating) return;
-    const cv = hyperCanvasRef.current;
-    if (!cv) return;
-
-    cv.width  = window.innerWidth;
-    cv.height = window.innerHeight;
-    const ctx = cv.getContext('2d')!;
-    const W = cv.width, H = cv.height;
-    const cx = W / 2, cy = H / 2;
-    const maxR = Math.sqrt(cx * cx + cy * cy) * 1.1;
-
-    const NUM = 90;
-    const streaks = Array.from({ length: NUM }, () => ({
-      angle:     Math.random() * Math.PI * 2,
-      speed:     0.35 + Math.random() * 0.65,
-      len:       0.05 + Math.random() * 0.09,
-      bright:    0.4  + Math.random() * 0.6,
-      startDist: Math.random() * 0.15,
-    }));
-
-    const t0 = performance.now();
-    let raf = 0;
-
-    function tick(now: number) {
-      const elapsed  = (now - t0) / 1000;
-      const progress = Math.min(elapsed / 1.7, 1);
-      const stretch  = Math.min(1, elapsed / 0.35);
-
-      ctx.clearRect(0, 0, W, H);
-
-      streaks.forEach(s => {
-        const head = (s.startDist + elapsed * s.speed * 0.8) % 1;
-        const tail = Math.max(0, head - s.len * stretch);
-
-        const hx = cx + Math.cos(s.angle) * head * maxR;
-        const hy = cy + Math.sin(s.angle) * head * maxR;
-        const tx = cx + Math.cos(s.angle) * tail * maxR;
-        const ty = cy + Math.sin(s.angle) * tail * maxR;
-
-        const fade  = progress > 0.7 ? 1 - (progress - 0.7) / 0.3 : 1;
-        const alpha = stretch * s.bright * fade;
-        if (alpha < 0.02) return;
-
-        const grad = ctx.createLinearGradient(tx, ty, hx, hy);
-        grad.addColorStop(0, `rgba(200,150,255,0)`);
-        grad.addColorStop(1, `rgba(220,180,255,${alpha})`);
-        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(hx, hy);
-        ctx.strokeStyle = grad;
-        ctx.lineWidth = 0.5 + s.bright * 1.5;
-        ctx.stroke();
-      });
-
-      if (progress < 1) raf = requestAnimationFrame(tick);
-    }
-
-    raf = requestAnimationFrame(tick);
-    return () => { if (raf) cancelAnimationFrame(raf); };
-  }, [activating]);
 
   const themeKey      = state === 'choosable' ? 'active' : state;
   const theme         = PLANET_STATE_THEME[themeKey];
@@ -115,19 +60,31 @@ function OrbitPlanet({ mission, orbitState: state, index, classId, language, red
     ? 'clamp(56px, 13vw, 72px)'
     : 'clamp(44px, 10vw, 56px)';
 
-  const handleClick = () => {
+  const handleClick = async () => {
     if (state === 'active')    { router.push(`/landscape?classId=${classId}`); return; }
     if (state === 'completed') { router.push(`/landscape?reviewMissionId=${mission.id}&classId=${classId}`); return; }
-    if (state === 'choosable') {
-      setActivating(true);
-      // Trigger navigation early so the landscape loads in parallel with the
-      // animation; the white flash at ~1.2 s masks the page swap.
-      fetch('/api/student/mission-activate', {
-        method:  'POST',
+    if (state !== 'choosable' || activating) return;
+
+    setActivating(true);
+    const t0 = Date.now();
+    try {
+      const res = await fetch('/api/student/mission-activate', {
+        method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ missionId: mission.id, classId }),
       });
-      setTimeout(() => router.push(`/landscape?classId=${classId}`), 600);
+      if (!res.ok) throw new Error(`mission-activate ${res.status}`);
+
+      // Give the streaks a beat before the route swap; the landscape keeps the
+      // same overlay running (via WARP_ENTRY_FLAG) until the map is ready.
+      const remaining = Math.max(0, 600 - (Date.now() - t0));
+      setTimeout(() => {
+        try { sessionStorage.setItem(WARP_ENTRY_FLAG, '1'); } catch {}
+        router.push(`/landscape?classId=${classId}`);
+      }, remaining);
+    } catch (err) {
+      console.error('[MissionOrbit] mission activation failed:', err);
+      setActivating(false);
     }
   };
 
@@ -181,11 +138,7 @@ function OrbitPlanet({ mission, orbitState: state, index, classId, language, red
           transition={{ duration: 0.15 }}
         >
           <div style={{ position: 'absolute', inset: 0, background: '#070510' }} />
-          {/* Star-streak canvas */}
-          <canvas
-            ref={hyperCanvasRef}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
-          />
+          <HyperdriveStreaks />
           {/* Planet rockets to vanishing point */}
           <motion.div
             style={{
@@ -196,13 +149,6 @@ function OrbitPlanet({ mission, orbitState: state, index, classId, language, red
             initial={{ scale: 1, opacity: 1 }}
             animate={{ scale: 0, opacity: 0 }}
             transition={{ duration: 0.6, delay: 0.25, ease: [0.55, 0, 1, 0.45] }}
-          />
-          {/* Fade to black — landscape loads underneath */}
-          <motion.div
-            style={{ position: 'absolute', inset: 0, background: '#000', pointerEvents: 'none' }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: [0, 0, 0, 1] }}
-            transition={{ duration: 1.7, times: [0, 0.6, 0.7, 1] }}
           />
         </motion.div>
       )}
