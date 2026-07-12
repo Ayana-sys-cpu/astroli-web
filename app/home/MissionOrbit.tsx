@@ -43,7 +43,8 @@ interface OrbitPlanetProps {
 
 function OrbitPlanet({ mission, orbitState: state, index, classId, language, reducedMotion }: OrbitPlanetProps) {
   const router    = useRouter();
-  const [hovered, setHovered] = useState(false);
+  const [hovered,    setHovered]    = useState(false);
+  const [activating, setActivating] = useState(false);
 
   const themeKey      = state === 'choosable' ? 'active' : state;
   const theme         = PLANET_STATE_THEME[themeKey];
@@ -54,9 +55,18 @@ function OrbitPlanet({ mission, orbitState: state, index, classId, language, red
     : 'clamp(44px, 10vw, 56px)';
 
   const handleClick = () => {
-    if (state === 'active')    router.push(`/landscape?classId=${classId}`);
-    if (state === 'completed') router.push(`/landscape?reviewMissionId=${mission.id}&classId=${classId}`);
-    if (state === 'choosable') router.push(`/family/missions?classId=${classId}`);
+    if (state === 'active')    { router.push(`/landscape?classId=${classId}`); return; }
+    if (state === 'completed') { router.push(`/landscape?reviewMissionId=${mission.id}&classId=${classId}`); return; }
+    if (state === 'choosable') {
+      setActivating(true);
+      // Fire activation; navigate after the warp animation plays (~1.7 s)
+      fetch('/api/student/mission-activate', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ missionId: mission.id, classId }),
+      });
+      setTimeout(() => router.push(`/landscape?classId=${classId}`), 1700);
+    }
   };
 
   const glowStyle = theme.glow !== 'none'
@@ -85,10 +95,61 @@ function OrbitPlanet({ mission, orbitState: state, index, classId, language, red
 
   return (
     <div
-      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, width: 116, position: 'relative' }}
+      role={isInteractive ? 'button' : undefined}
+      tabIndex={isInteractive ? 0 : undefined}
+      aria-label={isInteractive ? `${mission.title} — ${cta.label}` : undefined}
+      onClick={isInteractive ? handleClick : undefined}
+      onKeyDown={isInteractive ? (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(); }
+      } : undefined}
+      style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+        width: 116, position: 'relative',
+        cursor: isInteractive ? 'pointer' : 'default',
+      }}
       onMouseEnter={() => isInteractive && setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
+      {/* Planet Warp launch overlay — fires when a choosable planet is initiated */}
+      {activating && (
+        <motion.div
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.2 }}
+        >
+          <div style={{ position: 'absolute', inset: 0, background: '#0c0a15' }} />
+          {/* Planet expanding to fill the screen */}
+          <motion.div
+            initial={{ scale: 0.08 }}
+            animate={{ scale: 38 }}
+            transition={{ duration: 1.4, ease: [0.12, 0, 0.39, 0] }}
+            style={{
+              width: 72, height: 72, borderRadius: '50%', position: 'relative',
+              background: `radial-gradient(circle at 32% 28%, ${theme.highlight} 0%, ${theme.mid} 42%, ${theme.core} 100%)`,
+              boxShadow: `0 0 120px rgba(${theme.rgb},0.8)`,
+            }}
+          />
+          {/* Tunnel rings rushing outward */}
+          {!reducedMotion && ([0, 0.22, 0.44] as number[]).map((delay, i) => (
+            <motion.div
+              key={i}
+              style={{ position: 'absolute', borderRadius: '50%', border: `1px solid rgba(200,140,255,${0.65 - i * 0.15})` }}
+              initial={{ width: 80, height: 80, opacity: 0.9 }}
+              animate={{ width: 700 + i * 200, height: 700 + i * 200, opacity: 0 }}
+              transition={{ duration: 1.1, delay, ease: 'easeOut' }}
+            />
+          ))}
+          {/* White flash near the end */}
+          <motion.div
+            style={{ position: 'absolute', inset: 0, background: '#fff', pointerEvents: 'none' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0, 0, 0, 0.92, 0] }}
+            transition={{ duration: 1.7, times: [0, 0.52, 0.68, 0.82, 1] }}
+          />
+        </motion.div>
+      )}
+
       {/* Hover tooltip — appears above the orb */}
       {hovered && (
         <div
@@ -184,13 +245,6 @@ function OrbitPlanet({ mission, orbitState: state, index, classId, language, red
 
           {/* Planet orb */}
           <div
-            role={isInteractive ? 'button' : undefined}
-            tabIndex={isInteractive ? 0 : undefined}
-            aria-label={isInteractive ? `${mission.title} — ${cta.label}` : undefined}
-            onClick={isInteractive ? handleClick : undefined}
-            onKeyDown={isInteractive ? (e) => {
-              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(); }
-            } : undefined}
             style={{
               width:        orbSize,
               height:       orbSize,
@@ -199,7 +253,6 @@ function OrbitPlanet({ mission, orbitState: state, index, classId, language, red
               boxShadow:    glowStyle,
               opacity:      theme.dimOpacity,
               filter:       theme.saturate < 1 ? `saturate(${theme.saturate})` : undefined,
-              cursor:       isInteractive ? 'pointer' : 'default',
               position:     'relative',
               transition:   'transform 0.15s ease',
               transform:    hovered && isInteractive ? 'scale(1.1)' : 'scale(1)',
