@@ -69,7 +69,8 @@ function VotePageContent() {
   const [previousVoteId, setPreviousVoteId] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
   const [lang, setLang] = useState<Lang>('en');
-  const [firstName] = useState(() => getFirstName());
+  const [firstName, setFirstName] = useState('');
+  useEffect(() => { setFirstName(getFirstName()); }, []);
   const [voteCounts, setVoteCounts] = useState<Record<string, number>>({});
   const { triggerReward } = useCoinReward();
 

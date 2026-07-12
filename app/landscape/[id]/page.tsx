@@ -52,7 +52,8 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
   const thinkingStartTime = useRef(0);
   const processedMsgCount = useRef(0);
   const isThinkingRef = useRef(false);
-  const firstName = getFirstName() || t('travelerName', missionLang);
+  const [firstName, setFirstName] = useState('');
+  useEffect(() => { setFirstName(getFirstName()); }, []);
   const orin = useOrinChat('planet_screen', params.id, 'planet', missionLang);
   const planetVoice = usePlanetVoice(params.id, missionLang);
   const [savedInsights, setSavedInsights]         = useState<SummaryInsight[]>([]);
