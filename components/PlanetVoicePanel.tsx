@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { type PlanetCharacter, type PlanetVoiceMessage } from '@/hooks/usePlanetVoice';
 import { t, type Lang } from '@/lib/i18n';
 import GalaxyChip from '@/components/GalaxyChip';
 import { parseKeywordChips } from '@/lib/parseKeywordChips';
+import { ChatPanel } from '@/components/chat/ChatPanel';
 import { CharacterMessageBubble } from '@/components/chat/CharacterMessageBubble';
 import { ChatTypingIndicator } from '@/components/chat/ChatTypingIndicator';
 import { StudentMessageBubble } from '@/components/chat/StudentMessageBubble';
@@ -49,7 +50,6 @@ export default function PlanetVoicePanel({
 }: Props) {
   const lang  = missionLang;
   const isRtl = lang === 'he';
-  const bottomRef  = useRef<HTMLDivElement>(null);
   const [hintOpen, setHintOpen] = useState(false);
   // Greeting starts ready if history already exists (returning user), otherwise animate in
   const [greetingReady, setGreetingReady] = useState(() => messages.length > 0);
@@ -61,132 +61,20 @@ export default function PlanetVoicePanel({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (messages.length > 0) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages.length]);
-
-  // Also scroll when the typing bubble appears so it's always visible
-  useEffect(() => {
-    if (loading || thinking) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [loading, thinking]);
-
   const figureName = character.name.split(' ')[0].toUpperCase();
 
-  return (
-    <div className="flex flex-col h-full overflow-hidden min-h-0">
+  const scrollTrigger = `${messages.length}_${loading}_${thinking}`;
 
-      {/* ── Scrollable messages ── */}
-      <div className="flex-1 overflow-y-auto min-h-0 py-4 flex flex-col gap-3">
-
-        {/* Typing indicator for opening greeting — shown while greetingReady is false */}
-        {openingGreeting && !greetingReady && <ChatTypingIndicator speaker={PLANET_FIGURE_SPEAKER} />}
-
-        {/* Opening greeting — fades in after the typing animation completes */}
-        {openingGreeting && greetingReady && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25 }}
-          >
-            <CharacterMessageBubble speaker={PLANET_FIGURE_SPEAKER} label={figureName} maxWidth="90%" isRtl={isRtl}>
-              {parseKeywordChips(openingGreeting ?? '').map((seg, i) =>
-                seg.type === 'keyword'
-                  ? <GalaxyChip key={i} term={seg.value} />
-                  : <span key={i}>{seg.value}</span>
-              )}
-            </CharacterMessageBubble>
-          </motion.div>
-        )}
-
-
-        {/* Messages */}
-        <AnimatePresence initial={false}>
-          {messages.map(msg => {
-            // Student
-            if (msg.speaker === 'student') {
-              return (
-                <motion.div
-                  key={msg.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.22 }}
-                >
-                  <StudentMessageBubble theme={PLANET_STUDENT} isRtl={isRtl}>
-                    {msg.content}
-                  </StudentMessageBubble>
-                </motion.div>
-              );
-            }
-
-            // Orin
-            if (msg.speaker === 'orin') {
-              return (
-                <motion.div
-                  key={msg.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.22 }}
-                >
-                  <CharacterMessageBubble speaker={PLANET_ORIN_SPEAKER} label={`ORIN · ${t('guideLabel', lang)}`} fill isRtl={isRtl}>
-                    {msg.content}
-                  </CharacterMessageBubble>
-                </motion.div>
-              );
-            }
-
-            // Figure message (auto-summary replaces manual saving)
-            return (
-              <motion.div
-                key={msg.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.22 }}
-              >
-                <CharacterMessageBubble speaker={PLANET_FIGURE_SPEAKER} label={figureName} fill isRtl={isRtl}>
-                  {parseKeywordChips(msg.content).map((seg, i) =>
-                    seg.type === 'keyword'
-                      ? <GalaxyChip key={i} term={seg.value} />
-                      : <span key={i}>{seg.value}</span>
-                  )}
-                </CharacterMessageBubble>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
-
-        {/* Thinking indicator — shown while loading OR while character is processing */}
-        <AnimatePresence>
-          {(loading || thinking) && (
-            <motion.div
-              key="typing"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.18 }}
-            >
-              <ChatTypingIndicator speaker={PLANET_FIGURE_SPEAKER} />
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div ref={bottomRef} style={{ height: 1 }} />
-      </div>
-
-      {/* ── Start Uncovering CTA — pinned to bottom, shown only before conversation starts ── */}
+  const dock = (
+    <>
+      {/* Start Uncovering CTA — shown only before conversation starts */}
       {messages.length === 0 && (() => {
         const name    = studentFirstName ?? t('travelerName', lang);
         const mission = missionTitle ?? t('thisMissionFallback', lang);
         const prefill = studentRevealMessage
           ?? t('prefillIntro', lang).replace('{name}', name).replace('{mission}', mission);
         return (
-          <div style={{ padding: '0 12px 8px', flexShrink: 0 }}>
+          <div style={{ padding: '0 12px 8px' }}>
             <button
               onClick={() => sendText(prefill)}
               style={{
@@ -230,10 +118,9 @@ export default function PlanetVoicePanel({
         );
       })()}
 
-
-      {/* ── Goal progress strip — visible whenever totalGoals is known and > 0 ── */}
+      {/* Goal progress strip — visible whenever totalGoals is known and > 0 */}
       {typeof totalGoals === 'number' && totalGoals > 0 && (
-        <div style={{ borderTop: '1px solid rgba(0,212,212,0.12)', padding: '6px 13px', background: 'rgba(0,212,212,0.04)', flexShrink: 0 }}>
+        <div style={{ borderTop: '1px solid rgba(0,212,212,0.12)', padding: '6px 13px', background: 'rgba(0,212,212,0.04)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               {Array.from({ length: totalGoals }).map((_, i) => (
@@ -268,9 +155,9 @@ export default function PlanetVoicePanel({
         </div>
       )}
 
-      {/* ── Discovery review button — always visible ── */}
+      {/* Discovery review button — always visible */}
       {onViewDiscovery && (
-        <div style={{ padding: '0 12px 8px', flexShrink: 0 }}>
+        <div style={{ padding: '0 12px 8px' }}>
           <button
             onClick={onViewDiscovery}
             style={{
@@ -313,20 +200,120 @@ export default function PlanetVoicePanel({
         </div>
       )}
 
-      {/* ── Input dock — hidden while CTA is shown, visible once conversation starts ── */}
-      {messages.length > 0 && <div style={{ borderTop: `1px solid ${T.b1}`, padding: '12px', flexShrink: 0 }}>
-        <ChatInputDock
-          value={input}
-          onChange={setInput}
-          onSend={send}
-          disabled={loading}
-          placeholder={loading
-            ? t('figurePlaceholderThinking', lang).replace('{name}', character.name.split(' ')[0])
-            : t('askAnythingShort', lang)}
-          theme={PLANET_INPUT}
-          isRtl={isRtl}
-        />
-      </div>}
-    </div>
+      {/* Input dock — hidden while CTA is shown, visible once conversation starts */}
+      {messages.length > 0 && (
+        <div style={{ borderTop: `1px solid ${T.b1}`, padding: '12px' }}>
+          <ChatInputDock
+            value={input}
+            onChange={setInput}
+            onSend={send}
+            disabled={loading}
+            placeholder={loading
+              ? t('figurePlaceholderThinking', lang).replace('{name}', character.name.split(' ')[0])
+              : t('askAnythingShort', lang)}
+            theme={PLANET_INPUT}
+            isRtl={isRtl}
+          />
+        </div>
+      )}
+    </>
+  );
+
+  return (
+    <ChatPanel
+      scrollTrigger={scrollTrigger}
+      dock={dock}
+      className="h-full"
+    >
+      {/* Typing indicator for opening greeting — shown while greetingReady is false */}
+      {openingGreeting && !greetingReady && <ChatTypingIndicator speaker={PLANET_FIGURE_SPEAKER} />}
+
+      {/* Opening greeting — fades in after the typing animation completes */}
+      {openingGreeting && greetingReady && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+        >
+          <CharacterMessageBubble speaker={PLANET_FIGURE_SPEAKER} label={figureName} maxWidth="90%" isRtl={isRtl}>
+            {parseKeywordChips(openingGreeting ?? '').map((seg, i) =>
+              seg.type === 'keyword'
+                ? <GalaxyChip key={i} term={seg.value} />
+                : <span key={i}>{seg.value}</span>
+            )}
+          </CharacterMessageBubble>
+        </motion.div>
+      )}
+
+      {/* Messages */}
+      <AnimatePresence initial={false}>
+        {messages.map(msg => {
+          if (msg.speaker === 'student') {
+            return (
+              <motion.div
+                key={msg.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.22 }}
+              >
+                <StudentMessageBubble theme={PLANET_STUDENT} isRtl={isRtl}>
+                  {msg.content}
+                </StudentMessageBubble>
+              </motion.div>
+            );
+          }
+
+          if (msg.speaker === 'orin') {
+            return (
+              <motion.div
+                key={msg.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.22 }}
+              >
+                <CharacterMessageBubble speaker={PLANET_ORIN_SPEAKER} label={`ORIN · ${t('guideLabel', lang)}`} fill isRtl={isRtl}>
+                  {msg.content}
+                </CharacterMessageBubble>
+              </motion.div>
+            );
+          }
+
+          return (
+            <motion.div
+              key={msg.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.22 }}
+            >
+              <CharacterMessageBubble speaker={PLANET_FIGURE_SPEAKER} label={figureName} fill isRtl={isRtl}>
+                {parseKeywordChips(msg.content).map((seg, i) =>
+                  seg.type === 'keyword'
+                    ? <GalaxyChip key={i} term={seg.value} />
+                    : <span key={i}>{seg.value}</span>
+                )}
+              </CharacterMessageBubble>
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
+
+      {/* Thinking indicator */}
+      <AnimatePresence>
+        {(loading || thinking) && (
+          <motion.div
+            key="typing"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+          >
+            <ChatTypingIndicator speaker={PLANET_FIGURE_SPEAKER} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </ChatPanel>
   );
 }

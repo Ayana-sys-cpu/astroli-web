@@ -9,6 +9,7 @@ import { getFirstName, getBotName } from '@/lib/student-store';
 import { getSessionStudentId } from '@/lib/session';
 import { askOrin } from '@/lib/orin-qa';
 import { TermRow } from '@/components/TermRow';
+import { ChatPanel } from '@/components/chat/ChatPanel';
 import { ChatAvatarOrb } from '@/components/chat/ChatAvatarOrb';
 import { CharacterMessageRow } from '@/components/chat/CharacterMessageRow';
 import { CharacterMessageBubble } from '@/components/chat/CharacterMessageBubble';
@@ -97,6 +98,14 @@ function sanitizeHtml(raw: string): string {
     return tag === 'br' ? '<br>' : `<${tag}>${inner}</${tag}>`;
   }
   return Array.from(body.childNodes).map(walk).join('');
+}
+
+// Offline Q&A fallback: cycles through the mission's scripted answers, and when
+// the mission has none (14 of 17 missions ship without qa_answers content) falls
+// back to a localized default so the chat never renders the string "undefined".
+export function scriptedQaReply(qaAnswers: string[], qaIdx: number, lang: Lang): string {
+  if (qaAnswers.length === 0) return t('qaFallbackReply', lang);
+  return qaAnswers[qaIdx % qaAnswers.length];
 }
 
 function applyTemplate(template: string, vars: Record<string, string>): string {
@@ -541,12 +550,6 @@ export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, o
   const [allSummaries,       setAllSummaries]       = useState<LockedPlanetSummary[]>([]);
   const [showAllDiscoveries, setShowAllDiscoveries] = useState(false);
   const [hasDiscoveries,     setHasDiscoveries]     = useState<boolean | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  // Auto-scroll to bottom on new messages
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
 
   // Keep onOrinMessage ref current so push() doesn't need it as a dep
   useEffect(() => { onOrinMessageRef.current = onOrinMessage; }, [onOrinMessage]);
@@ -716,7 +719,7 @@ export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, o
 
     // Scripted mission answers remain the offline fallback, so the student
     // still gets a reply when the bot is unreachable, capped, or unauthenticated.
-    const ans = liveAnswer ? escapeHtml(liveAnswer) : mission!.qaAnswers[qaIdx % mission!.qaAnswers.length];
+    const ans = liveAnswer ? escapeHtml(liveAnswer) : scriptedQaReply(mission!.qaAnswers, qaIdx, lang);
     if (!liveAnswer) setQaIdx((q) => q + 1);
 
     push({ id: uid(), role: 'orin', type: 'text', html: ans });
@@ -766,7 +769,7 @@ export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, o
   }
 
   return (
-    // flex column fills the sidebar, content area scrolls; relative for AllDiscoveriesView overlay
+    // relative wrapper is needed for AllDiscoveriesView overlay (position: absolute, inset: 0)
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden relative" dir={lang === 'he' ? 'rtl' : 'ltr'}>
 
       {/* All Discoveries overlay */}
@@ -783,8 +786,61 @@ export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, o
         )}
       </AnimatePresence>
 
-      {/* Scrollable message area */}
-      <div className="flex-1 overflow-y-auto min-h-0 panel-chat-scroll py-4 flex flex-col gap-3">
+      <ChatPanel
+        scrollTrigger={messages.length}
+        dock={
+          <div className="border-t border-white/5 p-3 flex flex-col gap-2">
+            {/* Discovery button — shown only once the student has at least one saved discovery */}
+            <AnimatePresence mode="wait">
+              {hasDiscoveries === true ? (
+                <motion.button
+                  key="discoveries-btn"
+                  onClick={handleViewDiscoveries}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.3, ease: 'easeOut' }}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 16px',
+                    background: 'rgba(155,92,255,0.08)',
+                    border: '1.5px solid rgba(155,92,255,0.35)',
+                    borderRadius: 12, cursor: 'pointer', transition: 'background 0.15s, border-color 0.15s',
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(155,92,255,0.15)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(155,92,255,0.08)'; }}
+                >
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#c084fc' }}>{t('whatIDiscoveredAll', lang)}</div>
+                  <span style={{ fontSize: 14, color: '#c084fc' }}>✦</span>
+                </motion.button>
+              ) : hasDiscoveries === false ? (
+                <motion.p
+                  key="discoveries-hint"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.25 }}
+                  style={{ fontSize: 11, color: T.tm, textAlign: 'center', margin: 0, padding: '6px 4px' }}
+                >
+                  {t('discoveriesHint', lang)}
+                </motion.p>
+              ) : null}
+            </AnimatePresence>
+
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={dock}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+              >
+                {renderDock()}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        }
+      >
         <AnimatePresence initial={false}>
           {messages.map((msg) => (
             <motion.div
@@ -798,60 +854,7 @@ export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, o
             </motion.div>
           ))}
         </AnimatePresence>
-        <div ref={bottomRef} style={{ height: 1 }} />
-      </div>
-
-      {/* Dock — stays pinned at bottom */}
-      <div className="border-t border-white/5 p-3 flex-shrink-0 flex flex-col gap-2">
-        {/* Discovery button — shown only once the student has at least one saved discovery */}
-        <AnimatePresence mode="wait">
-          {hasDiscoveries === true ? (
-            <motion.button
-              key="discoveries-btn"
-              onClick={handleViewDiscoveries}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.3, ease: 'easeOut' }}
-              style={{
-                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '12px 16px',
-                background: 'rgba(155,92,255,0.08)',
-                border: '1.5px solid rgba(155,92,255,0.35)',
-                borderRadius: 12, cursor: 'pointer', transition: 'background 0.15s, border-color 0.15s',
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(155,92,255,0.15)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(155,92,255,0.08)'; }}
-            >
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#c084fc' }}>{t('whatIDiscoveredAll', lang)}</div>
-              <span style={{ fontSize: 14, color: '#c084fc' }}>✦</span>
-            </motion.button>
-          ) : hasDiscoveries === false ? (
-            <motion.p
-              key="discoveries-hint"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.25 }}
-              style={{ fontSize: 11, color: T.tm, textAlign: 'center', margin: 0, padding: '6px 4px' }}
-            >
-              {t('discoveriesHint', lang)}
-            </motion.p>
-          ) : null}
-        </AnimatePresence>
-
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={dock}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-          >
-            {renderDock()}
-          </motion.div>
-        </AnimatePresence>
-      </div>
+      </ChatPanel>
     </div>
   );
 }
