@@ -494,7 +494,7 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
               </div>
             ) : (
               <div className="flex-1 flex items-center justify-center">
-                <p className="text-[11px] text-white/30 font-space">{t('noCharacterAvailable', missionLang)}</p>
+                <p className="text-[11px] text-white/30 font-space">{t(planetVoice.charError ? 'characterLoadFailed' : 'noCharacterAvailable', missionLang)}</p>
               </div>
             )}
 

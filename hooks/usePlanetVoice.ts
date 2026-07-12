@@ -52,6 +52,7 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
   const [loading,     setLoading]     = useState(false);
   const [thinking,    setThinking]    = useState(false);
   const [charLoading,     setCharLoading]     = useState(true);
+  const [charError,       setCharError]       = useState(false);
   const [completionReady,    setCompletionReady]    = useState(false);
   const [completionType,     setCompletionType]     = useState<'standard' | 'grace' | null>(null);
   const [summaryInsights,    setSummaryInsights]    = useState<SummaryInsight[]>([]);
@@ -77,6 +78,7 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
   useEffect(() => {
     if (!planetId) return;
     setCharLoading(true);
+    setCharError(false);
 
     getSessionStudentId().then(id => {
       const studentId = id ?? '00000000-0000-0000-0000-000000000001';
@@ -110,8 +112,14 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
         setMessages(prior);
       }
       setCharLoading(false);
-    }).catch(() => {
-      if (isMounted.current) setCharLoading(false);
+    }).catch((err) => {
+      // A network/CORS failure here is not "no character exists" — flag it so
+      // the UI can distinguish an outage from a genuinely character-less planet.
+      console.error('[usePlanetVoice] character/history fetch failed', err);
+      if (isMounted.current) {
+        setCharError(true);
+        setCharLoading(false);
+      }
     });
     // language is a dep so the character re-fetches localized once the
     // mission language resolves (it starts as 'en' before the mission loads).
@@ -235,6 +243,7 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
   return {
     character,
     charLoading,
+    charError,
     messages,
     input,
     setInput,

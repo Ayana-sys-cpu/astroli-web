@@ -494,6 +494,10 @@ const strings = {
     en: 'No character available for this planet.',
     he: 'אין דמות זמינה בכוכב הזה.',
   },
+  characterLoadFailed: {
+    en: "Couldn't reach this planet's character. Please try again in a moment.",
+    he: 'לא הצלחנו להתחבר לדמות של הכוכב. נסו שוב בעוד רגע.',
+  },
   temporalLink: {
     en: 'TEMPORAL LINK',
     he: 'קישור זמן',
