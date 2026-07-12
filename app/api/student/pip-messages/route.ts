@@ -9,7 +9,7 @@ interface IncomingMessage {
 }
 
 // POST /api/student/pip-messages
-// Batch-saves Pip guide panel messages. Fire-and-forget from the client.
+// Batch-saves Orin guide panel messages (legacy wire name 'pip'). Fire-and-forget from the client.
 
 export async function POST(req: NextRequest) {
   const studentId = await resolveStudentIdFromRequest(req);

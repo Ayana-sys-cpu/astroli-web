@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
     : firstPara;
 
   // ── Build response ─────────────────────────────────────────────────────────
-  const pipMission: OrinMission = {
+  const orinMission: OrinMission = {
     id:                mission.id,
     order:             (mission as any).order as number,
     language:          missionLanguage,
@@ -134,7 +134,7 @@ export async function GET(req: NextRequest) {
 
   // Public curriculum content that only changes when a teacher edits it —
   // let the CDN absorb the per-visit refetches from the guide panel.
-  return NextResponse.json(pipMission, {
+  return NextResponse.json(orinMission, {
     headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=3600' },
   });
 }

@@ -85,7 +85,7 @@ export default function AvatarBot() {
   }, [content?.contentType, content?.contentId]);
 
   // When the panel opens for the first time on a mission/planet screen,
-  // fetch Pip's opening message from the shared bot API.
+  // fetch Orin's opening message from the shared bot API.
   useEffect(() => {
     if (!open || !content || openingFetched.current) return;
     openingFetched.current = true;

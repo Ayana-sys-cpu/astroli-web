@@ -30,7 +30,9 @@ interface PipMessageRow {
 }
 
 // ── GET /api/student/mission-state ────────────────────────────────────────────
-// Returns confirmedAt, returnTrigger (null on first visit), and pip message history.
+// Returns confirmedAt, returnTrigger (null on first visit), and Orin guide message history.
+// Wire names (pip_messages table, pipMessages field, role 'pip') are legacy — kept
+// for the DB CHECK constraint and shipped mobile clients. The character is Orin.
 // Also updates last_map_visit_at + last_visit_snapshot atomically.
 
 export async function GET(req: NextRequest) {

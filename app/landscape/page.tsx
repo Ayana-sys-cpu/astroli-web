@@ -11,11 +11,11 @@ import dynamic from 'next/dynamic';
 import MissionOverlay from '@/components/MissionOverlay';
 // Heavy guide panel (~1000 lines) — only mounts when the teacher-guide sidebar
 // is opened, so it's split out of this page's first-load bundle.
-const PipGuidePanel = dynamic(() => import('@/components/PipGuidePanel'), { ssr: false });
+const OrinGuidePanel = dynamic(() => import('@/components/OrinGuidePanel'), { ssr: false });
 import { getBotName, loadStudent } from '@/lib/student-store';
 import { getPlanetMeta, PLANET_LAYOUT, PLANET_EDGES } from '@/lib/planet-meta';
 import type { OrinMission } from '@/lib/orin-guide-types';
-import type { MissionStatePayload } from '@/components/PipGuidePanel';
+import type { MissionStatePayload } from '@/components/OrinGuidePanel';
 
 interface Planet {
   id: string;
@@ -56,7 +56,7 @@ function LandscapeContent() {
   const [planetProgress, setPlanetProgress] = useState<Record<string, { goalsDiscovered: number; totalGoals: number; completed: boolean }>>({});
   const [loadError, setLoadError] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
-  // Pre-fetched for PipGuidePanel — null = loading (panel waits without self-fetching)
+  // Pre-fetched for OrinGuidePanel — null = loading (panel waits without self-fetching)
   const [orinMission, setOrinMission] = useState<OrinMission | null>(null);
   const [initialMissionState, setInitialMissionState] = useState<MissionStatePayload | null>(null);
   const isFirstVisit = useRef(false);
@@ -145,7 +145,7 @@ function LandscapeContent() {
 
         // All three only need activeMissionId — fetch concurrently so none
         // waits on the others.  mission-state would otherwise be tier 3 (fetched
-        // by PipGuidePanel on mount); pulling it up here removes that round-trip
+        // by OrinGuidePanel on mount); pulling it up here removes that round-trip
         // from the panel's critical path.
         const [missionRes, progressRes, stateRes] = await Promise.all([
           fetch(`/api/student/mission?missionId=${activeMissionId}${classId ? `&classId=${classId}` : ''}`),
@@ -170,7 +170,7 @@ function LandscapeContent() {
         setInitialMissionState(statePayload);
         if (missionStatus) setReady(true);
 
-        // Tier 3: guide content for PipGuidePanel.  Needs the resolved language
+        // Tier 3: guide content for OrinGuidePanel.  Needs the resolved language
         // from tier 2 (class language may differ from mission.language).  This
         // endpoint is publicly CDN-cached so it resolves fast.
         try {
@@ -228,7 +228,7 @@ function LandscapeContent() {
 
   const allComplete = planets.length > 0 && planets.every(p => p.explored);
 
-  // First planet passed to PipGuidePanel for the "Start Here" card navigation
+  // First planet passed to OrinGuidePanel for the "Start Here" card navigation
   const firstPlanet = planets[0]
     ? { id: planets[0].id, label: planets[0].label }
     : undefined;
@@ -442,7 +442,7 @@ function LandscapeContent() {
                 ))}
               </div>
 
-              {/* ── Right: Pip guide panel ────────────────────────────────── */}
+              {/* ── Right: Orin guide panel ────────────────────────────────── */}
               <AnimatePresence>
                 {orinOpen && (
                   <motion.aside
@@ -476,8 +476,8 @@ function LandscapeContent() {
                       </button>
                     </div>
 
-                    {/* Pip guide content — replaces old Orin chat */}
-                    <PipGuidePanel
+                    {/* Orin guide content */}
+                    <OrinGuidePanel
                       missionId={mission?.id}
                       missionOrder={mission?.order ?? 1}
                       firstPlanet={firstPlanet}

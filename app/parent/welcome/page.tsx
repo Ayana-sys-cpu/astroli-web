@@ -82,7 +82,7 @@ function GuidePanel() {
               style={{ boxShadow: '0 0 15px rgba(0,255,209,0.4)' }}
             />
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-white tracking-widest uppercase">Pip</span>
+              <span className="text-xs font-bold text-white tracking-widest uppercase">Orin</span>
               <span className="text-[10px] font-bold" style={{ color: '#00ffd1' }}>• GUIDE</span>
             </div>
           </div>

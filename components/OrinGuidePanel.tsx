@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { OrinMission, OrinPlanet, MissionTerm, WorldBriefItem } from '@/lib/orin-guide-types';
 import { t, type Lang } from '@/lib/i18n';
 import { getFirstName } from '@/lib/student-store';
+import { getSessionStudentId } from '@/lib/session';
+import { askOrin } from '@/lib/orin-qa';
 import { TermRow } from '@/components/TermRow';
 import { useAutoResizeTextarea } from '@/hooks/useAutoResizeTextarea';
 
@@ -50,15 +52,25 @@ export interface LockedPlanetSummary {
 }
 
 type ChatMsg =
-  | { id: string; role: 'pip' | 'user'; type: 'text';    html: string }
+  | { id: string; role: 'orin' | 'user'; type: 'text';    html: string }
   | { id: string; role: 'user';          type: 'chip';    icon: string; text: string }
-  | { id: string; role: 'pip';           type: 'brief';   items: WorldBriefItem[]; summary: string }
-  | { id: string; role: 'pip';           type: 'mission'; chapter: string; title: string; objective: string; terms?: MissionTerm[] }
-  | { id: string; role: 'pip';           type: 'howto';   planets: OrinPlanet[] }
-  | { id: string; role: 'pip';           type: 'typing' };
+  | { id: string; role: 'orin';           type: 'brief';   items: WorldBriefItem[]; summary: string }
+  | { id: string; role: 'orin';           type: 'mission'; chapter: string; title: string; objective: string; terms?: MissionTerm[] }
+  | { id: string; role: 'orin';           type: 'howto';   planets: OrinPlanet[] }
+  | { id: string; role: 'orin';           type: 'typing' };
 
 let _idCounter = 0;
 function uid() { return `msg_${++_idCounter}_${Date.now()}`; }
+
+// Chat messages render through dangerouslySetInnerHTML (scripted mission text is
+// authored HTML). Free text — the student's question and the live bot's reply —
+// must be escaped before entering that pipeline.
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
 
 function applyTemplate(template: string, vars: Record<string, string>): string {
   return Object.entries(vars).reduce(
@@ -81,13 +93,16 @@ function formatReturnMessage(rt: ReturnTrigger, lang: Lang): string {
 }
 
 // Pre-fetched mission-state passed from the landscape page (mirrors GET /api/student/mission-state).
+// Wire format: the field name `pipMessages` and role value 'pip' are the guide's
+// legacy name, kept for the pip_messages DB table and shipped mobile clients.
+// In UI code the character is always Orin.
 export interface MissionStatePayload {
   confirmedAt: string | null;
   returnTrigger: ReturnTrigger | null;
   pipMessages: Array<{ id: string; role: 'pip' | 'student'; content: string; triggerType: string; createdAt: string }>;
 }
 
-export interface PipGuidePanelProps {
+export interface OrinGuidePanelProps {
   missionId?: string;
   missionOrder: number;
   firstPlanet?: { id: string; label: string };
@@ -100,10 +115,10 @@ export interface PipGuidePanelProps {
 }
 
 // =============================================================================
-// Pip avatar orb
+// Orin avatar orb
 // =============================================================================
 
-function PipOrb({ size = 28 }: { size?: number }) {
+function OrinOrb({ size = 28 }: { size?: number }) {
   return (
     <div style={{
       width: size, height: size, borderRadius: '50%', flexShrink: 0,
@@ -121,7 +136,7 @@ function PipOrb({ size = 28 }: { size?: number }) {
 function TypingBubble() {
   return (
     <div className="flex items-start gap-2 px-4">
-      <PipOrb size={24} />
+      <OrinOrb size={24} />
       <div style={{
         background: T.s2, border: `1px solid ${T.b1}`,
         borderRadius: '4px 14px 14px 14px', padding: '10px 14px',
@@ -369,7 +384,7 @@ function MessageBubble({ msg, firstPlanet, lang }: { msg: ChatMsg; firstPlanet?:
     case 'text':
       return (
         <div className="flex items-start gap-2 px-4">
-          <PipOrb size={24} />
+          <OrinOrb size={24} />
           <div style={{
             background: T.s2, border: `1px solid ${T.b1}`,
             borderRadius: '4px 14px 14px 14px', padding: '12px 14px', maxWidth: '90%',
@@ -384,7 +399,7 @@ function MessageBubble({ msg, firstPlanet, lang }: { msg: ChatMsg; firstPlanet?:
     case 'brief':
       return (
         <div className="flex items-start gap-2 px-4">
-          <PipOrb size={24} />
+          <OrinOrb size={24} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <WorldBrief items={msg.items} summary={msg.summary} lang={lang} />
           </div>
@@ -393,7 +408,7 @@ function MessageBubble({ msg, firstPlanet, lang }: { msg: ChatMsg; firstPlanet?:
     case 'mission':
       return (
         <div className="flex items-start gap-2 px-4">
-          <PipOrb size={24} />
+          <OrinOrb size={24} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <MissionCard chapter={msg.chapter} title={msg.title} objective={msg.objective} terms={msg.terms} lang={lang} />
           </div>
@@ -402,7 +417,7 @@ function MessageBubble({ msg, firstPlanet, lang }: { msg: ChatMsg; firstPlanet?:
     case 'howto':
       return (
         <div className="flex items-start gap-2 px-4">
-          <PipOrb size={24} />
+          <OrinOrb size={24} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <HowToCard planets={msg.planets} firstPlanet={firstPlanet} lang={lang} />
           </div>
@@ -417,7 +432,7 @@ function MessageBubble({ msg, firstPlanet, lang }: { msg: ChatMsg; firstPlanet?:
 // All Discoveries overlay
 // =============================================================================
 
-export function AllDiscoveriesView({ summaries, pipHistory, onClose, lang }: { summaries: LockedPlanetSummary[]; pipHistory?: { html: string }[]; onClose: () => void; lang: Lang }) {
+export function AllDiscoveriesView({ summaries, orinHistory, onClose, lang }: { summaries: LockedPlanetSummary[]; orinHistory?: { html: string }[]; onClose: () => void; lang: Lang }) {
   const router = useRouter();
   return (
     <motion.div
@@ -492,23 +507,23 @@ export function AllDiscoveriesView({ summaries, pipHistory, onClose, lang }: { s
         ))
       )}
 
-      {/* Pip conversation history (T020) */}
-      {pipHistory && pipHistory.length > 0 && (
+      {/* Orin conversation history (T020) */}
+      {orinHistory && orinHistory.length > 0 && (
         <div style={{ marginTop: 8 }}>
           <div style={{
             fontSize: 9, fontWeight: 800, color: T.ts,
             textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 10,
           }}>
-            {t('whatPipToldMe', lang)}
+            {t('whatOrinToldMe', lang)}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {pipHistory.map((m, idx) => (
+            {orinHistory.map((m, idx) => (
               <div key={idx} style={{
                 background: T.s2, border: `1px solid ${T.b1}`,
                 borderRadius: '4px 14px 14px 14px', padding: '12px 14px',
                 display: 'flex', gap: 10, alignItems: 'flex-start',
               }}>
-                <PipOrb size={20} />
+                <OrinOrb size={20} />
                 <p
                   style={{ fontSize: 12, color: T.ts, lineHeight: 1.65, margin: 0 }}
                   dangerouslySetInnerHTML={{ __html: m.html }}
@@ -751,11 +766,11 @@ function CelebrationOverlay({ onDone }: { onDone: () => void }) {
 }
 
 // =============================================================================
-// PipGuidePanel — sidebar-embedded component (no full-page wrapper or header)
+// OrinGuidePanel — sidebar-embedded component (no full-page wrapper or header)
 // CHANGE 4: flex-1 + overflow-y-auto for scrollable content area
 // =============================================================================
 
-export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, onLaunch, language, orinMission, initialMissionState }: PipGuidePanelProps) {
+export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, onLaunch, language, orinMission, initialMissionState }: OrinGuidePanelProps) {
   const lang: Lang = language ?? 'en';
   const [mission,            setMission]            = useState<OrinMission | null>(null);
   const [hasConfirmed,       setHasConfirmed]       = useState<boolean | null>(null); // null = loading
@@ -763,7 +778,7 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
   const [showCelebration,    setShowCelebration]    = useState(false);
 
   const [messages,           setMessages]           = useState<ChatMsg[]>([]);
-  const [hasPipHistory,      setHasPipHistory]      = useState(false);
+  const [hasOrinHistory,      setHasOrinHistory]      = useState(false);
   const [dock,               setDock]               = useState<DockState>('cta-howto');
   const [qaIdx,              setQaIdx]              = useState(0);
   const [allSummaries,       setAllSummaries]       = useState<LockedPlanetSummary[]>([]);
@@ -779,8 +794,9 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
     setMessages((prev) => [...prev.filter((m) => m.type !== 'typing'), msg]);
   }, []);
 
-  const savePip = useCallback((content: string, triggerType: string) => {
+  const saveOrinMessage = useCallback((content: string, triggerType: string) => {
     if (!missionId) return;
+    // role 'pip' is the wire/DB value (pip_messages CHECK constraint) — the character is Orin.
     fetch('/api/student/pip-messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -791,7 +807,7 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
   const showTyping = useCallback(() => {
     setMessages((prev) => [
       ...prev.filter((m) => m.type !== 'typing'),
-      { id: uid(), role: 'pip', type: 'typing' },
+      { id: uid(), role: 'orin', type: 'typing' },
     ]);
   }, []);
 
@@ -800,10 +816,10 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
     setHasConfirmed(!!stateData?.confirmedAt);
     if (stateData?.returnTrigger) setReturnTrigger(stateData.returnTrigger);
     if (stateData?.pipMessages?.length) {
-      setHasPipHistory(true);
+      setHasOrinHistory(true);
       setMessages(stateData.pipMessages.map((m) => ({
         id:   uid(),
-        role: m.role === 'student' ? ('user' as const) : ('pip' as const),
+        role: m.role === 'student' ? ('user' as const) : ('orin' as const),
         type: 'text' as const,
         html: m.content,
       })));
@@ -845,7 +861,7 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
   // ── Show opening sequence once both mission data and state are loaded ──────
   // Gates on hasConfirmed !== null so we never fire before mission-state resolves.
   useEffect(() => {
-    if (!mission || hasConfirmed === null || hasPipHistory) return;
+    if (!mission || hasConfirmed === null || hasOrinHistory) return;
 
     if (hasConfirmed) {
       // Return visitor — show context-aware return message (T015)
@@ -853,8 +869,8 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
       const triggerType = returnTrigger ? `return-${returnTrigger.type}` : 'return-no-activity';
       const t1 = setTimeout(() => showTyping(), 300);
       const t2 = setTimeout(() => {
-        push({ id: uid(), role: 'pip', type: 'text', html });
-        savePip(html, triggerType);
+        push({ id: uid(), role: 'orin', type: 'text', html });
+        saveOrinMessage(html, triggerType);
         setDock('cta-howto');
       }, 1400);
       return () => { clearTimeout(t1); clearTimeout(t2); };
@@ -872,13 +888,13 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
         .replace(/\[שם תלמיד\]/g, firstName)
         .replace(/\[student name\]/gi, firstName)
         .replace(/\n/g, '<br>');
-      push({ id: uid(), role: 'pip', type: 'text', html });
-      savePip(html, 'opening');
+      push({ id: uid(), role: 'orin', type: 'text', html });
+      saveOrinMessage(html, 'opening');
       setDock('cta-howto');
     }, 1600);
     return () => { clearTimeout(t1); clearTimeout(t2); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mission, hasConfirmed, hasPipHistory, savePip]);
+  }, [mission, hasConfirmed, hasOrinHistory, saveOrinMessage]);
 
   async function handleViewDiscoveries() {
     try {
@@ -896,12 +912,12 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
     push({ id: uid(), role: 'user', type: 'chip', icon: '🌐', text: t('generateWorldBrief', lang) });
     setTimeout(showTyping, 400);
     setTimeout(() => {
-      push({ id: uid(), role: 'pip', type: 'brief', items: mission!.worldBriefItems, summary: mission!.worldBriefSummary });
+      push({ id: uid(), role: 'orin', type: 'brief', items: mission!.worldBriefItems, summary: mission!.worldBriefSummary });
       setTimeout(showTyping, 300);
       setTimeout(() => {
         const briefText = t('takeYourTime', lang);
-        push({ id: uid(), role: 'pip', type: 'text', html: briefText });
-        savePip(briefText, 'brief');
+        push({ id: uid(), role: 'orin', type: 'text', html: briefText });
+        saveOrinMessage(briefText, 'brief');
         setDock('understand');
       }, 1300);
     }, 1700);
@@ -911,7 +927,7 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
     push({ id: uid(), role: 'user', type: 'chip', icon: '🔭', text: t('howToExplore', lang) });
     setTimeout(showTyping, 300);
     setTimeout(() => {
-      push({ id: uid(), role: 'pip', type: 'howto', planets: mission!.planets });
+      push({ id: uid(), role: 'orin', type: 'howto', planets: mission!.planets });
       setDock('understand');
     }, 1400);
   }
@@ -921,15 +937,28 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
     handleQA(text);
   }
 
-  function handleQA(text: string) {
-    push({ id: uid(), role: 'user', type: 'text', html: text });
-    const ans = mission!.qaAnswers[qaIdx % mission!.qaAnswers.length];
-    setQaIdx((q) => q + 1);
+  async function handleQA(text: string) {
+    push({ id: uid(), role: 'user', type: 'text', html: escapeHtml(text) });
     setTimeout(showTyping, 400);
-    setTimeout(() => {
-      push({ id: uid(), role: 'pip', type: 'text', html: ans });
-      savePip(ans, 'qa');
-    }, 1900);
+
+    const studentId = await getSessionStudentId();
+    const liveAnswer = studentId && mission
+      ? await askOrin({
+          studentId,
+          message:         text,
+          missionQuestion: mission.question,
+          planetNames:     mission.planets.map((p) => p.name),
+          language:        lang,
+        })
+      : null;
+
+    // Scripted mission answers remain the offline fallback, so the student
+    // still gets a reply when the bot is unreachable, capped, or unauthenticated.
+    const ans = liveAnswer ? escapeHtml(liveAnswer) : mission!.qaAnswers[qaIdx % mission!.qaAnswers.length];
+    if (!liveAnswer) setQaIdx((q) => q + 1);
+
+    push({ id: uid(), role: 'orin', type: 'text', html: ans });
+    saveOrinMessage(ans, 'qa');
   }
 
   function handleGotIt() {
@@ -938,7 +967,7 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
     const celebrationText = t('celebrationMessage', lang);
     setTimeout(() => {
       setShowCelebration(false);
-      push({ id: uid(), role: 'pip', type: 'text', html: celebrationText });
+      push({ id: uid(), role: 'orin', type: 'text', html: celebrationText });
       setDock('done');
       setHasConfirmed(true);
       if (missionId) {
@@ -989,7 +1018,7 @@ export default function PipGuidePanel({ missionId, missionOrder, firstPlanet, on
         {showAllDiscoveries && (
           <AllDiscoveriesView
             summaries={allSummaries}
-            pipHistory={messages.filter((m) => m.role === 'pip' && m.type === 'text') as { html: string }[]}
+            orinHistory={messages.filter((m) => m.role === 'orin' && m.type === 'text') as { html: string }[]}
             onClose={() => setShowAllDiscoveries(false)}
             lang={lang}
           />

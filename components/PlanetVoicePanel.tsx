@@ -8,7 +8,7 @@ import GalaxyChip from '@/components/GalaxyChip';
 import { parseKeywordChips } from '@/lib/parseKeywordChips';
 import { useAutoResizeTextarea } from '@/hooks/useAutoResizeTextarea';
 
-// Design tokens — matches PipGuidePanel exactly
+// Design tokens — matches OrinGuidePanel exactly
 const T = {
   s2:    '#000000',
   s3:    '#080808',
