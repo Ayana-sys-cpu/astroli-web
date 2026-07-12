@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { PLANET_STATE_THEME } from '@/lib/planet-state-themes';
@@ -45,6 +45,67 @@ function OrbitPlanet({ mission, orbitState: state, index, classId, language, red
   const router    = useRouter();
   const [hovered,    setHovered]    = useState(false);
   const [activating, setActivating] = useState(false);
+  const hyperCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    if (!activating) return;
+    const cv = hyperCanvasRef.current;
+    if (!cv) return;
+
+    cv.width  = window.innerWidth;
+    cv.height = window.innerHeight;
+    const ctx = cv.getContext('2d')!;
+    const W = cv.width, H = cv.height;
+    const cx = W / 2, cy = H / 2;
+    const maxR = Math.sqrt(cx * cx + cy * cy) * 1.1;
+
+    const NUM = 90;
+    const streaks = Array.from({ length: NUM }, () => ({
+      angle:     Math.random() * Math.PI * 2,
+      speed:     0.35 + Math.random() * 0.65,
+      len:       0.05 + Math.random() * 0.09,
+      bright:    0.4  + Math.random() * 0.6,
+      startDist: Math.random() * 0.15,
+    }));
+
+    const t0 = performance.now();
+    let raf = 0;
+
+    function tick(now: number) {
+      const elapsed  = (now - t0) / 1000;
+      const progress = Math.min(elapsed / 1.7, 1);
+      const stretch  = Math.min(1, elapsed / 0.35);
+
+      ctx.clearRect(0, 0, W, H);
+
+      streaks.forEach(s => {
+        const head = (s.startDist + elapsed * s.speed * 0.8) % 1;
+        const tail = Math.max(0, head - s.len * stretch);
+
+        const hx = cx + Math.cos(s.angle) * head * maxR;
+        const hy = cy + Math.sin(s.angle) * head * maxR;
+        const tx = cx + Math.cos(s.angle) * tail * maxR;
+        const ty = cy + Math.sin(s.angle) * tail * maxR;
+
+        const fade  = progress > 0.7 ? 1 - (progress - 0.7) / 0.3 : 1;
+        const alpha = stretch * s.bright * fade;
+        if (alpha < 0.02) return;
+
+        const grad = ctx.createLinearGradient(tx, ty, hx, hy);
+        grad.addColorStop(0, `rgba(200,150,255,0)`);
+        grad.addColorStop(1, `rgba(220,180,255,${alpha})`);
+        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(hx, hy);
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 0.5 + s.bright * 1.5;
+        ctx.stroke();
+      });
+
+      if (progress < 1) raf = requestAnimationFrame(tick);
+    }
+
+    raf = requestAnimationFrame(tick);
+    return () => { if (raf) cancelAnimationFrame(raf); };
+  }, [activating]);
 
   const themeKey      = state === 'choosable' ? 'active' : state;
   const theme         = PLANET_STATE_THEME[themeKey];
@@ -111,42 +172,37 @@ function OrbitPlanet({ mission, orbitState: state, index, classId, language, red
       onMouseEnter={() => isInteractive && setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* Planet Warp launch overlay — fires when a choosable planet is initiated */}
+      {/* Hyperdrive Streak launch overlay — fires when a choosable planet is initiated */}
       {activating && (
         <motion.div
           style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.2 }}
+          transition={{ duration: 0.15 }}
         >
-          <div style={{ position: 'absolute', inset: 0, background: '#0c0a15' }} />
-          {/* Planet expanding to fill the screen */}
-          <motion.div
-            initial={{ scale: 0.08 }}
-            animate={{ scale: 38 }}
-            transition={{ duration: 1.4, ease: [0.12, 0, 0.39, 0] }}
-            style={{
-              width: 72, height: 72, borderRadius: '50%', position: 'relative',
-              background: `radial-gradient(circle at 32% 28%, ${theme.highlight} 0%, ${theme.mid} 42%, ${theme.core} 100%)`,
-              boxShadow: `0 0 120px rgba(${theme.rgb},0.8)`,
-            }}
+          <div style={{ position: 'absolute', inset: 0, background: '#070510' }} />
+          {/* Star-streak canvas */}
+          <canvas
+            ref={hyperCanvasRef}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
           />
-          {/* Tunnel rings rushing outward */}
-          {!reducedMotion && ([0, 0.22, 0.44] as number[]).map((delay, i) => (
-            <motion.div
-              key={i}
-              style={{ position: 'absolute', borderRadius: '50%', border: `1px solid rgba(200,140,255,${0.65 - i * 0.15})` }}
-              initial={{ width: 80, height: 80, opacity: 0.9 }}
-              animate={{ width: 700 + i * 200, height: 700 + i * 200, opacity: 0 }}
-              transition={{ duration: 1.1, delay, ease: 'easeOut' }}
-            />
-          ))}
-          {/* White flash near the end */}
+          {/* Planet rockets to vanishing point */}
           <motion.div
-            style={{ position: 'absolute', inset: 0, background: '#fff', pointerEvents: 'none' }}
+            style={{
+              width: 64, height: 64, borderRadius: '50%', position: 'relative', zIndex: 2,
+              background: `radial-gradient(circle at 32% 28%, ${theme.highlight} 0%, ${theme.mid} 42%, ${theme.core} 100%)`,
+              boxShadow: `0 0 50px rgba(${theme.rgb},0.9)`,
+            }}
+            initial={{ scale: 1, opacity: 1 }}
+            animate={{ scale: 0, opacity: 0 }}
+            transition={{ duration: 0.6, delay: 0.25, ease: [0.55, 0, 1, 0.45] }}
+          />
+          {/* Fade to black — landscape loads underneath */}
+          <motion.div
+            style={{ position: 'absolute', inset: 0, background: '#000', pointerEvents: 'none' }}
             initial={{ opacity: 0 }}
-            animate={{ opacity: [0, 0, 0, 0.92, 0] }}
-            transition={{ duration: 1.7, times: [0, 0.52, 0.68, 0.82, 1] }}
+            animate={{ opacity: [0, 0, 0, 1] }}
+            transition={{ duration: 1.7, times: [0, 0.6, 0.7, 1] }}
           />
         </motion.div>
       )}
