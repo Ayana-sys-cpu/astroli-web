@@ -124,6 +124,7 @@ export async function GET() {
       return {
         id:          m.id as string,
         title:       (tx.question ?? tx.project_title ?? rawTitle) as string,
+        question:    (tx.question ?? m.question ?? undefined) as string | undefined,
         state:       studentFinished ? 'completed' : classState,
         order:       m.order as number,
         planetCount: (planetsByMission.get(m.id) ?? []).length,

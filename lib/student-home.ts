@@ -3,6 +3,7 @@ import { deriveJourneyStatus, type JourneyStatus } from './journey-status';
 export type MissionSummary = {
   id:           string;
   title:        string;
+  question?:    string;
   state:        'locked' | 'active' | 'completed' | 'skipped';
   order:        number;
   planetCount?: number;

@@ -174,9 +174,11 @@ function OrbitPlanet({ mission, orbitState: state, index, classId, language, red
             textAlign:       'center',
           }}
         >
-          <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.95)', margin: 0, marginBottom: tooltipLine ? 4 : 0, lineHeight: 1.4, wordBreak: 'break-word' }}>
-            {mission.title}
-          </p>
+          {mission.question && (
+            <p style={{ fontSize: 11, fontStyle: 'italic', color: 'rgba(255,255,255,0.92)', margin: 0, marginBottom: tooltipLine ? 4 : 0, lineHeight: 1.4, wordBreak: 'break-word' }}>
+              {mission.question}
+            </p>
+          )}
           {tooltipLine && (
             <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', margin: 0, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
               {tooltipLine}
