@@ -41,6 +41,24 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ hasActiveJourney: false, hasActiveVote: false });
     }
 
+    // Fetch class metadata (type + locked mission count) when scoped to one class.
+    // These drive isFamilyClass and hasRemainingMissions in the response for the
+    // landscape banner CTA — only present when classId is provided.
+    let isFamilyClass       = false;
+    let hasRemainingMissions = false;
+    if (requestedClassId) {
+      const [classRes, lockedRes] = await Promise.all([
+        supabaseAdmin.from('classes').select('type').eq('id', requestedClassId).maybeSingle(),
+        supabaseAdmin
+          .from('class_mission_state')
+          .select('mission_id', { count: 'exact', head: true })
+          .eq('class_id', requestedClassId)
+          .eq('state', 'locked'),
+      ]);
+      isFamilyClass        = (classRes.data as any)?.type === 'family';
+      hasRemainingMissions = (lockedRes.count ?? 0) > 0;
+    }
+
     // 1. Active mission check — only 'active' state counts as a launched mission.
     //    'pending_start' means vote is concluded but teacher hasn't activated yet;
     //    students should stay on the vote results screen until the teacher fires it.
@@ -65,6 +83,7 @@ export async function GET(req: NextRequest) {
         hasActiveVote:    false,
         activeMissionId:  (activeStateRow as any).mission_id,
         missionStatus,
+        ...(requestedClassId ? { isFamilyClass, hasRemainingMissions } : {}),
       });
     }
 
@@ -181,9 +200,10 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({
-      hasActiveJourney: false,
-      hasActiveVote:    false,
-      journeyId:        classIds[0] ?? null,
+      hasActiveJourney:  false,
+      hasActiveVote:     false,
+      journeyId:         classIds[0] ?? null,
+      ...(requestedClassId ? { isFamilyClass, hasRemainingMissions } : {}),
     });
   } catch (err) {
     console.error('[GET /api/student/journey]', err);

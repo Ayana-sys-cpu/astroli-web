@@ -44,6 +44,9 @@ function LandscapeContent() {
   const isPreview     = Boolean(previewId);
   const classId       = searchParams.get('classId');
 
+  const reviewMissionId = searchParams.get('reviewMissionId');
+  const isReview        = Boolean(reviewMissionId);
+
   const [orinOpen, setOrinOpen] = useState(true);
   const [botName, setBotName]   = useState('');
   const [mission, setMission]   = useState<Mission | null>(null);
@@ -57,6 +60,9 @@ function LandscapeContent() {
   const [orinMission, setOrinMission] = useState<OrinMission | null>(null);
   const [initialMissionState, setInitialMissionState] = useState<MissionStatePayload | null>(null);
   const isFirstVisit = useRef(false);
+  // Banner CTA fields — only populated from /api/student/journey in normal mode
+  const [isFamilyClass, setIsFamilyClass]             = useState(false);
+  const [hasRemainingMissions, setHasRemainingMissions] = useState(false);
 
   useEffect(() => {
     setBotName(getBotName());
@@ -81,10 +87,38 @@ function LandscapeContent() {
   useEffect(() => {
     if (isPreview) return;
     setLoadError(false);
+
+    // ── Review mode: load a specific past mission without the journey check ──
+    if (isReview) {
+      if (!reviewMissionId || !classId) { router.replace('/home'); return; }
+      (async () => {
+        try {
+          const missionRes = await fetch(`/api/student/mission?missionId=${reviewMissionId}&classId=${classId}`);
+          if (!missionRes.ok) { router.replace('/home'); return; }
+          const { mission } = await missionRes.json();
+          if (!mission) { router.replace('/home'); return; }
+
+          const progressRes = await fetch(`/api/student/planet-progress?missionId=${reviewMissionId}`);
+          const { progress } = await progressRes.json().catch(() => ({ progress: null }));
+
+          setMission(mission);
+          if (progress) setPlanetProgress(progress);
+          setReady(true); // no overlay in review mode
+        } catch {
+          router.replace('/home');
+        }
+      })();
+      return;
+    }
+
+    // ── Normal mode ──────────────────────────────────────────────────────────
     (async () => {
       try {
         const journeyRes = await fetch(`/api/student/journey${classId ? `?classId=${classId}` : ''}`);
-        const { hasActiveJourney, hasActiveVote, activeMissionId, missionStatus } = await journeyRes.json();
+        const { hasActiveJourney, hasActiveVote, activeMissionId, missionStatus, isFamilyClass: fc, hasRemainingMissions: hrm } = await journeyRes.json();
+
+        if (fc)  setIsFamilyClass(true);
+        if (hrm) setHasRemainingMissions(true);
 
         if (!hasActiveJourney) {
           if (hasActiveVote) {
@@ -151,12 +185,12 @@ function LandscapeContent() {
         setLoadError(true);
       }
     })();
-  }, [isPreview, router, classId, loadAttempt]);
+  }, [isPreview, isReview, reviewMissionId, router, classId, loadAttempt]);
 
   const handleAcceptMission = () => {
     setShowOverlay(false);
     setReady(true);
-    if (mission && !isPreview) {
+    if (mission && !isPreview && !isReview) {
       // studentId comes from the server session — not sent in the body.
       fetch('/api/student/journey', {
         method: 'PATCH',
@@ -249,9 +283,9 @@ function LandscapeContent() {
         )
       )}
 
-      {/* Mission overlay — first visit only */}
+      {/* Mission overlay — first visit only, never in review mode */}
       <AnimatePresence>
-        {showOverlay && mission && (
+        {showOverlay && !isReview && mission && (
           <MissionOverlay
             question={mission.question}
             order={mission.order}
@@ -289,9 +323,41 @@ function LandscapeContent() {
 
             <TopBar left={`${missionLabel} · ${bigIdea.toUpperCase()}`} showHome={!isPreview} showStore={!isPreview} lang={uiLang} />
 
+            {/* Review-mode indicator */}
+            {isReview && (
+              <div
+                style={{
+                  position: 'absolute', top: 56, left: '50%',
+                  transform: 'translateX(-50%)',
+                  zIndex: 60,
+                  background: 'rgba(123,47,190,0.18)',
+                  border: '1px solid rgba(123,47,190,0.35)',
+                  borderRadius: 16,
+                  backdropFilter: 'blur(10px)',
+                  padding: '8px 18px',
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(205,155,255,0.85)', letterSpacing: '0.14em' }}>
+                  {t('reviewModeBanner', uiLang)}
+                </span>
+                <button
+                  onClick={() => router.push('/home')}
+                  style={{
+                    padding: '4px 12px', borderRadius: 8, border: '1px solid rgba(205,155,255,0.35)',
+                    background: 'transparent', color: 'rgba(205,155,255,0.85)',
+                    fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                  }}
+                >
+                  {t('back', uiLang)}
+                </button>
+              </div>
+            )}
+
             {/* Mission-complete banner */}
             <AnimatePresence>
-              {allComplete && !isPreview && (
+              {allComplete && !isPreview && !isReview && (
                 <motion.div
                   key="mission-complete-banner"
                   initial={{ opacity: 0, y: -12 }}
@@ -315,14 +381,22 @@ function LandscapeContent() {
                     {t('missionComplete', uiLang)}
                   </span>
                   <button
-                    onClick={() => router.push('/home')}
+                    onClick={() => {
+                      if (isFamilyClass && hasRemainingMissions && classId) {
+                        router.push(`/family/missions?classId=${classId}`);
+                      } else {
+                        router.push('/home');
+                      }
+                    }}
                     style={{
                       padding: '5px 14px', borderRadius: 8, border: 'none',
                       background: '#00d4d4', color: '#000',
                       fontSize: 12, fontWeight: 700, cursor: 'pointer',
                     }}
                   >
-                    {t('backToHome', uiLang)}
+                    {isFamilyClass && hasRemainingMissions
+                      ? t('pickYourNextWorld', uiLang)
+                      : t('backToHome', uiLang)}
                   </button>
                 </motion.div>
               )}

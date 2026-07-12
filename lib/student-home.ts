@@ -1,5 +1,12 @@
 import { deriveJourneyStatus, type JourneyStatus } from './journey-status';
 
+export type MissionSummary = {
+  id:    string;
+  title: string;
+  state: 'locked' | 'active' | 'completed' | 'skipped';
+  order: number;
+};
+
 export interface HomeJourney {
   classId:                 string;
   className:               string;
@@ -15,6 +22,7 @@ export interface HomeJourney {
   voteSessionId?:          string | null;
   voteEndsAt?:             string | null;
   completedMissionsCount?: number;
+  missions?:               MissionSummary[];
 }
 
 interface MissionStateLike {
@@ -43,6 +51,7 @@ export interface BuildHomeJourneyInput {
   openVoteSession:         OpenVoteSessionInfo | null;
   activeMission:           ActiveMissionInfo | null;
   completedMissionsCount:  number;
+  allMissions:             MissionSummary[];
 }
 
 /**
@@ -60,6 +69,7 @@ export function buildHomeJourney(input: BuildHomeJourneyInput): HomeJourney {
     language:       input.language,
     isFamilyClass:  input.isFamilyClass || undefined,
     status,
+    missions:       input.allMissions,
   };
 
   switch (status) {

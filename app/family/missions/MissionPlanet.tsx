@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { PLANET_STATE_THEME } from '@/lib/planet-state-themes';
 
 type Mission = { id: string; title: string; state: string; order: number };
 
@@ -21,13 +22,15 @@ interface MissionPlanetProps {
   isActivating: boolean;
   showRing:     boolean;
   onSelect:     (id: string) => void;
+  isCompleted?: boolean;
 }
 
-export default function MissionPlanet({ mission, language, isPreview, isActivating, showRing, onSelect }: MissionPlanetProps) {
+export default function MissionPlanet({ mission, language, isPreview, isActivating, showRing, onSelect, isCompleted }: MissionPlanetProps) {
   const [isHovered, setIsHovered] = useState(false);
   const reducedMotion = useReducedMotion() ?? false;
-  const theme = PLANET_THEMES[mission.order] ?? FALLBACK;
-  const isLit = isHovered || isPreview;
+  const theme = isCompleted ? null : (PLANET_THEMES[mission.order] ?? FALLBACK);
+  const completedTheme = PLANET_STATE_THEME.completed;
+  const isLit = !isCompleted && (isHovered || isPreview);
 
   const bobAnimation = reducedMotion
     ? {}
@@ -45,38 +48,76 @@ export default function MissionPlanet({ mission, language, isPreview, isActivati
         transition={bobTransition}
         style={{ position: 'relative', width: '100%', aspectRatio: '1' }}
       >
-        <motion.div
-          className="rounded-full w-full h-full cursor-pointer relative"
-          style={{
-            background: `radial-gradient(circle at 32% 28%, ${theme.highlight} 0%, ${theme.mid} 42%, ${theme.core} 100%)`,
-            boxShadow: `0 0 40px rgba(${theme.rgb}, 0.35), 0 0 80px rgba(${theme.rgb}, 0.15), inset -12px -10px 30px rgba(0,0,0,0.5)`,
-            opacity: isActivating ? 0.55 : 1,
-          }}
-          animate={{ scale: isLit ? 1.15 : 1 }}
-          transition={reducedMotion ? { duration: 0 } : { duration: 0.28, ease: 'easeOut' }}
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
-          onClick={() => !isActivating && onSelect(mission.id)}
-          role="button"
-          tabIndex={0}
-          aria-label={`Mission ${mission.order}: ${mission.title}`}
-          onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !isActivating) { e.preventDefault(); onSelect(mission.id); } }}
-        >
-          {/* Orbital ring */}
-          {showRing && theme.ring && (
+        {isCompleted ? (
+          /* Completed (dimmed, teal, checkmark) — no hover, no selection */
+          <div
+            className="rounded-full w-full h-full relative"
+            style={{
+              background: `radial-gradient(circle at 32% 28%, ${completedTheme.highlight} 0%, ${completedTheme.mid} 42%, ${completedTheme.core} 100%)`,
+              boxShadow:  'inset -12px -10px 30px rgba(0,0,0,0.5)',
+              opacity:    completedTheme.dimOpacity,
+              filter:     `saturate(${completedTheme.saturate})`,
+              cursor:     'default',
+            }}
+          >
+            {/* Checkmark badge */}
             <div
               aria-hidden
               style={{
-                position: 'absolute',
-                inset: '-18% -28%',
-                borderRadius: '50%',
-                border: '2px solid rgba(255,255,255,0.24)',
-                transform: 'rotateX(72deg)',
-                pointerEvents: 'none',
+                position:       'absolute',
+                bottom:         -4,
+                right:          -4,
+                width:          16,
+                height:         16,
+                borderRadius:   '50%',
+                background:     '#00d4b0',
+                border:         '2px solid #0d0b14',
+                display:        'flex',
+                alignItems:     'center',
+                justifyContent: 'center',
+                fontSize:       9,
+                color:          '#000',
+                fontWeight:     700,
+                lineHeight:     1,
               }}
-            />
-          )}
-        </motion.div>
+            >
+              ✓
+            </div>
+          </div>
+        ) : (
+          <motion.div
+            className="rounded-full w-full h-full cursor-pointer relative"
+            style={{
+              background: `radial-gradient(circle at 32% 28%, ${theme!.highlight} 0%, ${theme!.mid} 42%, ${theme!.core} 100%)`,
+              boxShadow: `0 0 40px rgba(${theme!.rgb}, 0.35), 0 0 80px rgba(${theme!.rgb}, 0.15), inset -12px -10px 30px rgba(0,0,0,0.5)`,
+              opacity: isActivating ? 0.55 : 1,
+            }}
+            animate={{ scale: isLit ? 1.15 : 1 }}
+            transition={reducedMotion ? { duration: 0 } : { duration: 0.28, ease: 'easeOut' }}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            onClick={() => !isActivating && onSelect(mission.id)}
+            role="button"
+            tabIndex={0}
+            aria-label={`Mission ${mission.order}: ${mission.title}`}
+            onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !isActivating) { e.preventDefault(); onSelect(mission.id); } }}
+          >
+            {/* Orbital ring */}
+            {showRing && theme!.ring && (
+              <div
+                aria-hidden
+                style={{
+                  position: 'absolute',
+                  inset: '-18% -28%',
+                  borderRadius: '50%',
+                  border: '2px solid rgba(255,255,255,0.24)',
+                  transform: 'rotateX(72deg)',
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
+          </motion.div>
+        )}
       </motion.div>
 
       {/* Mission number label */}
@@ -87,7 +128,18 @@ export default function MissionPlanet({ mission, language, isPreview, isActivati
         Mission {mission.order}
       </p>
 
-      {/* Question + CTA reveal */}
+      {/* Completed state: show title dimmed, no CTA */}
+      {isCompleted && (
+        <p
+          className="text-[12px] leading-snug text-center px-2 mt-1"
+          dir={language === 'he' ? 'rtl' : 'ltr'}
+          style={{ color: 'rgba(255,255,255,0.35)', maxWidth: '22ch', textWrap: 'balance' as never }}
+        >
+          {mission.title}
+        </p>
+      )}
+
+      {/* Question + CTA reveal — selectable missions only */}
       <AnimatePresence>
         {isLit && (
           <motion.div

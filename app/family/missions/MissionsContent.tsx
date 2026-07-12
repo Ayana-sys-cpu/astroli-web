@@ -88,8 +88,12 @@ export default function FamilyMissionsContent() {
     }
   }, [previewId, handleActivate]);
 
-  const availableMissions = (missions ?? [])
+  const selectableMissions = (missions ?? [])
     .filter(m => m.state === 'locked' || m.state === 'active')
+    .sort((a, b) => a.order - b.order);
+
+  const completedMissions = (missions ?? [])
+    .filter(m => m.state === 'completed')
     .sort((a, b) => a.order - b.order);
 
   return (
@@ -135,9 +139,9 @@ export default function FamilyMissionsContent() {
           <h1 className="font-caveat text-3xl md:text-4xl text-white/85 mb-1">
             Choose your destination
           </h1>
-          {missions && availableMissions.length > 0 && (
+          {missions && selectableMissions.length > 0 && (
             <p className="text-[10px] tracking-[0.3em] font-space uppercase text-white/30">
-              {worldsLabel(availableMissions.length)}
+              {worldsLabel(selectableMissions.length)}
             </p>
           )}
         </motion.div>
@@ -151,33 +155,72 @@ export default function FamilyMissionsContent() {
           >
             LOADING…
           </motion.p>
-        ) : availableMissions.length === 0 ? (
+        ) : selectableMissions.length === 0 && completedMissions.length === 0 ? (
           <p className="text-white/40 text-sm">No missions available yet.</p>
         ) : (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-            className="flex items-end justify-center gap-8 md:gap-14 flex-wrap"
-          >
-            {availableMissions.map((mission, i) => (
+          <div className="flex flex-col items-center gap-12 w-full">
+            {/* Selectable missions */}
+            {selectableMissions.length > 0 && (
               <motion.div
-                key={mission.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.35 + i * 0.1, duration: 0.45 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3, duration: 0.5 }}
+                className="flex items-end justify-center gap-8 md:gap-14 flex-wrap"
               >
-                <MissionPlanet
-                  mission={mission}
-                  language={language}
-                  isPreview={previewId === mission.id}
-                  isActivating={activating === mission.id}
-                  showRing={availableMissions.length >= 3}
-                  onSelect={handleSelect}
-                />
+                {selectableMissions.map((mission, i) => (
+                  <motion.div
+                    key={mission.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.35 + i * 0.1, duration: 0.45 }}
+                  >
+                    <MissionPlanet
+                      mission={mission}
+                      language={language}
+                      isPreview={previewId === mission.id}
+                      isActivating={activating === mission.id}
+                      showRing={selectableMissions.length >= 3}
+                      onSelect={handleSelect}
+                    />
+                  </motion.div>
+                ))}
               </motion.div>
-            ))}
-          </motion.div>
+            )}
+
+            {/* Completed missions — dimmed, non-selectable */}
+            {completedMissions.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.45, duration: 0.5 }}
+                className="flex flex-col items-center gap-4 w-full"
+              >
+                <p className="text-[9px] tracking-[0.28em] font-space uppercase text-white/25">
+                  {language === 'he' ? 'הושלמו' : 'COMPLETED'}
+                </p>
+                <div className="flex items-end justify-center gap-8 md:gap-14 flex-wrap">
+                  {completedMissions.map((mission, i) => (
+                    <motion.div
+                      key={mission.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.5 + i * 0.1, duration: 0.45 }}
+                    >
+                      <MissionPlanet
+                        mission={mission}
+                        language={language}
+                        isPreview={false}
+                        isActivating={false}
+                        showRing={false}
+                        onSelect={() => {}}
+                        isCompleted
+                      />
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </div>
         )}
 
         {error && (

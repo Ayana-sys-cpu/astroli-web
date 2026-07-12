@@ -523,6 +523,36 @@ const strings = {
     he: 'המשימה הזו',
   },
 
+  // ── MissionOrbit / home card ────────────────────────────────────────────
+  pickYourNextWorld: {
+    en: 'Pick your next world',
+    he: 'בחר את העולם הבא שלך',
+  },
+  missionCompletePickNext: {
+    en: 'Mission complete!',
+    he: '!משימה הושלמה',
+  },
+  chooseMe: {
+    en: '+ Choose me',
+    he: '+ בחר אותי',
+  },
+  doneReview: {
+    en: 'Done · review',
+    he: 'הושלם · סקירה',
+  },
+  orbitMissionN: {
+    en: 'Mission {n}',
+    he: 'משימה {n}',
+  },
+  missionsDoneOf: {
+    en: '{n} / {total} done',
+    he: '{n} / {total} הושלמו',
+  },
+  reviewModeBanner: {
+    en: 'REVIEWING PAST MISSION',
+    he: 'סוקר משימה קודמת',
+  },
+
   // ── Home screen (page-level) ────────────────────────────────────────────────
   welcomeBack: {
     en: 'Welcome back, {name}.',
