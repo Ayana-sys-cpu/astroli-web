@@ -1,10 +1,11 @@
 import { deriveJourneyStatus, type JourneyStatus } from './journey-status';
 
 export type MissionSummary = {
-  id:    string;
-  title: string;
-  state: 'locked' | 'active' | 'completed' | 'skipped';
-  order: number;
+  id:           string;
+  title:        string;
+  state:        'locked' | 'active' | 'completed' | 'skipped';
+  order:        number;
+  planetCount?: number;
 };
 
 export interface HomeJourney {

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { PLANET_STATE_THEME } from '@/lib/planet-state-themes';
@@ -21,30 +22,33 @@ type OrbitState = 'active' | 'completed' | 'choosable' | 'locked';
 // dashed orbit line passes through all planet centers regardless of label height.
 const ORB_ZONE_HEIGHT = 72;
 
+// Visual sort: completed (past) → active (now) → choosable → locked (future)
+const STATE_PRIORITY: Record<OrbitState, number> = { completed: 0, active: 1, choosable: 2, locked: 3 };
+
+function toOrbitState(m: MissionSummary, isFamilyClass: boolean, hasActive: boolean): OrbitState {
+  if (m.state === 'active')    return 'active';
+  if (m.state === 'completed') return 'completed';
+  if (m.state === 'locked' && isFamilyClass && !hasActive) return 'choosable';
+  return 'locked';
+}
+
 interface OrbitPlanetProps {
   mission:       MissionSummary;
+  orbitState:    OrbitState;
   index:         number;
   classId:       string;
-  isFamilyClass: boolean;
-  hasActive:     boolean;
   language:      'en' | 'he';
   reducedMotion: boolean;
 }
 
-function OrbitPlanet({ mission, index, classId, isFamilyClass, hasActive, language, reducedMotion }: OrbitPlanetProps) {
-  const router = useRouter();
+function OrbitPlanet({ mission, orbitState: state, index, classId, language, reducedMotion }: OrbitPlanetProps) {
+  const router    = useRouter();
+  const [hovered, setHovered] = useState(false);
 
-  const state: OrbitState =
-    mission.state === 'active'    ? 'active'    :
-    mission.state === 'completed' ? 'completed' :
-    (mission.state === 'locked' && isFamilyClass && !hasActive) ? 'choosable' :
-    'locked';
-
-  const themeKey = state === 'choosable' ? 'active' : state;
-  const theme    = PLANET_STATE_THEME[themeKey];
+  const themeKey      = state === 'choosable' ? 'active' : state;
+  const theme         = PLANET_STATE_THEME[themeKey];
   const isInteractive = state !== 'locked';
 
-  // Active planet is visually dominant; others have a safe minimum for touch targets
   const orbSize = state === 'active'
     ? 'clamp(56px, 13vw, 72px)'
     : 'clamp(44px, 10vw, 56px)';
@@ -73,8 +77,62 @@ function OrbitPlanet({ mission, index, classId, isFamilyClass, hasActive, langua
 
   const dir = language === 'he' ? 'rtl' : 'ltr';
 
+  const tooltipLine: string | null =
+    state === 'choosable' && mission.planetCount != null ? `${mission.planetCount} worlds to explore`  :
+    state === 'active'    && mission.planetCount != null ? `${mission.planetCount} worlds`             :
+    state === 'completed' && mission.planetCount != null ? `${mission.planetCount} worlds explored`    :
+    null;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, width: 96 }}>
+    <div
+      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, width: 116, position: 'relative' }}
+      onMouseEnter={() => isInteractive && setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {/* Hover tooltip — appears above the orb */}
+      {hovered && (
+        <div
+          style={{
+            position:        'absolute',
+            bottom:          ORB_ZONE_HEIGHT + 20,
+            left:            '50%',
+            transform:       'translateX(-50%)',
+            background:      'rgba(20,16,30,0.97)',
+            border:          '1px solid rgba(255,255,255,0.13)',
+            borderRadius:    10,
+            padding:         '8px 12px',
+            zIndex:          10,
+            pointerEvents:   'none',
+            backdropFilter:  'blur(10px)',
+            boxShadow:       '0 8px 32px rgba(0,0,0,0.5)',
+            minWidth:        100,
+            maxWidth:        160,
+            textAlign:       'center',
+          }}
+        >
+          <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.95)', margin: 0, marginBottom: tooltipLine ? 4 : 0, lineHeight: 1.4, wordBreak: 'break-word' }}>
+            {mission.title}
+          </p>
+          {tooltipLine && (
+            <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', margin: 0, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+              {tooltipLine}
+            </p>
+          )}
+          {/* Arrow pointing down */}
+          <div style={{
+            position:    'absolute',
+            bottom:      -5,
+            left:        '50%',
+            width:       8,
+            height:      8,
+            background:  'rgba(20,16,30,0.97)',
+            borderBottom: '1px solid rgba(255,255,255,0.13)',
+            borderRight:  '1px solid rgba(255,255,255,0.13)',
+            transform:    'translateX(-50%) rotate(45deg)',
+          }} />
+        </div>
+      )}
+
       <div style={{ height: ORB_ZONE_HEIGHT, display: 'flex', alignItems: 'center' }}>
         <motion.div
           animate={reducedMotion ? {} : { y: [0, -6, 0] }}
@@ -143,6 +201,8 @@ function OrbitPlanet({ mission, index, classId, isFamilyClass, hasActive, langua
               filter:       theme.saturate < 1 ? `saturate(${theme.saturate})` : undefined,
               cursor:       isInteractive ? 'pointer' : 'default',
               position:     'relative',
+              transition:   'transform 0.15s ease',
+              transform:    hovered && isInteractive ? 'scale(1.1)' : 'scale(1)',
             }}
           >
             {/* Completed checkmark badge */}
@@ -174,7 +234,7 @@ function OrbitPlanet({ mission, index, classId, isFamilyClass, hasActive, langua
         </motion.div>
       </div>
 
-      {/* Mission title — clamped to two lines so long/Hebrew titles degrade gracefully */}
+      {/* Mission title — clamped to two lines */}
       <span
         dir={dir}
         style={{
@@ -187,18 +247,19 @@ function OrbitPlanet({ mission, index, classId, isFamilyClass, hasActive, langua
           WebkitLineClamp: 2,
           WebkitBoxOrient: 'vertical',
           overflow:        'hidden',
+          width:           '100%',
         }}
       >
         {mission.title}
       </span>
 
-      {/* State CTA: continue / done · review / ignite / locked */}
+      {/* State CTA */}
       <span
         className="font-space"
         dir={dir}
         style={{
           fontSize:      9,
-          letterSpacing: '0.18em',
+          letterSpacing: '0.14em',
           textTransform: 'uppercase',
           color:         cta.color,
           whiteSpace:    'nowrap',
@@ -211,31 +272,38 @@ function OrbitPlanet({ mission, index, classId, isFamilyClass, hasActive, langua
 }
 
 export default function MissionOrbit({ missions, classId, isFamilyClass, hasActive, language, reducedMotion }: MissionOrbitProps) {
-  const sorted = [...missions].sort((a, b) => a.order - b.order);
+  // Sort: completed (past) left → active (now) → choosable → locked (future) right.
+  // Within each group, preserve the original DB order.
+  const sorted = [...missions].sort((a, b) => {
+    const pa = STATE_PRIORITY[toOrbitState(a, isFamilyClass, hasActive)];
+    const pb = STATE_PRIORITY[toOrbitState(b, isFamilyClass, hasActive)];
+    if (pa !== pb) return pa - pb;
+    return a.order - b.order;
+  });
 
   return (
     <div
       style={{
-        position:       'relative',
-        display:        'flex',
-        justifyContent: 'space-around',
+        position: 'relative',
+        display:  'flex',
+        // Spread planets toward card edges; negative margin reclaims card padding
+        justifyContent: 'space-between',
         alignItems:     'flex-start',
-        padding:        '16px 0 8px',
-        flexWrap:       'wrap',
-        gap:            8,
+        padding:        '16px 4px 8px',
+        margin:         '0 -8px',
       }}
     >
-      {/* Dashed orbit line through the orb centers — only meaningful with 2+ missions */}
+      {/* Dashed orbit line through orb centers */}
       {sorted.length > 1 && (
         <div
           aria-hidden
           style={{
-            position:    'absolute',
-            left:        '5%',
-            right:       '5%',
-            top:         16 + ORB_ZONE_HEIGHT / 2,
-            height:      0,
-            borderTop:   '1px dashed rgba(255,255,255,0.12)',
+            position:      'absolute',
+            left:          58,
+            right:         58,
+            top:           16 + ORB_ZONE_HEIGHT / 2,
+            height:        0,
+            borderTop:     '1px dashed rgba(255,255,255,0.12)',
             pointerEvents: 'none',
           }}
         />
@@ -245,10 +313,9 @@ export default function MissionOrbit({ missions, classId, isFamilyClass, hasActi
         <OrbitPlanet
           key={mission.id}
           mission={mission}
+          orbitState={toOrbitState(mission, isFamilyClass, hasActive)}
           index={i}
           classId={classId}
-          isFamilyClass={isFamilyClass}
-          hasActive={hasActive}
           language={language}
           reducedMotion={reducedMotion}
         />

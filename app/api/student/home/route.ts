@@ -122,10 +122,11 @@ export async function GET() {
       const studentFinished = classState === 'active'
         && isMissionFullyExplored(planetsByMission.get(m.id) ?? [], exploredPlanetIds);
       return {
-        id:    m.id as string,
-        title: (tx.question ?? tx.project_title ?? rawTitle) as string,
-        state: studentFinished ? 'completed' : classState,
-        order: m.order as number,
+        id:          m.id as string,
+        title:       (tx.question ?? tx.project_title ?? rawTitle) as string,
+        state:       studentFinished ? 'completed' : classState,
+        order:       m.order as number,
+        planetCount: (planetsByMission.get(m.id) ?? []).length,
       };
     });
 

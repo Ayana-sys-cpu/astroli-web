@@ -27,9 +27,10 @@ const ACCENT: Record<HomeJourney['status'], Accent> = {
   idle:    { text: 'rgba(255,255,255,0.3)',  border: 'rgba(255,255,255,0.06)', glow: 'rgba(255,255,255,0)', glowSoft: 'rgba(255,255,255,0)', badgeBg: 'rgba(255,255,255,0.04)', ctaBg: 'transparent', ctaFg: 'rgba(255,255,255,0.3)' },
 };
 
-function badgeLabel(journey: HomeJourney, lang: Lang): string {
+function badgeLabel(journey: HomeJourney, lang: Lang, allMissionsDone: boolean, hasChoosable: boolean): string {
+  if (allMissionsDone) return t('badgeDone', lang);
+  if (hasChoosable || (journey.status === 'idle' && journey.isFamilyClass)) return t('badgeIdleFamily', lang);
   if (journey.status === 'live' && journey.studentMissionCompleted) return t('badgeMissionComplete', lang);
-  if (journey.status === 'idle' && journey.isFamilyClass) return t('badgeIdleFamily', lang);
   const key = { live: 'badgeLive', voting: 'badgeVoting', pending: 'badgePending', done: 'badgeDone', idle: 'badgeIdle' } as const;
   return t(key[journey.status], lang);
 }
@@ -74,8 +75,6 @@ export default function JourneyCard({ journey, onClick }: JourneyCardProps) {
   const reducedMotion = useReducedMotion() ?? false;
   const lang: Lang    = journey.language ?? 'en';
   const isIdleFamily  = journey.status === 'idle' && Boolean(journey.isFamilyClass);
-  const accentKey     = (journey.status === 'live' && journey.studentMissionCompleted) ? 'done' : isIdleFamily ? 'pending' : journey.status;
-  const accent        = ACCENT[accentKey];
 
   // Show the orbit when the journey has missions and is not in a voting/pending state.
   // Navigation happens through planet clicks inside the orbit; the outer button is a no-op.
@@ -91,10 +90,21 @@ export default function JourneyCard({ journey, onClick }: JourneyCardProps) {
   // planet, which is what frees the remaining planets to invite an ignite.
   const hasActiveMission = journey.missions?.some(m => m.state === 'active') ?? false;
 
-  // Card header title: prefer the active mission title; fall back to a pick invitation for
-  // idle family journeys, or the class name for everything else.
-  const headerTitle = journey.missionTitle
-    ?? (isIdleFamily ? t('ctaPickMission', lang) : journey.className);
+  // True only when every mission in the orbit is student-completed.
+  const allMissionsDone = showOrbit && totalCount > 0 && completedCount === totalCount;
+  // True when there are missions the student can still pick (family class, no active mission).
+  const hasChoosable    = showOrbit && (journey.missions?.some(m =>
+    m.state === 'locked' && !!journey.isFamilyClass && !hasActiveMission
+  ) ?? false);
+
+  const accentKey =
+    allMissionsDone ? 'done' :
+    hasChoosable ? 'pending' :
+    isIdleFamily ? 'pending' :
+    journey.status;
+
+  const accent = ACCENT[accentKey];
+
 
   return (
     <button
@@ -116,9 +126,11 @@ export default function JourneyCard({ journey, onClick }: JourneyCardProps) {
           <p className="text-[10px] font-bold tracking-[0.18em] uppercase mb-1.5" style={{ color: '#b8aee0' }}>
             {journey.className}{journey.teacherName ? ` · ${journey.teacherName.toUpperCase()}` : ''}
           </p>
-          <p className="font-bold text-lg text-white tracking-[-0.01em] truncate">
-            {headerTitle}
-          </p>
+          {hasActiveMission && journey.missionTitle && (
+            <p className="font-bold text-lg text-white tracking-[-0.01em] truncate">
+              {journey.missionTitle}
+            </p>
+          )}
           {showOrbit && totalCount > 0 && (
             <p className="font-space text-[9px] tracking-[0.14em] uppercase mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
               {t('missionsDoneOf', lang)
@@ -131,7 +143,7 @@ export default function JourneyCard({ journey, onClick }: JourneyCardProps) {
           className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold tracking-[0.16em] uppercase whitespace-nowrap flex-shrink-0"
           style={{ color: accent.text, background: accent.badgeBg, border: `1px solid ${accent.border}` }}
         >
-          {badgeLabel(journey, lang)}
+          {badgeLabel(journey, lang, allMissionsDone, hasChoosable)}
         </div>
       </div>
 

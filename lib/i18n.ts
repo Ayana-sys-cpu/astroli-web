@@ -545,8 +545,8 @@ const strings = {
     he: 'נעול',
   },
   orbitIgnite: {
-    en: '+ Ignite',
-    he: '+ הצת',
+    en: 'Initiate mission',
+    he: 'הצת משימה',
   },
   missionsDoneOf: {
     en: '{n} / {total} done',
