@@ -56,6 +56,10 @@ const strings = {
     en: 'Ask me anything about this era…',
     he: 'שאל אותי כל דבר על התקופה הזו…',
   },
+  qaFallbackReply: {
+    en: "Great question, explorer! I don't have a ready answer for that one — the planets on your mission map are the best place to investigate it. Pick one and see what you discover!",
+    he: 'שאלה מצוינת, חוקר! אין לי תשובה מוכנה לשאלה הזו — כוכבי הלכת במפת המשימה שלך הם המקום הטוב ביותר לחקור אותה. בחר אחד וגלה מה תמצא!',
+  },
   askAnythingShort: {
     en: 'Ask me about this mission…',
     he: 'שאל אותי כל דבר…',

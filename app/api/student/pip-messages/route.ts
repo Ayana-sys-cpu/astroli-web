@@ -29,6 +29,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'missionId and messages are required' }, { status: 400 });
   }
 
+  // content is NOT NULL in pip_messages — reject bad payloads here instead of
+  // letting the insert surface them as a 500.
+  if (messages.some((m) => typeof m?.content !== 'string' || m.content.length === 0)) {
+    return NextResponse.json({ error: 'every message needs non-empty string content' }, { status: 400 });
+  }
+
   try {
     const rows = messages.map((m) => ({
       student_id:   studentId,

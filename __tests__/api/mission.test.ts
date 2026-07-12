@@ -65,8 +65,6 @@ const baseMission = {
   project_title: 'Rome Project',
   project_description: 'First paragraph.\n\nSecond paragraph.',
   opening_message: 'Welcome!',
-  world_brief_summary: 'Summary',
-  world_brief_items: [{ icon: '🏛️', text: 'An item' }],
   opening_message_2: 'Part two',
   mission_brief: 'Brief',
   chapter: 'Ch.3 — Rome',
@@ -100,8 +98,9 @@ describe('GET /api/mission', () => {
     const body = await res.json();
     expect(body.id).toBe('m1');
     expect(body.question).toBe('Why did Rome fall?');
-    expect(body.worldBrief).toBe('The world brief text');
     expect(body.projectObjective).toBe('First paragraph.');
+    expect(body.qaAnswers).toEqual(['a1']);
+    expect(body.missionQaAnswers).toEqual(['ma1']);
     expect(body.planets).toEqual([
       { icon: '🏛️', name: 'Senate', hint: 'Politics' },
       { icon: '⚔️', name: 'Legion', hint: 'The Legion' }, // hint falls back to title
@@ -126,15 +125,23 @@ describe('GET /api/mission', () => {
     expect(body.question).toBe('למה רומא נפלה?');
   });
 
-  it('prefers the backfilled row on the legacy order path', async () => {
+  it('returns the first matching row on the legacy order path', async () => {
     tables.missions = [
-      { ...baseMission, id: 'm-old', world_brief_summary: null },
-      { ...baseMission, id: 'm-backfilled' },
+      { ...baseMission, id: 'm-first' },
+      { ...baseMission, id: 'm-second' },
     ];
     tables.planets = [];
     const res = await callMission('?order=3');
     const body = await res.json();
-    expect(body.id).toBe('m-backfilled');
+    expect(body.id).toBe('m-first');
+  });
+
+  it('defaults qaAnswers to an empty array when the mission has none', async () => {
+    tables.missions = [{ ...baseMission, qa_answers: null, mission_qa_answers: null }];
+    const res = await callMission('?missionId=m1');
+    const body = await res.json();
+    expect(body.qaAnswers).toEqual([]);
+    expect(body.missionQaAnswers).toEqual([]);
   });
 
   it('returns 404 for an unknown mission', async () => {

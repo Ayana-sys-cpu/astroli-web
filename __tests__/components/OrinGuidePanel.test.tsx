@@ -1,7 +1,7 @@
 // src/astroli-web/__tests__/components/OrinGuidePanel.test.tsx
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { AllDiscoveriesView, type LockedPlanetSummary } from '@/components/OrinGuidePanel';
+import { AllDiscoveriesView, scriptedQaReply, type LockedPlanetSummary } from '@/components/OrinGuidePanel';
 
 const mockPush = vi.hoisted(() => vi.fn());
 vi.mock('next/navigation', () => ({
@@ -64,5 +64,24 @@ describe('AllDiscoveriesView', () => {
     render(<AllDiscoveriesView summaries={summaries} onClose={onClose} lang="en" />);
     screen.getByText('Close').click();
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe('scriptedQaReply', () => {
+  it('cycles through the mission answers by index', () => {
+    expect(scriptedQaReply(['a', 'b'], 0, 'en')).toBe('a');
+    expect(scriptedQaReply(['a', 'b'], 1, 'en')).toBe('b');
+    expect(scriptedQaReply(['a', 'b'], 2, 'en')).toBe('a');
+  });
+
+  it('returns a default reply instead of undefined when the mission has no answers (prod bug: literal "undefined" bubble)', () => {
+    const reply = scriptedQaReply([], 3, 'en');
+    expect(typeof reply).toBe('string');
+    expect(reply.length).toBeGreaterThan(0);
+    expect(reply).not.toContain('undefined');
+  });
+
+  it('localizes the default reply', () => {
+    expect(scriptedQaReply([], 0, 'he')).not.toBe(scriptedQaReply([], 0, 'en'));
   });
 });
