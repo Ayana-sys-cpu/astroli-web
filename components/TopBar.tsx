@@ -76,7 +76,7 @@ export default function TopBar({ left, center, showUser = true, showHome = true,
             {t('backToMap', lang)}
           </button>
         ) : left ? (
-          <span className="text-[10px] tracking-[0.22em] text-white/35 font-space uppercase">
+          <span className="text-[10px] font-semibold tracking-[0.22em] text-white/55 font-space uppercase">
             {left}
           </span>
         ) : null}
