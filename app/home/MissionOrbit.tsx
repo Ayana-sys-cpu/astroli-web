@@ -59,13 +59,14 @@ function OrbitPlanet({ mission, orbitState: state, index, classId, language, red
     if (state === 'completed') { router.push(`/landscape?reviewMissionId=${mission.id}&classId=${classId}`); return; }
     if (state === 'choosable') {
       setActivating(true);
-      // Fire activation; navigate after the warp animation plays (~1.7 s)
+      // Trigger navigation early so the landscape loads in parallel with the
+      // animation; the white flash at ~1.2 s masks the page swap.
       fetch('/api/student/mission-activate', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ missionId: mission.id, classId }),
       });
-      setTimeout(() => router.push(`/landscape?classId=${classId}`), 1700);
+      setTimeout(() => router.push(`/landscape?classId=${classId}`), 600);
     }
   };
 
@@ -339,11 +340,12 @@ export default function MissionOrbit({ missions, classId, isFamilyClass, hasActi
       style={{
         position: 'relative',
         display:  'flex',
-        // Spread planets toward card edges; negative margin reclaims card padding
+        // Negative margin reclaims the card's p-6 (24px) padding so planets
+        // spread to the full inner edge of the card.
         justifyContent: 'space-between',
         alignItems:     'flex-start',
-        padding:        '16px 4px 8px',
-        margin:         '0 -8px',
+        padding:        '16px 0 8px',
+        margin:         '0 -24px',
       }}
     >
       {/* Dashed orbit line through orb centers */}

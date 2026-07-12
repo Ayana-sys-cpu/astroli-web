@@ -60,9 +60,6 @@ function LandscapeContent() {
   const [orinMission, setOrinMission] = useState<OrinMission | null>(null);
   const [initialMissionState, setInitialMissionState] = useState<MissionStatePayload | null>(null);
   const isFirstVisit = useRef(false);
-  // Banner CTA fields — only populated from /api/student/journey in normal mode
-  const [isFamilyClass, setIsFamilyClass]             = useState(false);
-  const [hasRemainingMissions, setHasRemainingMissions] = useState(false);
 
   useEffect(() => {
     setBotName(getBotName());
@@ -115,10 +112,7 @@ function LandscapeContent() {
     (async () => {
       try {
         const journeyRes = await fetch(`/api/student/journey${classId ? `?classId=${classId}` : ''}`);
-        const { hasActiveJourney, hasActiveVote, activeMissionId, missionStatus, isFamilyClass: fc, hasRemainingMissions: hrm } = await journeyRes.json();
-
-        if (fc)  setIsFamilyClass(true);
-        if (hrm) setHasRemainingMissions(true);
+        const { hasActiveJourney, hasActiveVote, activeMissionId, missionStatus } = await journeyRes.json();
 
         if (!hasActiveJourney) {
           if (hasActiveVote) {
@@ -225,8 +219,6 @@ function LandscapeContent() {
   const uiLang       = mission?.language === 'he' ? 'he' as const : 'en' as const;
   const missionLabel = mission ? `${t('missionLabel', uiLang)} ${String(mission.order).padStart(2, '0')}` : '…';
   const bigIdea      = mission?.question ?? '';
-
-  const allComplete = planets.length > 0 && planets.every(p => p.explored);
 
   // First planet passed to OrinGuidePanel for the "Start Here" card navigation
   const firstPlanet = planets[0]
@@ -354,53 +346,6 @@ function LandscapeContent() {
                 </button>
               </div>
             )}
-
-            {/* Mission-complete banner */}
-            <AnimatePresence>
-              {allComplete && !isPreview && !isReview && (
-                <motion.div
-                  key="mission-complete-banner"
-                  initial={{ opacity: 0, y: -12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -12 }}
-                  transition={{ duration: 0.4, delay: 0.5 }}
-                  style={{
-                    position: 'absolute', top: 56, left: '50%',
-                    transform: 'translateX(-50%)',
-                    zIndex: 60,
-                    background: 'rgba(0,212,212,0.12)',
-                    border: '1px solid rgba(0,212,212,0.30)',
-                    borderRadius: 16,
-                    backdropFilter: 'blur(10px)',
-                    padding: '10px 22px',
-                    display: 'flex', alignItems: 'center', gap: 14,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  <span style={{ fontSize: 14, fontWeight: 700, color: '#00d4d4' }}>
-                    {t('missionComplete', uiLang)}
-                  </span>
-                  <button
-                    onClick={() => {
-                      if (isFamilyClass && hasRemainingMissions && classId) {
-                        router.push(`/family/missions?classId=${classId}`);
-                      } else {
-                        router.push('/home');
-                      }
-                    }}
-                    style={{
-                      padding: '5px 14px', borderRadius: 8, border: 'none',
-                      background: '#00d4d4', color: '#000',
-                      fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                    }}
-                  >
-                    {isFamilyClass && hasRemainingMissions
-                      ? t('pickYourNextWorld', uiLang)
-                      : t('backToHome', uiLang)}
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
 
             {/* Preview mode banner */}
             {isPreview && (
