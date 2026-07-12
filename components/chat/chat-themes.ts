@@ -84,7 +84,7 @@ export const ORIN_GUIDE_INPUT: ChatInputTheme = {
   sendBackground: '#a855f7',
   sendTextColor: '#000',
   sendDisabledBackground: '#1f1f38',
-  sendDisabledTextColor: '#3d4a60',
+  sendDisabledTextColor: '#5c6f85',
 };
 
 // ── Planet figure panel (violet figure + green Orin on pure-black surfaces) ─
@@ -133,7 +133,7 @@ export const PLANET_INPUT: ChatInputTheme = {
   sendBackground: '#a090d4',
   sendTextColor: '#fff',
   sendDisabledBackground: '#161616',
-  sendDisabledTextColor: '#3d4a60',
+  sendDisabledTextColor: '#5c6f85',
   focusBorderColor: 'rgba(155,92,255,0.5)',
   focusGlow: '0 0 16px rgba(155,92,255,0.12)',
 };

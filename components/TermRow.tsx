@@ -6,7 +6,7 @@ import type { MissionTerm } from '@/lib/orin-guide-types';
 const T = {
   tp: '#e2e8f0',
   ts: '#8896a8',
-  tm: '#3d4a60',
+  tm: '#5c6f85',
 } as const;
 
 export function TermRow({ term }: { term: MissionTerm }) {
