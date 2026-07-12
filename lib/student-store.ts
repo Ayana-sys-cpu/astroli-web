@@ -10,6 +10,8 @@
  * Reading those on the client: use getSessionStudentId() from lib/session.ts.
  */
 
+import { toDisplayFirstName } from './display-name';
+
 const K = {
   FIRST_NAME:       'astroli_first_name',
   BASE_AVATAR:      'astroli_base_avatar_url',
@@ -60,7 +62,9 @@ export function getEffectiveAvatarUrl(): string | null {
 }
 
 export function getFirstName(): string {
-  return ls()?.getItem(K.FIRST_NAME) ?? 'Traveler';
+  // Sanitized on read: accounts created before invite names existed stored the
+  // raw email prefix (e.g. "ayana.student.test") as their first name.
+  return toDisplayFirstName(ls()?.getItem(K.FIRST_NAME) ?? 'Traveler');
 }
 
 export function saveBaseAvatarUrl(url: string): void {
@@ -131,11 +135,11 @@ export function generateAlienName(interest: string): string {
 
 /**
  * Returns the student's bot companion name.
- * Priority: Supabase-persisted name (saved at onboarding) → computed from interest → 'Pip'.
+ * Priority: Supabase-persisted name (saved at onboarding) → computed from interest → 'Orin'.
  */
 export function getBotName(): string {
   const stored = getAlienName();
   if (stored) return stored;
   const interest = getInterest();
-  return interest ? generateAlienName(interest) : 'Pip';
+  return interest ? generateAlienName(interest) : 'Orin';
 }

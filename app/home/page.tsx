@@ -13,7 +13,8 @@ export default function HomePage() {
   const router = useRouter();
   const [journeys, setJourneys] = useState<HomeJourney[] | null>(null);
   const [hasParent, setHasParent] = useState(false);
-  const [firstName] = useState(() => getFirstName());
+  const [firstName, setFirstName] = useState('');
+  useEffect(() => { setFirstName(getFirstName()); }, []);
 
   const load = useCallback(async () => {
     try {

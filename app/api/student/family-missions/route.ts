@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { requireAuth, resolveStudentId } from '@/lib/auth';
+import { isMissionFullyExplored } from '@/lib/student-home';
 
 export async function GET(req: NextRequest) {
   const auth = await requireAuth();
@@ -49,10 +50,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden: not enrolled in this class' }, { status: 403 });
   }
 
-  // Fetch all missions for this journey
+  // Fetch all missions for this journey (planets embedded for the
+  // per-student completion check below)
   const { data: missions, error } = await supabaseAdmin
     .from('missions')
-    .select('id, question, project_title, translations, "order"')
+    .select('id, question, project_title, translations, "order", planets(id)')
     .eq('journey_id', klass.journey_id)
     .order('"order"');
 
@@ -61,16 +63,26 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Fetch mission states for this class
+  // Fetch mission states for this class + the planets this student explored
   const missionIds = (missions ?? []).map((m: any) => m.id);
-  const { data: stateRows } = await supabaseAdmin
-    .from('class_mission_state')
-    .select('mission_id, state')
-    .eq('class_id', classId)
-    .in('mission_id', missionIds.length > 0 ? missionIds : ['__none__']);
+  const [{ data: stateRows }, { data: completedPlanetRows }] = await Promise.all([
+    supabaseAdmin
+      .from('class_mission_state')
+      .select('mission_id, state')
+      .eq('class_id', classId)
+      .in('mission_id', missionIds.length > 0 ? missionIds : ['__none__']),
+    supabaseAdmin
+      .from('planet_session_state')
+      .select('planet_id')
+      .eq('student_id', studentId)
+      .eq('completed', true),
+  ]);
 
   const stateByMission = new Map(
     (stateRows ?? []).map((r: any) => [r.mission_id, r.state as string]),
+  );
+  const exploredPlanetIds = new Set(
+    (completedPlanetRows ?? []).map((r: any) => r.planet_id as string),
   );
 
   const lang: 'en' | 'he' = klass.language === 'he' ? 'he' : 'en';
@@ -82,10 +94,17 @@ export async function GET(req: NextRequest) {
       const tx = translations[lang] ?? {};
       const rawTitle = m.question ?? m.project_title ?? 'Mission';
       const title = tx.question ?? tx.project_title ?? rawTitle;
+      // Per-student view, mirroring /api/student/home: an active mission whose
+      // planets this student has all explored is completed for them, so the
+      // picker shows it dimmed instead of offering it as a selectable world.
+      const classState = stateByMission.get(m.id) ?? 'locked';
+      const planetIds = ((m.planets ?? []) as { id: string }[]).map((p) => p.id);
+      const studentFinished = classState === 'active'
+        && isMissionFullyExplored(planetIds, exploredPlanetIds);
       return {
         id:    m.id,
         title,
-        state: stateByMission.get(m.id) ?? 'locked',
+        state: studentFinished ? 'completed' : classState,
         order: m.order,
       };
     }),

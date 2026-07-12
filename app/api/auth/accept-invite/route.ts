@@ -15,6 +15,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, createSSRServerClient } from '@/lib/supabase-server';
 import { z, parseBody } from '@/lib/validate';
+import { toDisplayFirstName } from '@/lib/display-name';
 
 const Schema = z.object({
   token: z.string().uuid('Invalid invite token'),
@@ -59,10 +60,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No email in session.' }, { status: 401 });
   }
 
-  // Name from invite metadata (set by inviteUserByEmail) or email prefix as fallback
+  // Name from invite metadata (set by inviteUserByEmail) or email prefix as
+  // fallback — toDisplayFirstName keeps the fallback humane ("ayana.student.test" → "Ayana").
   const childName = (user.user_metadata?.childName as string | undefined)
     ?? email.split('@')[0];
   const nameParts = childName.split(' ');
+  const firstName = toDisplayFirstName(nameParts[0] ?? '');
 
   // 2. Fetch and validate invite
   const { data: invite } = await supabaseAdmin
@@ -99,7 +102,7 @@ export async function POST(req: NextRequest) {
   const { data: child, error: childError } = await supabaseAdmin
     .from('users')
     .upsert(
-      { email, role: 'student', full_name: childName, first_name: nameParts[0] ?? '' },
+      { email, role: 'student', full_name: childName, first_name: firstName },
       { onConflict: 'email' },
     )
     .select('id, first_name, alien_name, base_avatar_url')
@@ -151,7 +154,7 @@ export async function POST(req: NextRequest) {
     role:         'student',
     userId:       canonicalId,
     email,
-    firstName:    nameParts[0] ?? '',
+    firstName,
     alienName,
     baseAvatarUrl,
     isNewStudent,

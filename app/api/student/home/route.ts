@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { requireAuth, resolveStudentId } from '@/lib/auth';
 import { resolveEnrolledClassIds } from '@/lib/student-enrollment';
-import { buildHomeJourney, type HomeJourney, type MissionSummary } from '@/lib/student-home';
+import { buildHomeJourney, isMissionFullyExplored, type HomeJourney, type MissionSummary } from '@/lib/student-home';
 
 // GET /api/student/home
 //
@@ -115,10 +115,16 @@ export async function GET() {
     const allMissions: MissionSummary[] = missions.map((m: any) => {
       const tx = classLanguage === 'he' ? ((m.he as Record<string, string> | null) ?? {}) : {};
       const rawTitle = (m.project_title ?? m.question ?? 'Mission') as string;
+      // Per-student view: an active mission whose planets this student has all
+      // explored is already "completed" for them (teal + reviewable on the
+      // orbit), even before the class-level state row is retired.
+      const classState = (stateByClassAndMission.get(`${c.id}:${m.id}`) ?? 'locked') as MissionSummary['state'];
+      const studentFinished = classState === 'active'
+        && isMissionFullyExplored(planetsByMission.get(m.id) ?? [], exploredPlanetIds);
       return {
         id:    m.id as string,
         title: (tx.question ?? tx.project_title ?? rawTitle) as string,
-        state: (stateByClassAndMission.get(`${c.id}:${m.id}`) ?? 'locked') as MissionSummary['state'],
+        state: studentFinished ? 'completed' : classState,
         order: m.order as number,
       };
     });

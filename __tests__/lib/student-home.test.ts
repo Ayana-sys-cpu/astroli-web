@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildHomeJourney } from '@/lib/student-home';
+import { buildHomeJourney, isMissionFullyExplored } from '@/lib/student-home';
 
 const base = {
   classId:     'class-1',
@@ -114,5 +114,19 @@ describe('buildHomeJourney', () => {
 
     expect(result.teacherName).toBeNull();
     expect(result.status).toBe('idle');
+  });
+});
+
+describe('isMissionFullyExplored', () => {
+  it('is true when the student explored every planet of the mission', () => {
+    expect(isMissionFullyExplored(['p1', 'p2'], new Set(['p1', 'p2', 'p3']))).toBe(true);
+  });
+
+  it('is false while any planet remains unexplored', () => {
+    expect(isMissionFullyExplored(['p1', 'p2'], new Set(['p1']))).toBe(false);
+  });
+
+  it('is false for a mission with no planets', () => {
+    expect(isMissionFullyExplored([], new Set(['p1']))).toBe(false);
   });
 });

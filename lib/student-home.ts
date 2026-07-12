@@ -25,6 +25,15 @@ export interface HomeJourney {
   missions?:               MissionSummary[];
 }
 
+/**
+ * A mission counts as fully explored once the student has completed every one
+ * of its planets. Missions without planets can never be "finished" — they stay
+ * in their class-level state.
+ */
+export function isMissionFullyExplored(planetIds: string[], exploredPlanetIds: ReadonlySet<string>): boolean {
+  return planetIds.length > 0 && planetIds.every((id) => exploredPlanetIds.has(id));
+}
+
 interface MissionStateLike {
   state: 'locked' | 'voting' | 'pending_start' | 'active' | 'completed' | 'skipped';
 }

@@ -19,7 +19,7 @@ const strings = {
     he: 'משימה',
   },
 
-  // ── PipGuidePanel ───────────────────────────────────────────────────────────
+  // ── OrinGuidePanel ───────────────────────────────────────────────────────────
   howToExplore: {
     en: 'How to explore',
     he: 'איך לחקור',
@@ -130,7 +130,7 @@ const strings = {
     he: 'מונחים מרכזיים',
   },
 
-  // ── Pip Smart Return — celebration & return messages ────────────────────────
+  // ── Orin Smart Return — celebration & return messages ────────────────────────
   celebrationMessage: {
     en: "Good. Now go find the truth — I'm here if you need me.",
     he: 'יאללה. עכשיו לך לגלות את האמת — אני כאן אם תצטרך.',
@@ -510,9 +510,9 @@ const strings = {
     en: 'CE',
     he: 'לספירה',
   },
-  whatPipToldMe: {
-    en: 'What Pip told me',
-    he: 'מה פיפ אמר לי',
+  whatOrinToldMe: {
+    en: 'What Orin told me',
+    he: 'מה אורין אמר לי',
   },
   travelerName: {
     en: 'Traveler',
@@ -532,17 +532,21 @@ const strings = {
     en: 'Mission complete!',
     he: '!משימה הושלמה',
   },
-  chooseMe: {
-    en: '+ Choose me',
-    he: '+ בחר אותי',
-  },
   doneReview: {
     en: 'Done · review',
     he: 'הושלם · סקירה',
   },
-  orbitMissionN: {
-    en: 'Mission {n}',
-    he: 'משימה {n}',
+  orbitContinue: {
+    en: '▸ Continue',
+    he: '▸ המשך',
+  },
+  orbitLocked: {
+    en: 'Locked',
+    he: 'נעול',
+  },
+  orbitIgnite: {
+    en: '+ Ignite',
+    he: '+ הצת',
   },
   missionsDoneOf: {
     en: '{n} / {total} done',

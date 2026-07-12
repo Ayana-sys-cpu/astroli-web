@@ -86,6 +86,11 @@ export default function JourneyCard({ journey, onClick }: JourneyCardProps) {
   const completedCount = journey.missions?.filter(m => m.state === 'completed').length ?? 0;
   const totalCount     = journey.missions?.length ?? 0;
 
+  // Derived from the per-student mission states (not journey.status): a live
+  // journey whose active mission this student already finished has no active
+  // planet, which is what frees the remaining planets to invite an ignite.
+  const hasActiveMission = journey.missions?.some(m => m.state === 'active') ?? false;
+
   // Card header title: prefer the active mission title; fall back to a pick invitation for
   // idle family journeys, or the class name for everything else.
   const headerTitle = journey.missionTitle
@@ -136,7 +141,7 @@ export default function JourneyCard({ journey, onClick }: JourneyCardProps) {
           missions={journey.missions!}
           classId={journey.classId}
           isFamilyClass={!!journey.isFamilyClass}
-          hasActive={journey.status === 'live'}
+          hasActive={hasActiveMission}
           language={lang}
           reducedMotion={reducedMotion}
         />

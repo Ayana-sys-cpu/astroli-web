@@ -9,11 +9,16 @@
 //           401 — no session
 //           403 — not a student / not enrolled / not a family class
 //           404 — mission not found or doesn't belong to this class
-//           409 — another mission is already active
+//           409 — another mission is active and not yet fully explored
+//
+// An active mission whose planets the student has all explored no longer
+// blocks: it is retired to 'completed' here, on the way into the new pick.
+// This is the only place a family mission transitions active → completed.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { requireAuth, resolveStudentId } from '@/lib/auth';
+import { isMissionFullyExplored } from '@/lib/student-home';
 import { z, parseBody } from '@/lib/validate';
 
 const Schema = z.object({
@@ -72,7 +77,9 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Mission not found in this class' }, { status: 404 });
   }
 
-  // Enforce one-active-at-a-time
+  // Enforce one-active-at-a-time — unless the active mission is already fully
+  // explored by this student, in which case retire it to 'completed' and let
+  // the new pick proceed.
   const { data: activeMission } = await supabaseAdmin
     .from('class_mission_state')
     .select('mission_id')
@@ -81,7 +88,34 @@ export async function PATCH(req: NextRequest) {
     .maybeSingle();
 
   if (activeMission) {
-    return NextResponse.json({ error: 'Another mission is already active' }, { status: 409 });
+    const { data: planetRows } = await supabaseAdmin
+      .from('planets')
+      .select('id')
+      .eq('mission_id', activeMission.mission_id);
+    const planetIds = (planetRows ?? []).map((p: { id: string }) => p.id);
+
+    const { data: exploredRows } = await supabaseAdmin
+      .from('planet_session_state')
+      .select('planet_id')
+      .eq('student_id', studentId)
+      .eq('completed', true)
+      .in('planet_id', planetIds.length > 0 ? planetIds : ['__none__']);
+    const exploredPlanetIds = new Set((exploredRows ?? []).map((r: { planet_id: string }) => r.planet_id));
+
+    if (!isMissionFullyExplored(planetIds, exploredPlanetIds)) {
+      return NextResponse.json({ error: 'Another mission is already active' }, { status: 409 });
+    }
+
+    const { error: completeError } = await supabaseAdmin
+      .from('class_mission_state')
+      .update({ state: 'completed' })
+      .eq('class_id', classId)
+      .eq('mission_id', activeMission.mission_id);
+
+    if (completeError) {
+      console.error('[student/mission-activate] failed to complete finished mission:', completeError);
+      return NextResponse.json({ error: completeError.message }, { status: 500 });
+    }
   }
 
   // Activate the mission
