@@ -24,10 +24,44 @@ async function getSessionMetadata(): Promise<Record<string, unknown>> {
   return (session?.user?.user_metadata ?? {}) as Record<string, unknown>;
 }
 
-/** Returns the authenticated student's DB user_id, or null if not a student session. */
+/**
+ * Returns the authenticated student's DB user_id, or null if not a student session.
+ *
+ * Primary source: session user_metadata.student_id. Fallback: GET /api/student/me —
+ * a client session token minted before the server-side metadata self-heal
+ * (see resolveStudentId in lib/auth.ts) carries stale metadata until refresh,
+ * so metadata alone would wrongly report "not a student" for a logged-in student.
+ * When the fallback resolves, the session is refreshed so subsequent reads hit
+ * the metadata fast path.
+ */
 export async function getSessionStudentId(): Promise<string | null> {
-  const meta = await getSessionMetadata();
-  return (meta.student_id as string | undefined) ?? null;
+  const { data: { session } } = await getBrowserClient().auth.getSession();
+  if (!session) return null;
+
+  const meta = (session.user?.user_metadata ?? {}) as Record<string, unknown>;
+  const fromMeta = meta.student_id as string | undefined;
+  if (fromMeta) return fromMeta;
+
+  return fetchHealedStudentId();
+}
+
+/** Asks the server to resolve (and self-heal) the student identity, then refreshes the token. */
+async function fetchHealedStudentId(): Promise<string | null> {
+  try {
+    const res = await fetch('/api/student/me');
+    if (!res.ok) return null;
+
+    const body: { studentId?: unknown } = await res.json();
+    if (typeof body.studentId !== 'string' || !body.studentId) return null;
+
+    // The endpoint backfilled user_metadata.student_id on the auth user;
+    // re-mint the client token so future calls skip this fallback.
+    await getBrowserClient().auth.refreshSession();
+
+    return body.studentId;
+  } catch {
+    return null;
+  }
 }
 
 // NOTE: There is intentionally no getSessionFirstName() here. The students'
