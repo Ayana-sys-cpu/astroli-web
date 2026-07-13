@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { getSessionStudentId } from '@/lib/session';
+import { getSessionToken } from '@/lib/session';
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? 'https://astorli-bot.vercel.app';
 
@@ -61,9 +61,9 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
   const [goalJustCompleted,  setGoalJustCompleted]  = useState<{ slug: string } | null>(null);
   const [coinAward,          setCoinAward]          = useState<CoinAward | null>(null);
   const [showSummary,     setShowSummary]     = useState(false);
-  const msgIdRef     = useRef(0);
-  const isMounted    = useRef(true);
-  const studentIdRef = useRef<string | null>(null);
+  const msgIdRef   = useRef(0);
+  const isMounted  = useRef(true);
+  const tokenRef   = useRef<string | null>(null);
 
   const nextIdRef = useRef((prefix: string) => `${prefix}-${++msgIdRef.current}`);
   const nextId = nextIdRef.current;
@@ -80,13 +80,13 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
     setCharLoading(true);
     setCharError(false);
 
-    getSessionStudentId().then(id => {
-      const studentId = id ?? '00000000-0000-0000-0000-000000000001';
-      studentIdRef.current = studentId;
+    getSessionToken().then(token => {
+      tokenRef.current = token;
+      const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
 
       return Promise.all([
         fetch(`${BOT_URL}/api/planet-voice/character?planetId=${encodeURIComponent(planetId)}&lang=${language}`).then(r => r.json()),
-        fetch(`${BOT_URL}/api/planet-voice/history?studentId=${encodeURIComponent(studentId)}&planetId=${encodeURIComponent(planetId)}&lang=${language}`).then(r => r.json()),
+        fetch(`${BOT_URL}/api/planet-voice/history?planetId=${encodeURIComponent(planetId)}&lang=${language}`, { headers: authHeader }).then(r => r.json()),
       ]);
     }).then(([charData, histData]) => {
       if (!isMounted.current) return;
@@ -128,7 +128,7 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
   const sendText = useCallback(async (text: string) => {
     if (!text.trim() || loading || !character) return;
 
-    const studentId = studentIdRef.current ?? '00000000-0000-0000-0000-000000000001';
+    const token = tokenRef.current;
 
     setInput('');
     setLoading(true);
@@ -144,8 +144,8 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
 
       const res = await fetch(`${BOT_URL}/api/planet-voice`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId, planetId, message: text.trim(), language }),
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ planetId, message: text.trim(), language }),
       });
 
       if (!isMounted.current) return;
@@ -184,7 +184,7 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
     const text = input.trim();
     if (!text || loading || !character) return;
 
-    const studentId = studentIdRef.current ?? '00000000-0000-0000-0000-000000000001';
+    const token = tokenRef.current;
 
     setInput('');
     setLoading(true);
@@ -200,8 +200,8 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
 
       const res = await fetch(`${BOT_URL}/api/planet-voice`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId, planetId, message: text, language }),
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ planetId, message: text, language }),
       });
 
       if (!isMounted.current) return;
@@ -261,6 +261,5 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
     totalGoals,
     showSummary,
     setShowSummary,
-    studentId: studentIdRef.current,
   };
 }

@@ -76,6 +76,16 @@ export async function getSessionTeacherId(): Promise<string | null> {
   return (meta.teacher_id as string | undefined) ?? null;
 }
 
+/**
+ * Returns the raw Supabase access token for the current session, or null if
+ * not signed in. Send this as `Authorization: Bearer <token>` when calling the
+ * bot API so the bot can verify identity server-side.
+ */
+export async function getSessionToken(): Promise<string | null> {
+  const { data: { session } } = await getBrowserClient().auth.getSession();
+  return session?.access_token ?? null;
+}
+
 /** Returns 'student' | 'teacher' | null for the current session. */
 export async function getSessionRole(): Promise<'student' | 'teacher' | null> {
   const meta = await getSessionMetadata();

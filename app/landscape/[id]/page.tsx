@@ -8,7 +8,7 @@ import { getPlanetMeta } from '@/lib/planet-meta';
 import { PLANET_EXPERIENCE } from '@/lib/planet-experience';
 import { useOrinChat } from '@/hooks/useOrinChat';
 import { getFirstName, loadStudent } from '@/lib/student-store';
-import { getSessionStudentId } from '@/lib/session';
+import { getSessionToken } from '@/lib/session';
 import TopBar from '@/components/TopBar';
 import { usePlanetVoice } from '@/hooks/usePlanetVoice';
 import { useCoinReward } from '@/hooks/useCoinReward';
@@ -213,11 +213,12 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
       // of terms introduced so far, the same way goal insights are already
       // visible before the planet is locked in.
       if (termDefinitions.length === 0) {
-        const studentId = await getSessionStudentId();
-        if (studentId) {
+        const token = await getSessionToken();
+        if (token) {
           const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL ?? 'https://astorli-bot.vercel.app';
           const termsRes = await fetch(
-            `${BOT_URL}/api/planet-voice/terms?studentId=${studentId}&planetId=${params.id}&language=${missionLang}`,
+            `${BOT_URL}/api/planet-voice/terms?planetId=${params.id}&language=${missionLang}`,
+            { headers: { Authorization: `Bearer ${token}` } },
           );
           const termsData = await termsRes.json();
           setSavedIntroducedTerms(termsData.terms ?? []);
@@ -240,7 +241,7 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
   ) {
     const [, nextData] = await Promise.all([
       preloadInsights(),
-      fetch(`/api/student/planet-next?planetId=${params.id}${classId ? `&classId=${classId}` : ''}`)
+      fetch(`/api/student/planet-next?planetId=${params.id}&lang=${missionLang}${classId ? `&classId=${classId}` : ''}`)
         .then(r => r.json())
         .catch(() => ({ nextPlanet: null, missionProgress: null })),
     ]);

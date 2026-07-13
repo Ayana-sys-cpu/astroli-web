@@ -1,11 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { getSessionStudentId } from '@/lib/session';
+import { getSessionToken } from '@/lib/session';
 
 const BOT_URL          = 'https://astorli-bot.vercel.app/api/bot';
 const OPENING_URL      = 'https://astorli-bot.vercel.app/api/opening-message';
-const FALLBACK_ID      = '00000000-0000-0000-0000-000000000001';
 
 export interface QuickReply   { label: string; value: string }
 export interface ChatMessage  {
@@ -34,9 +33,11 @@ export function useOrinChat(
     if (!contentId || !contentType || openingFetched.current) return;
     openingFetched.current = true;
 
-    getSessionStudentId().then(id => {
-      const studentId = id ?? FALLBACK_ID;
-      fetch(`${OPENING_URL}?type=${contentType}&contentId=${contentId}&studentId=${studentId}&lang=${language}`)
+    getSessionToken().then(token => {
+      if (!token) return;
+      fetch(`${OPENING_URL}?type=${contentType}&contentId=${contentId}&lang=${language}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
         .then(r => r.json())
         .then(data => {
           if (data.message) {
@@ -57,7 +58,7 @@ export function useOrinChat(
     const msg = (text ?? input).trim();
     if (!msg || loading) return;
 
-    const studentId = (await getSessionStudentId()) ?? FALLBACK_ID;
+    const token = await getSessionToken();
     setMessages(prev => [...prev, { role: 'user', content: msg }]);
     setInput('');
     setLoading(true);
@@ -65,9 +66,8 @@ export function useOrinChat(
     try {
       const res  = await fetch(BOT_URL, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body:    JSON.stringify({
-          studentId,
           message:        msg,
           screen,
           language,

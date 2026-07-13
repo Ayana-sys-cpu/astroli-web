@@ -3,12 +3,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { getBotName, getFirstName, getEffectiveAvatarUrl } from '@/lib/student-store';
-import { getSessionStudentId } from '@/lib/session';
+import { getSessionToken } from '@/lib/session';
 import { t, type Lang } from '@/lib/i18n';
 
 const BOT_URL     = 'https://astorli-bot.vercel.app/api/bot';
 const OPENING_URL = 'https://astorli-bot.vercel.app/api/opening-message';
-const FALLBACK_ID = '00000000-0000-0000-0000-000000000001';
 
 const teal    = '#00d4d4';
 const tealDim = 'rgba(0,212,212,0.10)';
@@ -91,13 +90,15 @@ export default function AvatarBot() {
     openingFetched.current = true;
 
     const { contentType, contentId } = content;
-    getSessionStudentId().then((id) => {
-      const studentId = id ?? FALLBACK_ID;
+    getSessionToken().then((token) => {
+      if (!token) return;
       const rawName = getFirstName();
       const name = rawName && !rawName.includes(' ') && rawName.includes('.')
         ? rawName.split('.')[0].replace(/^./, (c: string) => c.toUpperCase())
         : rawName;
-      fetch(`${OPENING_URL}?type=${contentType}&contentId=${contentId}&studentId=${studentId}&lang=${missionLanguage}`)
+      fetch(`${OPENING_URL}?type=${contentType}&contentId=${contentId}&lang=${missionLanguage}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
         .then(r => r.json())
         .then(data => {
           if (data.message) {
@@ -119,7 +120,7 @@ export default function AvatarBot() {
   async function send(overrideText?: string) {
     const text = (overrideText ?? input).trim();
     if (!text || loading) return;
-    const studentId = (await getSessionStudentId()) ?? FALLBACK_ID;
+    const token = await getSessionToken();
 
     setMessages(prev => [...prev, { role: 'user', content: text }]);
     setInput('');
@@ -128,9 +129,8 @@ export default function AvatarBot() {
     try {
       const res  = await fetch(BOT_URL, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body:    JSON.stringify({
-          studentId,
           message:        text,
           screen,
           currentPlanet:  content?.contentType === 'planet'  ? content.contentId : undefined,
