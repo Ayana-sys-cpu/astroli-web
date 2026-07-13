@@ -460,6 +460,66 @@ const strings = {
     en: 'Choose your next mission',
     he: 'בחר את המשימה הבאה שלך',
   },
+  achievementUnlocked: {
+    en: 'ACHIEVEMENT UNLOCKED',
+    he: 'הישג נפתח',
+  },
+  coinsShort: {
+    en: 'COINS',
+    he: 'מטבעות',
+  },
+  claimedLabel: {
+    en: 'CLAIMED',
+    he: 'נאסף',
+  },
+  planetCompleteBadge: {
+    en: 'COMPLETE',
+    he: 'הושלם',
+  },
+  insightsAndTerms: {
+    en: '{insights} insights · {terms} new terms',
+    he: '{insights} תובנות · {terms} מושגים חדשים',
+  },
+  hereEverythingCaught: {
+    en: "Here's everything you caught",
+    he: 'הנה כל מה שתפסת',
+  },
+  newTermsVocab: {
+    en: 'New terms in your vocabulary',
+    he: 'מושגים חדשים באוצר המילים שלך',
+  },
+  whereToNext: {
+    en: 'Where to next?',
+    he: 'לאן הלאה?',
+  },
+  orinName: {
+    en: 'ORIN',
+    he: 'אורין',
+  },
+  missionProgressLabel: {
+    en: 'MISSION PROGRESS',
+    he: 'התקדמות במשימה',
+  },
+  planetsCount: {
+    en: '{completed} / {total} PLANETS',
+    he: '{completed} / {total} כוכבים',
+  },
+  nextDestination: {
+    en: 'NEXT DESTINATION',
+    he: 'היעד הבא',
+  },
+  celebrationOrinSpeech: {
+    en: '“Nice work. {name} is glowing on the map — I have a good feeling about that one.”',
+    he: '"עבודה יפה. {name} זוהר על המפה — יש לי הרגשה טובה לגביו."',
+  },
+  celebrationOrinSpeechMission: {
+    en: '“You explored every planet here. The whole mission is yours — let’s find the next one.”',
+    he: '"חקרת כל כוכב כאן. כל המשימה שלך — בוא נמצא את הבאה."',
+  },
+  takeMeBackToMap: {
+    en: 'or just take me back to the map',
+    he: 'או פשוט קח אותי חזרה למפה',
+  },
 
   // ── Planet drill-down — celebration / reward / fallbacks ───────────────────
   planetExplored: {

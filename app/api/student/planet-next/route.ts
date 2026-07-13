@@ -27,19 +27,28 @@ export async function GET(req: NextRequest) {
 
   const missionId: string = (currentPlanet as Record<string, unknown>).mission_id as string;
 
-  // 2. Load mission language so we can resolve the correct label translation.
-  const { data: missionRow } = await supabaseAdmin
-    .from('missions')
-    .select('language')
-    .eq('id', missionId)
-    .single();
-
-  const missionLang: 'en' | 'he' = (missionRow as { language?: string } | null)?.language === 'he' ? 'he' : 'en';
+  // 2. Language for label resolution. The caller (celebration overlay) passes the SAME
+  // language it is rendering in — which honours the student's *class* language, not just
+  // the mission's stored language. Fall back to the mission's DB language only when the
+  // caller doesn't specify one. (Fixes: English class on a he-flagged mission showing a
+  // Hebrew next-planet label.)
+  const langParam = searchParams.get('lang');
+  let missionLang: 'en' | 'he';
+  if (langParam === 'he') missionLang = 'he';
+  else if (langParam === 'en') missionLang = 'en';
+  else {
+    const { data: missionRow } = await supabaseAdmin
+      .from('missions')
+      .select('language')
+      .eq('id', missionId)
+      .single();
+    missionLang = (missionRow as { language?: string } | null)?.language === 'he' ? 'he' : 'en';
+  }
 
   // 3. Load all sibling planets (same mission) ordered by creation date.
   const { data: siblings } = await supabaseAdmin
     .from('planets')
-    .select('id, label, title, translations, created_at')
+    .select('id, label, title, translations, planet_question, created_at')
     .eq('mission_id', missionId)
     .order('created_at', { ascending: true });
 
@@ -48,6 +57,7 @@ export async function GET(req: NextRequest) {
     label: string | null;
     title: string;
     translations: Record<string, Record<string, string>> | null;
+    planet_question: string | null;
     created_at: string;
   }>;
 
@@ -73,15 +83,18 @@ export async function GET(req: NextRequest) {
   const justCompletedIndex = siblingList.findIndex(p => p.id === planetId);
 
   // 5. Find the first sibling after the current planet that isn't complete yet.
-  function resolveLabel(p: typeof siblingList[number]): string {
+  //    Base columns hold English; translations.he holds Hebrew (repo convention —
+  //    see getPlanetTitle in mission-state/route.ts). Only reach for a he translation
+  //    when rendering in Hebrew.
+  function resolveField(p: typeof siblingList[number], field: 'label' | 'title', base: string | null): string {
     if (missionLang === 'he') {
-      const heLabel = p.translations?.he?.label;
-      if (heLabel) return heLabel;
+      const he = p.translations?.he?.[field];
+      if (he) return he;
     }
-    return p.label ?? p.title;
+    return base ?? p.title;
   }
 
-  let nextPlanet: { id: string; label: string; title: string } | null = null;
+  let nextPlanet: { id: string; label: string; title: string; tease: string } | null = null;
   // Search forward from the planet after the current one, wrap if needed.
   const searchOrder = [
     ...siblingList.slice(justCompletedIndex + 1),
@@ -89,10 +102,15 @@ export async function GET(req: NextRequest) {
   ];
   for (const candidate of searchOrder) {
     if (!completedSet.has(candidate.id)) {
+      const title = resolveField(candidate, 'title', candidate.title);
+      // Teaser: the planet's driving question if present, else its title.
+      const heQuestion = missionLang === 'he' ? candidate.translations?.he?.planet_question : undefined;
+      const tease = (heQuestion || candidate.planet_question || title).trim();
       nextPlanet = {
         id:    candidate.id,
-        label: resolveLabel(candidate),
-        title: candidate.title,
+        label: resolveField(candidate, 'label', candidate.label),
+        title,
+        tease,
       };
       break;
     }
