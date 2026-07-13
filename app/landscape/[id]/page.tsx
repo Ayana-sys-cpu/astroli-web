@@ -64,6 +64,7 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
   const [celebrationNextPlanet, setCelebrationNextPlanet] = useState<NextPlanetInfo | null>(null);
   const [celebrationProgress, setCelebrationProgress] = useState<MissionProgressInfo | null>(null);
   const [celebrationVariant, setCelebrationVariant] = useState<'planet' | 'mission'>('planet');
+  const [celebrationSourceRect, setCelebrationSourceRect] = useState<DOMRect | null>(null);
   const chatPanelRef = useRef<HTMLElement>(null);
 
   useEffect(() => { isThinkingRef.current = isAvatarThinking; }, [isAvatarThinking]);
@@ -239,20 +240,29 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
     award: { amount: number; newBalance: number },
     variant: 'planet' | 'mission' = 'planet',
   ) {
+    // Show Beat 1 immediately so the reward card flies out of the chat panel the
+    // instant the planet completes — same immediacy as the goal-reward popup. Capture
+    // the panel's box now (it's still on screen) so the overlay can launch from it.
+    // The heavier insight + next-planet data (only needed for Beats 2–3) streams in
+    // behind it, so the entrance never waits on a network round-trip.
+    setCelebrationVariant(variant);
+    setCelebrationAward(award);
+    setCelebrationSourceRect(chatPanelRef.current?.getBoundingClientRect() ?? null);
+    setCelebrationNextPlanet(null);
+    setCelebrationProgress({ completed: 1, total: 1, justCompletedIndex: 0 });
+    setShowCelebration(true);
+
     const [, nextData] = await Promise.all([
       preloadInsights(),
       fetch(`/api/student/planet-next?planetId=${params.id}&lang=${missionLang}${classId ? `&classId=${classId}` : ''}`)
         .then(r => r.json())
         .catch(() => ({ nextPlanet: null, missionProgress: null })),
     ]);
-    setCelebrationVariant(variant);
-    setCelebrationAward(award);
     setCelebrationNextPlanet((nextData as { nextPlanet?: NextPlanetInfo }).nextPlanet ?? null);
     setCelebrationProgress(
       (nextData as { missionProgress?: MissionProgressInfo }).missionProgress
         ?? { completed: 1, total: 1, justCompletedIndex: 0 },
     );
-    setShowCelebration(true);
   }
 
   if (loading) {
@@ -532,6 +542,7 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
           language={missionLang}
           classId={classId ?? undefined}
           variant={celebrationVariant}
+          sourceRect={celebrationSourceRect ?? undefined}
           onClose={() => setShowCelebration(false)}
         />
       )}

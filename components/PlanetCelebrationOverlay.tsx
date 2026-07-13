@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { t, type Lang } from '@/lib/i18n';
 import { useCoinReward } from '@/hooks/useCoinReward';
@@ -34,6 +34,9 @@ interface Props {
   // 'mission' — the planet just completed was the last one, finishing the whole
   // mission: Beat 1/3 texts celebrate the mission and Beat 3 routes to /home.
   variant?: 'planet' | 'mission';
+  /** On-screen box of the element the overlay should fly out of (the chat panel),
+   *  mirroring the goal-reward popup's entrance. Omit for the center-materialize fallback. */
+  sourceRect?: DOMRect;
 }
 
 type Beat = 1 | 2 | 3;
@@ -65,6 +68,7 @@ export default function PlanetCelebrationOverlay({
   nextPlanet, missionProgress,
   language, classId, onClose,
   variant = 'planet',
+  sourceRect,
 }: Props) {
   const router = useRouter();
   const { setBalance } = useCoinReward();
@@ -73,6 +77,9 @@ export default function PlanetCelebrationOverlay({
     ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
     : false;
   const isRTL = language === 'he';
+  // When the chat panel's box is supplied, Beat 1 flies out of it (goal-reward
+  // entrance) instead of materializing at screen centre.
+  const srcEntry = !!sourceRect && !REDUCED;
 
   const [beat, setBeat]         = useState<Beat>(1);
   const [claimState, setClaim]  = useState<ClaimState>('claim');
@@ -134,6 +141,30 @@ export default function PlanetCelebrationOverlay({
   // Nudge the video into playback — muted autoplay is usually allowed, but be explicit
   // (the celebration mounts right after a tap, so the gesture requirement is satisfied).
   useEffect(() => { orinRef.current?.play().catch(() => { /* autoplay blocked — first frame is fine */ }); }, []);
+
+  // ── Beat 1 entrance — reuse the goal-reward "fly out of the chat panel" motion ──
+  // Launch the reward card from the supplied panel box and settle it at its resting
+  // centre, matching CoinRewardModal's timing (0.35s hold → 0.85s flight) exactly.
+  // Measured (not CSS) because the destination depends on the card's runtime layout.
+  // The backdrop + chrome stay hidden until this lands (see `.pco-src` styles).
+  useLayoutEffect(() => {
+    if (!srcEntry || !sourceRect) return;
+    const card = cardRef.current;
+    if (!card) return;
+    const rect = card.getBoundingClientRect();
+    const dx = (sourceRect.left + sourceRect.width / 2) - (rect.left + rect.width / 2);
+    const dy = (sourceRect.top + sourceRect.height / 2) - (rect.top + rect.height / 2);
+    card.style.transition = 'none';
+    card.style.transform  = `translate(${dx}px, ${dy}px) scale(0.2)`;
+    card.style.opacity    = '0';
+    card.style.filter     = 'blur(12px)';
+    void card.offsetWidth; // reflow so the jump-to-panel isn't itself animated
+    const EASE = 'cubic-bezier(0.16,1,0.3,1)';
+    card.style.transition = `transform 0.85s 0.35s ${EASE}, opacity 0.85s 0.35s ${EASE}, filter 0.85s 0.35s ${EASE}`;
+    card.style.transform  = 'translate(0px, 0px) scale(1)';
+    card.style.opacity    = '1';
+    card.style.filter     = 'blur(0px)';
+  }, [srcEntry, sourceRect]);
 
   useEffect(() => {
     function onResize() { if (beat === 1) placeOrinOnCard(); }
@@ -292,23 +323,28 @@ export default function PlanetCelebrationOverlay({
   const insightCount = insights.length;
 
   return (
-    <div ref={rootRef} className={`pco${isRTL ? ' pco-rtl' : ''}${REDUCED ? ' pco-reduced' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
-      {/* ── Backdrop: stars + nebula ── */}
-      <div className="pco-stars">
-        {STAR_PTS.map(([l, top, s, dl, d, op], i) => (
-          <div key={i} className="pco-star-pt" style={{
-            left: `${l}%`, top: `${top}%`, width: s, height: s,
-            ['--d' as string]: `${d}s`, ['--dl' as string]: `${dl}s`, ['--op' as string]: op,
-          }} />
-        ))}
+    <div ref={rootRef} className={`pco${isRTL ? ' pco-rtl' : ''}${REDUCED ? ' pco-reduced' : ''}${srcEntry ? ' pco-src' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* ── Backdrop: solid veil + stars + nebula. In `pco-src` mode this whole group
+           dims in only after the Beat-1 card has flown out of the chat and landed,
+           so the planet screen stays visible through the flight (goal-reward feel). ── */}
+      <div className="pco-backdrop">
+        <div className="pco-veil" />
+        <div className="pco-stars">
+          {STAR_PTS.map(([l, top, s, dl, d, op], i) => (
+            <div key={i} className="pco-star-pt" style={{
+              left: `${l}%`, top: `${top}%`, width: s, height: s,
+              ['--d' as string]: `${d}s`, ['--dl' as string]: `${dl}s`, ['--op' as string]: op,
+            }} />
+          ))}
+        </div>
+        <div className="pco-nebula-backdrop" />
+        <div className="pco-nebula-blob-1" />
+        <div className="pco-nebula-blob-2" />
+        <div className="pco-nebula-fog" />
       </div>
-      <div className="pco-nebula-backdrop" />
-      <div className="pco-nebula-blob-1" />
-      <div className="pco-nebula-blob-2" />
-      <div className="pco-nebula-fog" />
 
       {/* ── Orin: whole video, screen-blended, TRAVELS between beats ── */}
-      <video ref={orinRef} className="pco-orin pco-orin-1" src={orinVideoUrl} autoPlay loop muted playsInline />
+      <video ref={orinRef} className={`pco-orin pco-orin-1${srcEntry ? ' pco-src-orin' : ''}`} src={orinVideoUrl} autoPlay loop muted playsInline />
 
       <canvas ref={confettiRef} className="pco-confetti" />
 
@@ -333,7 +369,7 @@ export default function PlanetCelebrationOverlay({
 
       {/* ── BEAT 1 ── */}
       <div className={`pco-beat pco-b1${beat === 1 ? ' pco-active' : ''}`}>
-        <div ref={cardRef} className="pco-reward-card">
+        <div ref={cardRef} className={`pco-reward-card${srcEntry ? ' pco-src-entry' : ''}`}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
             <div className="pco-badge"><div className="pco-badge-dot" />{t('achievementUnlocked', language)}</div>
             <h1 className="pco-card-title">{variant === 'mission' ? t('missionComplete', language) : t('planetExplored', language)}</h1>
@@ -484,7 +520,7 @@ const CSS = `
   --head:'Space Grotesk','Inter',system-ui,sans-serif;
   --body:'Hanken Grotesk','Inter',system-ui,sans-serif;
   --mono:'JetBrains Mono',ui-monospace,monospace;
-  background:#060812; color:var(--tp); font-family:var(--head);
+  background:transparent; color:var(--tp); font-family:var(--head);
   overflow:hidden;
 }
 .pco *, .pco *::before, .pco *::after { box-sizing:border-box; margin:0; padding:0; }
@@ -503,6 +539,24 @@ const CSS = `
 .pco-pill { position:fixed; top:16px; right:24px; z-index:9000; display:flex; align-items:center; gap:7px; background:rgba(138,92,245,0.18); border:1px solid rgba(138,92,245,0.4); border-radius:999px; padding:7px 16px; font-size:13px; font-weight:700; color:var(--purple); font-variant-numeric:tabular-nums; transition:transform .2s, box-shadow .3s; backdrop-filter:blur(6px); }
 .pco-rtl .pco-pill { right:auto; left:24px; }
 .pco-pill.pco-pulse { transform:scale(1.12); box-shadow:0 0 24px rgba(192,167,255,0.5); border-color:rgba(192,167,255,0.7); }
+
+/* ── Beat-1 entrance choreography (only in pco-src / "flew out of the chat" mode) ── */
+/* Deferred backdrop: the whole dark scene dims in AFTER the card lands (0.35s hold +
+   0.85s flight = 1.2s), so the planet screen shows through during the flight. */
+.pco-backdrop { position:fixed; inset:0; z-index:0; pointer-events:none; }
+.pco-veil { position:absolute; inset:0; background:#060812; z-index:0; }
+.pco-src .pco-backdrop { animation:pco-veil-in .8s 1.2s both; }
+@keyframes pco-veil-in { from{opacity:0} to{opacity:1} }
+/* Chrome (step dots / skip / sound / pill) fades in with the backdrop, not over the flight. */
+.pco-src .pco-step-dots, .pco-src .pco-skip, .pco-src .pco-sound, .pco-src .pco-pill { animation:pco-veil-in .8s 1.2s both; }
+/* Stardust motes drift in with the backdrop instead of over the planet screen. */
+.pco-src .pco-mote { animation-delay:calc(1.2s + var(--dl,0s)); animation-fill-mode:both; }
+/* Beat-1 card: JS drives the fly-out from the chat panel — disable the CSS materialize
+   and start hidden so there's no one-frame flash at centre before the effect runs. */
+.pco-src-entry { animation:none !important; opacity:0; }
+/* Orin materializes on the card as it lands (he presents the completed planet). */
+.pco-src-orin { animation:pco-orin-enter .5s 1s both; }
+@keyframes pco-orin-enter { from{opacity:0} to{opacity:1} }
 
 /* backdrop */
 .pco-nebula-backdrop { position:fixed; inset:0; z-index:1; pointer-events:none; background:radial-gradient(ellipse at 50% 50%, rgba(84,23,190,0.30) 0%, rgba(9,6,20,0.90) 75%); }
