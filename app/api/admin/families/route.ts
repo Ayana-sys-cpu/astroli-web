@@ -109,7 +109,7 @@ export async function GET() {
       childEmail:   childMeta?.email ?? null,
       childName:    childMeta?.name ?? null,
       botUsed:      p.bot_conversations_used ?? 0,
-      botLimit:     p.bot_conversations_limit ?? 50,
+      botLimit:     p.bot_conversations_limit ?? 150,
       journeyTitle: familyClass?.title ?? null,
       missionsCompleted: states.filter(s => s === 'completed').length,
       missionsTotal:     states.length,

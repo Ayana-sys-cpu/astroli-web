@@ -132,7 +132,7 @@ export async function GET() {
     missionProgress,
     botUsage: {
       used:    parentUser?.bot_conversations_used ?? 0,
-      limit:   parentUser?.bot_conversations_limit ?? 50,
+      limit:   parentUser?.bot_conversations_limit ?? 150,
       resetsAt: parentUser?.bot_cap_reset_at ?? null,
     },
     setupState,
