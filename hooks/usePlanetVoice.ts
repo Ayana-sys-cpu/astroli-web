@@ -82,7 +82,7 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
 
     getSessionToken().then(token => {
       tokenRef.current = token;
-      const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
+      const authHeader: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
       return Promise.all([
         fetch(`${BOT_URL}/api/planet-voice/character?planetId=${encodeURIComponent(planetId)}&lang=${language}`).then(r => r.json()),
