@@ -61,9 +61,17 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
   const [goalJustCompleted,  setGoalJustCompleted]  = useState<{ slug: string } | null>(null);
   const [coinAward,          setCoinAward]          = useState<CoinAward | null>(null);
   const [showSummary,     setShowSummary]     = useState(false);
+  // Set to the last message that failed to get a reply (network error, or the
+  // server degraded to a retryable fallback). Non-null drives a "try again"
+  // affordance so a transient hiccup is never a dead end.
+  const [retryText,       setRetryText]       = useState<string | null>(null);
   const msgIdRef   = useRef(0);
   const isMounted  = useRef(true);
   const tokenRef   = useRef<string | null>(null);
+  // Synchronous guard against concurrent/duplicate sends. `loading` state lags
+  // a render behind, so two rapid triggers (Enter + click, double-tap) could
+  // both pass the check and append the same turn twice — this ref cannot.
+  const inFlightRef = useRef(false);
 
   const nextIdRef = useRef((prefix: string) => `${prefix}-${++msgIdRef.current}`);
   const nextId = nextIdRef.current;
@@ -125,120 +133,95 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
     // mission language resolves (it starts as 'en' before the mission loads).
   }, [planetId, language]);
 
-  const sendText = useCallback(async (text: string) => {
-    if (!text.trim() || loading || !character) return;
-
+  // Shared network turn: POSTs the message, then applies the figure reply and
+  // side effects. Returns 'ok' on a real reply, or 'retry' when the turn should
+  // be re-offered — a network error, a non-2xx, or the server's graceful
+  // `retryable` fallback. Never appends the student bubble; callers own that so
+  // a retry can't duplicate it.
+  const runTurn = useCallback(async (text: string): Promise<'ok' | 'retry'> => {
     const token = tokenRef.current;
-
-    setInput('');
     setLoading(true);
-
-    setMessages(prev => [...prev, {
-      id: nextId('student'),
-      speaker: 'student',
-      content: text.trim(),
-    }]);
-
+    if (isMounted.current) setThinking(true);
     try {
-      if (isMounted.current) setThinking(true);
-
-      const res = await fetch(`${BOT_URL}/api/planet-voice`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ planetId, message: text.trim(), language }),
-      });
-
-      if (!isMounted.current) return;
-      if (!res.ok) throw new Error(`API error ${res.status}`);
-
-      const data = await res.json();
-      if (isMounted.current) {
-        setMessages(prev => [...prev, {
-          id: nextId('figure'),
-          speaker: 'figure',
-          content: data.figureMessage,
-        }]);
-        if (data.goalJustCompleted) setGoalJustCompleted(data.goalJustCompleted);
-        if (data.reward) setCoinAward(data.reward);
-        if (data.completionReady && !completionReady) {
-          setCompletionReady(true);
-          setCompletionType(data.completionType ?? null);
-          setSummaryInsights(data.summaryInsights ?? []);
-        }
-        if (data.perkinsMap) setPerkinsMap(data.perkinsMap);
-        if (typeof data.totalGoals === 'number' && totalGoals === null) setTotalGoals(data.totalGoals);
-      }
-    } catch {
-      if (!isMounted.current) return;
-      setMessages(prev => [...prev, {
-        id: nextId('error'),
-        speaker: 'figure',
-        content: '...forgive me. The words have left me for a moment.',
-      }]);
-    } finally {
-      if (isMounted.current) { setThinking(false); setLoading(false); }
-    }
-  }, [loading, character, planetId, language, completionReady]);
-
-  const send = useCallback(async () => {
-    const text = input.trim();
-    if (!text || loading || !character) return;
-
-    const token = tokenRef.current;
-
-    setInput('');
-    setLoading(true);
-
-    setMessages(prev => [...prev, {
-      id: nextId('student'),
-      speaker: 'student',
-      content: text,
-    }]);
-
-    try {
-      if (isMounted.current) setThinking(true);
-
       const res = await fetch(`${BOT_URL}/api/planet-voice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ planetId, message: text, language }),
       });
-
-      if (!isMounted.current) return;
-      if (!res.ok) throw new Error(`API error ${res.status}`);
+      if (!isMounted.current) return 'ok';
+      if (!res.ok) return 'retry';
 
       const data = await res.json();
+      if (!isMounted.current) return 'ok';
+      if (data.retryable) return 'retry';
 
-      if (isMounted.current) {
-        setMessages(prev => [...prev, {
-          id: nextId('figure'),
-          speaker: 'figure',
-          content: data.figureMessage,
-        }]);
-        if (data.goalJustCompleted) setGoalJustCompleted(data.goalJustCompleted);
-        if (data.reward) setCoinAward(data.reward);
-        if (data.completionReady && !completionReady) {
-          setCompletionReady(true);
-          setCompletionType(data.completionType ?? null);
-          setSummaryInsights(data.summaryInsights ?? []);
-        }
-        if (data.perkinsMap) setPerkinsMap(data.perkinsMap);
-        if (typeof data.totalGoals === 'number' && totalGoals === null) setTotalGoals(data.totalGoals);
-      }
-    } catch {
-      if (!isMounted.current) return;
       setMessages(prev => [...prev, {
-        id: nextId('error'),
+        id: nextId('figure'),
         speaker: 'figure',
-        content: '...forgive me. The words have left me for a moment.',
+        content: data.figureMessage,
       }]);
-    } finally {
-      if (isMounted.current) {
-        setThinking(false);
-        setLoading(false);
+      if (data.goalJustCompleted) setGoalJustCompleted(data.goalJustCompleted);
+      if (data.reward) setCoinAward(data.reward);
+      if (data.completionReady && !completionReady) {
+        setCompletionReady(true);
+        setCompletionType(data.completionType ?? null);
+        setSummaryInsights(data.summaryInsights ?? []);
       }
+      if (data.perkinsMap) setPerkinsMap(data.perkinsMap);
+      if (typeof data.totalGoals === 'number' && totalGoals === null) setTotalGoals(data.totalGoals);
+      return 'ok';
+    } catch {
+      return 'retry';
+    } finally {
+      if (isMounted.current) { setThinking(false); setLoading(false); }
     }
-  }, [input, loading, character, planetId, language, completionReady]);
+  }, [planetId, language, completionReady, totalGoals, nextId]);
+
+  // Send a new message: append the student bubble once, then run the turn.
+  // The inFlightRef guard makes this idempotent against a double trigger.
+  const deliver = useCallback(async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || inFlightRef.current || !character) return;
+    inFlightRef.current = true;
+    setRetryText(null);
+
+    setMessages(prev => [...prev, {
+      id: nextId('student'),
+      speaker: 'student',
+      content: trimmed,
+    }]);
+
+    try {
+      const outcome = await runTurn(trimmed);
+      if (outcome === 'retry' && isMounted.current) setRetryText(trimmed);
+    } finally {
+      inFlightRef.current = false;
+    }
+  }, [character, runTurn, nextId]);
+
+  const sendText = useCallback((text: string) => { void deliver(text); }, [deliver]);
+
+  const send = useCallback(() => {
+    const text = input.trim();
+    if (!text) return;
+    setInput('');
+    void deliver(text);
+  }, [input, deliver]);
+
+  // Re-run the last failed turn WITHOUT re-appending the student bubble — it is
+  // already in the transcript from the original attempt.
+  const retryLast = useCallback(async () => {
+    if (!retryText || inFlightRef.current) return;
+    inFlightRef.current = true;
+    const text = retryText;
+    setRetryText(null);
+    try {
+      const outcome = await runTurn(text);
+      if (outcome === 'retry' && isMounted.current) setRetryText(text);
+    } finally {
+      inFlightRef.current = false;
+    }
+  }, [retryText, runTurn]);
 
   return {
     character,
@@ -251,6 +234,9 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
     sendText,
     loading,
     thinking,
+    // transient-failure recovery
+    canRetry: retryText !== null,
+    retryLast,
     // completion flow
     goalJustCompleted,
     coinAward,

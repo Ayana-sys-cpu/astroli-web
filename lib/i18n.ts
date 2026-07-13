@@ -64,6 +64,10 @@ const strings = {
     en: 'Ask me about this mission…',
     he: 'שאל אותי כל דבר…',
   },
+  chatRetry: {
+    en: 'That didn’t go through — tap to try again',
+    he: 'זה לא נשלח — הקש כדי לנסות שוב',
+  },
   gotItReady: {
     en: 'Got it — start exploring →',
     he: 'הבנתי — התחל לחקור →',

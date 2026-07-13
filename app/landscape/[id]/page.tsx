@@ -476,6 +476,8 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
                 sendText={planetVoice.sendText}
                 loading={planetVoice.loading}
                 thinking={planetVoice.thinking}
+                canRetry={planetVoice.canRetry}
+                retryLast={planetVoice.retryLast}
                 studentFirstName={firstName}
                 missionTitle={planet.title}
                 openingGreeting={(planet.openingMessage ?? experience?.greeting ?? undefined)
