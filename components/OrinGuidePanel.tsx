@@ -473,7 +473,7 @@ function LockDock() {
   );
 }
 
-function UnderstandDock({ onGotIt, onSend, onInvestigate, lang }: { onGotIt: () => void; onSend: (text: string) => void; onInvestigate?: () => void; lang: Lang }) {
+function UnderstandDock({ onGotIt, onSend, lang }: { onGotIt: () => void; onSend: (text: string) => void; lang: Lang }) {
   const [draft, setDraft] = useState('');
 
   return (
@@ -499,22 +499,6 @@ function UnderstandDock({ onGotIt, onSend, onInvestigate, lang }: { onGotIt: () 
       >
         {t('gotItReady', lang)}
       </button>
-
-      {onInvestigate && (
-        <button
-          onClick={onInvestigate}
-          style={{
-            width: '100%', padding: '13px 18px', borderRadius: 12,
-            background: 'rgba(168,85,247,0.12)', border: `1.5px solid rgba(168,85,247,0.40)`,
-            color: T.ac, fontSize: 14, fontWeight: 800, cursor: 'pointer',
-            transition: 'all 0.15s',
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(168,85,247,0.22)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(168,85,247,0.12)'; }}
-        >
-          {t('letsInvestigate', lang)}
-        </button>
-      )}
     </div>
   );
 }
@@ -536,7 +520,6 @@ function DoneDock({ lang }: { lang: Lang }) {
 
 export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, onLaunch, language, avatarUrl, onOrinMessage, orinMission, initialMissionState }: OrinGuidePanelProps) {
   const lang: Lang = language ?? 'en';
-  const router = useRouter();
   const botName = getBotName();
   const onOrinMessageRef = useRef(onOrinMessage);
   const [mission,            setMission]            = useState<OrinMission | null>(null);
@@ -554,13 +537,16 @@ export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, o
   // Keep onOrinMessage ref current so push() doesn't need it as a dep
   useEffect(() => { onOrinMessageRef.current = onOrinMessage; }, [onOrinMessage]);
 
-  // Check on mount whether the student has any saved discoveries
+  // Check on mount whether the student has any saved discoveries.
+  // Scoped to this mission so the panel agrees with the mission map — without
+  // the filter, goals discovered on past missions leak into "What I've discovered".
   useEffect(() => {
-    fetch(`/api/student/planet-summaries?lang=${lang}`)
+    const missionParam = missionId ? `&missionId=${missionId}` : '';
+    fetch(`/api/student/planet-summaries?lang=${lang}${missionParam}`)
       .then((r) => r.json())
       .then((data) => setHasDiscoveries((data.summaries ?? []).length > 0))
       .catch(() => setHasDiscoveries(false));
-  }, [lang]);
+  }, [lang, missionId]);
 
   const push = useCallback((msg: ChatMsg) => {
     setMessages((prev) => [...prev.filter((m) => m.type !== 'typing'), msg]);
@@ -569,15 +555,19 @@ export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, o
     }
   }, []);
 
-  const saveOrinMessage = useCallback((content: string, triggerType: string) => {
+  // role 'pip' is the wire/DB value (pip_messages CHECK constraint) — the character is Orin.
+  const saveChatMessage = useCallback((role: 'pip' | 'student', content: string, triggerType: string) => {
     if (!missionId) return;
-    // role 'pip' is the wire/DB value (pip_messages CHECK constraint) — the character is Orin.
     fetch('/api/student/pip-messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ missionId, messages: [{ role: 'pip', content, triggerType }] }),
+      body: JSON.stringify({ missionId, messages: [{ role, content, triggerType }] }),
     });
   }, [missionId]);
+  const saveOrinMessage = useCallback(
+    (content: string, triggerType: string) => saveChatMessage('pip', content, triggerType),
+    [saveChatMessage],
+  );
 
   const showTyping = useCallback(() => {
     setMessages((prev) => [
@@ -592,6 +582,9 @@ export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, o
     if (stateData?.returnTrigger) setReturnTrigger(stateData.returnTrigger);
     if (stateData?.pipMessages?.length) {
       setHasOrinHistory(true);
+      // Mission already confirmed → same dock as the no-history return path,
+      // so the "start exploring" confirm CTA never reappears on return visits.
+      if (stateData?.confirmedAt) setDock('done');
       setMessages(stateData.pipMessages.map((m) => ({
         id:   uid(),
         role: m.role === 'student' ? ('user' as const) : ('orin' as const),
@@ -677,7 +670,8 @@ export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, o
 
   async function handleViewDiscoveries() {
     try {
-      const res = await fetch(`/api/student/planet-summaries?lang=${lang}`);
+      const missionParam = missionId ? `&missionId=${missionId}` : '';
+      const res = await fetch(`/api/student/planet-summaries?lang=${lang}${missionParam}`);
       const data = await res.json();
       const summaries = data.summaries ?? [];
       setAllSummaries(summaries);
@@ -704,6 +698,9 @@ export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, o
 
   async function handleQA(text: string) {
     push({ id: uid(), role: 'user', type: 'text', html: escapeHtml(text) });
+    // Persist the question too — otherwise the replayed history shows Orin's
+    // answer with no question above it, as if Orin spoke unprompted.
+    saveChatMessage('student', text, 'qa');
     setTimeout(showTyping, 400);
 
     const studentId = await getSessionStudentId();
@@ -737,24 +734,11 @@ export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, o
     onLaunch?.();
   }
 
-  function handleInvestigate() {
-    if (missionId) {
-      fetch('/api/student/mission-state', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ missionId }),
-      });
-    }
-    if (firstPlanet) {
-      router.push(`/landscape/${firstPlanet.id}?lang=${lang}`);
-    }
-  }
-
   function renderDock() {
     switch (dock) {
       case 'cta-howto':  return <CtaHowtoDock onShowHowTo={handleShowHowTo} onSend={handleHowToSend} lang={lang} />;
       case 'lock':       return <LockDock />;
-      case 'understand': return <UnderstandDock onGotIt={handleGotIt} onSend={handleQA} onInvestigate={firstPlanet ? handleInvestigate : undefined} lang={lang} />;
+      case 'understand': return <UnderstandDock onGotIt={handleGotIt} onSend={handleQA} lang={lang} />;
       case 'done':       return <DoneDock lang={lang} />;
     }
   }

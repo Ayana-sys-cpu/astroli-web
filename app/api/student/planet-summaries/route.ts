@@ -14,14 +14,35 @@ export async function GET(req: NextRequest) {
   const studentId = await resolveStudentIdFromRequest(req);
   if (!studentId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const langFilter = (new URL(req.url).searchParams.get('lang') ?? null) as 'en' | 'he' | null;
+  const searchParams = new URL(req.url).searchParams;
+  const langFilter = (searchParams.get('lang') ?? null) as 'en' | 'he' | null;
+  // Optional mission scoping — the Orin guide panel passes the active mission so
+  // "What I've discovered" matches the mission map instead of mixing in goals
+  // discovered on past missions.
+  const missionIdFilter = searchParams.get('missionId');
 
   try {
     // 1. Find sessions where the student has discovered at least one goal
-    const { data: sessions, error: sessionError } = await supabaseAdmin
+    let sessionQuery = supabaseAdmin
       .from('planet_session_state')
       .select('planet_id, perkins_map, completed_at')
       .eq('student_id', studentId);
+
+    if (missionIdFilter) {
+      const { data: missionPlanets, error: missionPlanetsError } = await supabaseAdmin
+        .from('planets')
+        .select('id')
+        .eq('mission_id', missionIdFilter);
+      if (missionPlanetsError) {
+        console.error('[planet-summaries] mission planets query error:', missionPlanetsError);
+        throw missionPlanetsError;
+      }
+      const ids = (missionPlanets ?? []).map(p => p.id as string);
+      if (ids.length === 0) return NextResponse.json({ summaries: [] });
+      sessionQuery = sessionQuery.in('planet_id', ids);
+    }
+
+    const { data: sessions, error: sessionError } = await sessionQuery;
 
     if (sessionError) {
       console.error('[planet-summaries] session query error:', sessionError);

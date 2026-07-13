@@ -68,10 +68,6 @@ const strings = {
     en: 'Got it — start exploring →',
     he: 'הבנתי — התחל לחקור →',
   },
-  letsInvestigate: {
-    en: "Let's investigate →",
-    he: 'בואו נחקור →',
-  },
   askAnythingMission: {
     en: 'Ask me anything about this mission…',
     he: 'שאל אותי כל דבר על המשימה הזו…',
