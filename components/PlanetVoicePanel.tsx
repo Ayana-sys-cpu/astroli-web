@@ -28,9 +28,6 @@ interface Props {
   sendText: (text: string) => void;
   loading: boolean;
   thinking: boolean;
-  // transient-failure recovery
-  canRetry?: boolean;
-  retryLast?: () => void;
   studentFirstName?: string;
   missionTitle?: string;
   openingGreeting?: string;
@@ -46,7 +43,6 @@ interface Props {
 
 export default function PlanetVoicePanel({
   character, messages, input, setInput, send, sendText, loading, thinking,
-  canRetry = false, retryLast,
   studentFirstName, missionTitle, openingGreeting, studentRevealMessage,
   missionLang = 'en',
   totalGoals, goalsDiscovered = 0, characterFirstName,
@@ -200,27 +196,6 @@ export default function PlanetVoicePanel({
             }}>
               ✦
             </div>
-          </button>
-        </div>
-      )}
-
-      {/* Transient-failure recovery — the last message got no reply; offer a
-          one-tap retry instead of leaving the student at a dead end. */}
-      {canRetry && retryLast && !loading && (
-        <div style={{ padding: '0 12px 8px' }}>
-          <button
-            onClick={retryLast}
-            style={{
-              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              padding: '10px 14px', borderRadius: 12, cursor: 'pointer',
-              background: 'rgba(0,196,204,0.08)',
-              border: '1px solid rgba(0,196,204,0.35)',
-              color: 'rgba(0,212,212,0.95)', fontSize: 13, fontWeight: 700,
-              direction: isRtl ? 'rtl' : undefined,
-            }}
-          >
-            <span aria-hidden>↻</span>
-            {t('chatRetry', lang)}
           </button>
         </div>
       )}

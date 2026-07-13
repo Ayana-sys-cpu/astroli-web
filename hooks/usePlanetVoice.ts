@@ -61,10 +61,6 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
   const [goalJustCompleted,  setGoalJustCompleted]  = useState<{ slug: string } | null>(null);
   const [coinAward,          setCoinAward]          = useState<CoinAward | null>(null);
   const [showSummary,     setShowSummary]     = useState(false);
-  // Set to the last message that failed to get a reply (network error, or the
-  // server degraded to a retryable fallback). Non-null drives a "try again"
-  // affordance so a transient hiccup is never a dead end.
-  const [retryText,       setRetryText]       = useState<string | null>(null);
   const msgIdRef   = useRef(0);
   const isMounted  = useRef(true);
   const tokenRef   = useRef<string | null>(null);
@@ -133,20 +129,20 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
     // mission language resolves (it starts as 'en' before the mission loads).
   }, [planetId, language]);
 
-  // Shared network turn: POSTs the message, then applies the figure reply and
-  // side effects. Returns 'ok' on a real reply, or 'retry' when the turn should
-  // be re-offered — a network error, a non-2xx, or the server's graceful
-  // `retryable` fallback. Never appends the student bubble; callers own that so
-  // a retry can't duplicate it.
-  const runTurn = useCallback(async (text: string): Promise<'ok' | 'retry'> => {
+  // One network turn: POSTs the message and applies the figure reply + side
+  // effects. Returns 'ok' on a real reply, or 'retry' when it should be retried
+  // — a network error, a non-2xx, or the server's graceful `retryable` fallback.
+  // Never appends the student bubble and never toggles the thinking indicator;
+  // the caller owns those so silent retries stay seamless and can't duplicate.
+  // `isRetry` lets the server replay an already-persisted turn instead of
+  // processing it twice.
+  const runTurn = useCallback(async (text: string, isRetry: boolean): Promise<'ok' | 'retry'> => {
     const token = tokenRef.current;
-    setLoading(true);
-    if (isMounted.current) setThinking(true);
     try {
       const res = await fetch(`${BOT_URL}/api/planet-voice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ planetId, message: text, language }),
+        body: JSON.stringify({ planetId, message: text, language, isRetry }),
       });
       if (!isMounted.current) return 'ok';
       if (!res.ok) return 'retry';
@@ -172,18 +168,19 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
       return 'ok';
     } catch {
       return 'retry';
-    } finally {
-      if (isMounted.current) { setThinking(false); setLoading(false); }
     }
   }, [planetId, language, completionReady, totalGoals, nextId]);
 
-  // Send a new message: append the student bubble once, then run the turn.
-  // The inFlightRef guard makes this idempotent against a double trigger.
+  // Send a message: append the student bubble once, then run the turn — silently
+  // retrying a couple of times (the thinking indicator stays up) so a momentary
+  // hiccup never surfaces. Only if every attempt fails does the figure say so in
+  // character. The inFlightRef guard makes this idempotent against a double tap.
   const deliver = useCallback(async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || inFlightRef.current || !character) return;
     inFlightRef.current = true;
-    setRetryText(null);
+    setLoading(true);
+    if (isMounted.current) setThinking(true);
 
     setMessages(prev => [...prev, {
       id: nextId('student'),
@@ -191,10 +188,26 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
       content: trimmed,
     }]);
 
+    // Backoff before each silent retry; length also sets how many retries run.
+    const RETRY_DELAYS_MS = [1200, 2500];
+
     try {
-      const outcome = await runTurn(trimmed);
-      if (outcome === 'retry' && isMounted.current) setRetryText(trimmed);
+      let outcome = await runTurn(trimmed, false);
+      for (let attempt = 0; outcome === 'retry' && attempt < RETRY_DELAYS_MS.length && isMounted.current; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
+        if (!isMounted.current) return;
+        outcome = await runTurn(trimmed, true);
+      }
+      if (outcome === 'retry' && isMounted.current) {
+        // Exhausted silent retries — stay in character, no system UI.
+        setMessages(prev => [...prev, {
+          id: nextId('figure'),
+          speaker: 'figure',
+          content: '...forgive me — the words escape me for a moment. Ask me once more?',
+        }]);
+      }
     } finally {
+      if (isMounted.current) { setThinking(false); setLoading(false); }
       inFlightRef.current = false;
     }
   }, [character, runTurn, nextId]);
@@ -208,21 +221,6 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
     void deliver(text);
   }, [input, deliver]);
 
-  // Re-run the last failed turn WITHOUT re-appending the student bubble — it is
-  // already in the transcript from the original attempt.
-  const retryLast = useCallback(async () => {
-    if (!retryText || inFlightRef.current) return;
-    inFlightRef.current = true;
-    const text = retryText;
-    setRetryText(null);
-    try {
-      const outcome = await runTurn(text);
-      if (outcome === 'retry' && isMounted.current) setRetryText(text);
-    } finally {
-      inFlightRef.current = false;
-    }
-  }, [retryText, runTurn]);
-
   return {
     character,
     charLoading,
@@ -234,9 +232,6 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
     sendText,
     loading,
     thinking,
-    // transient-failure recovery
-    canRetry: retryText !== null,
-    retryLast,
     // completion flow
     goalJustCompleted,
     coinAward,
