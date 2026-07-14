@@ -56,7 +56,7 @@ export default function ParentOnboardingContent() {
   async function fetchJourneys() {
     setJourneysLoading(true);
     try {
-      const res  = await fetch('/api/parent/journeys');
+      const res  = await fetch('/api/parent/journeys/catalog');
       const data = await res.json();
       setJourneys(data.journeys ?? []);
     } catch {
