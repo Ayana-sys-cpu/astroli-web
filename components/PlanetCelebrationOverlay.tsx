@@ -146,18 +146,30 @@ export default function PlanetCelebrationOverlay({
   // Launch the reward card from the supplied panel box and settle it at its resting
   // centre, matching CoinRewardModal's timing (0.35s hold → 0.85s flight) exactly.
   // Measured (not CSS) because the destination depends on the card's runtime layout.
-  // The backdrop + chrome stay hidden until this lands (see `.pco-src` styles).
+  // Orin flies out WITH the card from the same panel; the backdrop + chrome stay
+  // hidden until they land (see `.pco-src` / `.pco-src-orin` styles).
   useLayoutEffect(() => {
     if (!srcEntry || !sourceRect) return;
     const card = cardRef.current;
     if (!card) return;
+    const pcx = sourceRect.left + sourceRect.width / 2;
+    const pcy = sourceRect.top + sourceRect.height / 2;
     const rect = card.getBoundingClientRect();
-    const dx = (sourceRect.left + sourceRect.width / 2) - (rect.left + rect.width / 2);
-    const dy = (sourceRect.top + sourceRect.height / 2) - (rect.top + rect.height / 2);
+    const dx = pcx - (rect.left + rect.width / 2);
+    const dy = pcy - (rect.top + rect.height / 2);
     card.style.transition = 'none';
     card.style.transform  = `translate(${dx}px, ${dy}px) scale(0.2)`;
     card.style.opacity    = '0';
     card.style.filter     = 'blur(12px)';
+    // Orin travels with the card. Transform-only (never opacity) — fading a
+    // mix-blend:screen video isolates it and leaves a faint light box around him.
+    // Place him on the card, then aim his CSS fly animation's start at the panel.
+    placeOrinOnCard();
+    const orin = orinRef.current;
+    if (orin) {
+      orin.style.setProperty('--orin-dx', `${pcx - (parseFloat(orin.style.left) || 0)}px`);
+      orin.style.setProperty('--orin-dy', `${pcy - (parseFloat(orin.style.top) || 0)}px`);
+    }
     void card.offsetWidth; // reflow so the jump-to-panel isn't itself animated
     const EASE = 'cubic-bezier(0.16,1,0.3,1)';
     card.style.transition = `transform 0.85s 0.35s ${EASE}, opacity 0.85s 0.35s ${EASE}, filter 0.85s 0.35s ${EASE}`;
@@ -554,9 +566,15 @@ const CSS = `
 /* Beat-1 card: JS drives the fly-out from the chat panel — disable the CSS materialize
    and start hidden so there's no one-frame flash at centre before the effect runs. */
 .pco-src-entry { animation:none !important; opacity:0; }
-/* Orin materializes on the card as it lands (he presents the completed planet). */
-.pco-src-orin { animation:pco-orin-enter .5s 1s both; }
-@keyframes pco-orin-enter { from{opacity:0} to{opacity:1} }
+/* Orin flies out of the chat WITH the card (same 0.35s hold → 0.85s flight).
+   Transform-only, never opacity — fading a mix-blend:screen video isolates it and
+   leaves a faint light box around him. --orin-dx/--orin-dy are set by the entrance
+   effect to point the launch at the chat panel. */
+.pco-src-orin { animation:pco-orin-fly .85s .35s cubic-bezier(.16,1,.3,1) both; }
+@keyframes pco-orin-fly {
+  from { transform:translate(-50%,-50%) translate(var(--orin-dx,0), var(--orin-dy,0)) scale(.2); }
+  to   { transform:translate(-50%,-50%) translate(0px,0px) scale(1); }
+}
 
 /* backdrop */
 .pco-nebula-backdrop { position:fixed; inset:0; z-index:1; pointer-events:none; background:radial-gradient(ellipse at 50% 50%, rgba(84,23,190,0.30) 0%, rgba(9,6,20,0.90) 75%); }
