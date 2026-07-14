@@ -8,6 +8,8 @@
  * returns null, so a bot outage never leaves the student without a reply.
  */
 
+import { getSessionToken } from './session';
+
 export const ORIN_BOT_URL = 'https://astorli-bot.vercel.app/api/bot';
 
 export interface OrinQuestion {
@@ -23,9 +25,16 @@ export interface OrinQuestion {
 /** Returns Orin's reply, or null when the bot is unreachable, capped, or replied empty. */
 export async function askOrin(question: OrinQuestion): Promise<string | null> {
   try {
+    // The bot's middleware requires the Supabase bearer token; it verifies it
+    // and injects x-verified-student-id for the route. Without it every call
+    // is a 401 and students only ever see the scripted fallback answers.
+    const token = await getSessionToken();
     const res = await fetch(ORIN_BOT_URL, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body:    JSON.stringify({
         studentId:      question.studentId,
         message:        question.message,
