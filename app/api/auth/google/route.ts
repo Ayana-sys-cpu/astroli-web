@@ -355,16 +355,13 @@ export async function POST(req: NextRequest) {
   if (isNewStudent) {
     alienName     = 'Orin';
     baseAvatarUrl = '/avatars/base/base-03.png';
-    // Persist immediately — the PATCH from the reveal page was unreliable
-    // because the session cookie is not always established by the time the
-    // client-side fetch fires (middleware blocks unauthenticated requests).
-    // Saving here is safe: isNewStudent is true only when alien_name is null,
-    // so a student who abandons mid-flow will simply get a new identity on
-    // their next sign-in (acceptable UX for the current stage).
-    await supabaseAdmin
-      .from('users')
-      .update({ alien_name: alienName, base_avatar_url: baseAvatarUrl })
-      .eq('id', canonicalStudentId);
+    // Do NOT save alien_name to DB here. The reveal page (/onboarding/reveal)
+    // saves it via PATCH /api/student when the student clicks "BEGIN YOUR JOURNEY".
+    // Saving here would cause isNewStudent to be false on the next sign-in if the
+    // student closed the browser before completing the reveal, silently skipping
+    // onboarding. The session cookie is always set by the time the reveal CTA fires
+    // (verifyOtp runs before navigation, and the animation takes ~4s), so the PATCH
+    // is reliable.
   }
 
   // Enroll student in matching journeys before returning — must be awaited so
