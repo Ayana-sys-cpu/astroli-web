@@ -9,11 +9,17 @@
 // Request:  { journeyId: string, language?: 'en' | 'he' }
 // Response: 200 { ok: true, classId: string }
 //           409 — child already enrolled in this journey template
+//                 (code: 'child_already_enrolled')
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { requireAuth } from '@/lib/auth';
 import { resolveParentId, getParentContext } from '@/lib/parent-auth';
+import {
+  childAlreadyEnrolledOnTemplate,
+  enrollChildInFamilyClass,
+  enrollmentConflictResponse,
+} from '@/lib/family-class';
 import { deriveJourneyStatus } from '@/lib/journey-status';
 import { z, parseBody } from '@/lib/validate';
 
@@ -144,16 +150,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Journey not found' }, { status: 422 });
   }
 
-  // Reject duplicate enrollment for this specific template per child
-  const { data: existing } = await supabaseAdmin
-    .from('student_classes')
-    .select('id')
-    .eq('student_id', childId)
-    .eq('template_journey_id', journeyId)
-    .maybeSingle();
-
-  if (existing) {
-    return NextResponse.json({ error: 'Child is already enrolled in this journey' }, { status: 409 });
+  // Reject duplicate enrollment for this specific template per child —
+  // school and family classes can't coexist on one template.
+  if (await childAlreadyEnrolledOnTemplate(childId, journeyId)) {
+    return enrollmentConflictResponse();
   }
 
   // Create the family class
@@ -175,14 +175,16 @@ export async function POST(req: NextRequest) {
   }
 
   // Enroll child
-  const { error: enrollError } = await supabaseAdmin
-    .from('student_classes')
-    .insert({ student_id: childId, class_id: newClass.id, template_journey_id: journeyId });
+  const enrolled = await enrollChildInFamilyClass({
+    childId,
+    classId:           newClass.id,
+    templateJourneyId: journeyId,
+  });
 
-  if (enrollError && (enrollError as any).code !== '23505') {
-    console.error('[parent/journeys POST] enrollment error:', enrollError);
-    await supabaseAdmin.from('classes').delete().eq('id', newClass.id);
-    return NextResponse.json({ error: 'Failed to enroll child' }, { status: 500 });
+  if (!enrolled.ok) {
+    return enrolled.conflict
+      ? enrollmentConflictResponse()
+      : NextResponse.json({ error: 'Failed to enroll child' }, { status: 500 });
   }
 
   // Seed class_mission_state (all locked)

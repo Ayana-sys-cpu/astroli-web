@@ -123,6 +123,13 @@ export default function ParentOnboardingContent() {
     const data = await res.json();
     setLoading(false);
 
+    if (res.status === 409 && data.code === 'child_already_enrolled') {
+      // Child already studies this journey in another class (e.g. at school) —
+      // keep the picker open so the parent can choose a different journey.
+      setError(data.error);
+      return;
+    }
+
     if (res.status === 409) {
       setLocked(true);
       setError('Journey is locked — contact support to change.');

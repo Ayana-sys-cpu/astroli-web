@@ -161,9 +161,21 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
 
       if (!alreadyEnrolled) {
-        await supabaseAdmin
+        const { error: enrollError } = await supabaseAdmin
           .from('student_classes')
           .insert({ student_id: canonicalId, class_id: cls.id, template_journey_id: cls.journey_id });
+
+        if (enrollError) {
+          // 23505 = one-per-template index: the child already holds a class on
+          // this template (they became school-enrolled between invite and
+          // accept — invites to school accounts are rejected upfront). The
+          // family class stays empty; flag it so support can resolve.
+          console.error(
+            `[accept-invite] could not enroll child ${canonicalId} in family class ${cls.id}` +
+            ` (template ${cls.journey_id}):`,
+            enrollError,
+          );
+        }
       }
     }
   }

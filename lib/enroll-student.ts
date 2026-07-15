@@ -90,10 +90,16 @@ export async function enrollStudentInJourneys(
           template_journey_id: c.journey_id,
         });
       if (insertError) {
-        // A unique-violation here most likely means the student already has a
-        // class on this same template (the constraint working as designed) —
-        // not every conflict is an error worth surfacing loudly.
-        console.error('[enroll] insert student_classes failed:', insertError);
+        if ((insertError as { code?: string }).code === '23505') {
+          // one-per-template index working as designed: the student already
+          // holds a class on this template (e.g. a family class) — the school
+          // class must not double-enroll them.
+          console.log(
+            `[enroll] student ${studentId} already has a class on template ${c.journey_id} — skipping class ${c.id}`,
+          );
+        } else {
+          console.error('[enroll] insert student_classes failed:', insertError);
+        }
       }
     }
     console.log(`[enroll] enrolled student ${studentId} in ${currentClasses.length} class(es)`);
@@ -119,9 +125,24 @@ export async function enrollStudentInJourneys(
     .select('class_id')
     .eq('student_id', studentId);
 
-  const stale = (existing ?? [])
+  const staleCandidates = (existing ?? [])
     .map((r) => r.class_id)
     .filter((id): id is string => Boolean(id) && !currentClassIds.includes(id as string));
+
+  if (staleCandidates.length === 0) return;
+
+  // GC sync only manages GC-linked enrollments. Family classes and manually
+  // created classes have no google_course_id, so they can never appear in
+  // currentClassIds — deleting them here would wrongly unenroll the student
+  // (e.g. wipe a child out of their parent's family class). Restrict removal
+  // to classes that actually came from Google Classroom.
+  const { data: gcLinkedClasses } = await supabaseAdmin
+    .from('classes')
+    .select('id')
+    .in('id', staleCandidates)
+    .not('google_course_id', 'is', null);
+
+  const stale = (gcLinkedClasses ?? []).map((c: { id: string }) => c.id);
 
   if (stale.length > 0) {
     const { error: deleteError } = await supabaseAdmin
