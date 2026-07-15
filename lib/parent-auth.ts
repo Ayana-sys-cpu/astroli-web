@@ -99,6 +99,8 @@ export async function getParentContext(parentId: string) {
       .select('id, journey_id, title')
       .eq('teacher_id', parentId)
       .eq('type', 'family')
+      .order('created_at', { ascending: true })
+      .limit(1)
       .maybeSingle(),
   ]);
 

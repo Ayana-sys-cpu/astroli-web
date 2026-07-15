@@ -24,12 +24,17 @@ const GRADIENT_STRIPE = (
   />
 );
 
+type OnboardingStatus = 'checking' | 'already_done' | 'needs_invite' | 'needs_journey';
+
 export default function ParentOnboardingContent() {
   const router      = useRouter();
   const params      = useSearchParams();
-  const initialStep = params.get('step') === 'journey' ? 'journey' : 'invite';
 
-  const [step, setStep]       = useState<'invite' | 'journey'>(initialStep);
+  // On mount we check real DB state so we never show the wrong step and
+  // always provide an escape hatch if the parent already completed setup.
+  const [status, setStatus] = useState<OnboardingStatus>('checking');
+
+  const [step, setStep]       = useState<'invite' | 'journey'>('invite');
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
 
@@ -49,9 +54,33 @@ export default function ParentOnboardingContent() {
   const [language,  setLanguage]  = useState<'en' | 'he'>('en');
   const [journeysLoading, setJourneysLoading] = useState(true);
 
+  // Check real setup state on mount — determines which step to show and
+  // whether to render the escape hatch instead of the form.
   useEffect(() => {
-    fetchJourneys(language);
-  }, [language]);
+    const stepParam = params.get('step');
+    fetch('/api/parent/dashboard')
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        if (!data) { setStatus('needs_invite'); setStep('invite'); return; }
+        if (data.familyClass) {
+          setStatus('already_done');
+          return;
+        }
+        if (data.setupState?.step === 'no_journey' || stepParam === 'journey') {
+          setStatus('needs_journey');
+          setStep('journey');
+        } else {
+          setStatus('needs_invite');
+          setStep('invite');
+        }
+      })
+      .catch(() => { setStatus('needs_invite'); setStep('invite'); });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (status === 'needs_journey' || status === 'already_done') fetchJourneys(language);
+  }, [language, status]);
 
   async function fetchJourneys(lang: 'en' | 'he') {
     setJourneysLoading(true);
@@ -144,6 +173,49 @@ export default function ParentOnboardingContent() {
     const journeyTitle = journeys.find(j => j.id === selected)?.title ?? '';
     router.push(
       `/parent/reveal?childName=${encodeURIComponent(childName)}&journeyTitle=${encodeURIComponent(journeyTitle)}`
+    );
+  }
+
+  // ── Loading ──────────────────────────────────────────────────────────────────
+  if (status === 'checking') {
+    return (
+      <main className="bg-grid min-h-screen flex flex-col items-center justify-center px-6 py-12">
+        <div className="w-full max-w-md" style={{ ...CARD, height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {GRADIENT_STRIPE}
+          <div style={{
+            width: 20, height: 20, borderRadius: '50%',
+            border: '2px solid rgba(0,245,212,0.2)', borderTopColor: '#00F5D4',
+            animation: 'spin 0.8s linear infinite',
+          }} />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      </main>
+    );
+  }
+
+  // ── Already done ─────────────────────────────────────────────────────────────
+  if (status === 'already_done') {
+    return (
+      <main className="bg-grid min-h-screen flex flex-col items-center justify-center px-6 py-12">
+        <div className="w-full max-w-md" style={CARD}>
+          {GRADIENT_STRIPE}
+          <div className="p-8 space-y-5">
+            <div className="space-y-1">
+              <h1 className="font-space text-2xl font-bold text-white">You&apos;re already set up</h1>
+              <p className="font-inter text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                Your journey is selected and your child&apos;s invite is on its way.
+                Head to your dashboard to see the status.
+              </p>
+            </div>
+            <button
+              onClick={() => router.replace('/parent/dashboard')}
+              className="btn-teal"
+            >
+              Go to dashboard →
+            </button>
+          </div>
+        </div>
+      </main>
     );
   }
 

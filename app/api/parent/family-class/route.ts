@@ -66,6 +66,20 @@ export async function POST(req: NextRequest) {
     return enrollmentConflictResponse();
   }
 
+  // If the parent already has a family class, return it — idempotent so
+  // re-submitting the journey picker never creates duplicates.
+  const { data: existingClass } = await supabaseAdmin
+    .from('classes')
+    .select('id')
+    .eq('teacher_id', parentId)
+    .eq('type', 'family')
+    .limit(1)
+    .maybeSingle();
+
+  if (existingClass) {
+    return NextResponse.json({ ok: true, classId: existingClass.id });
+  }
+
   // Create family class — teacher_id is the parent's users.id.
   // Child enrollment is deferred when there is no link yet: the invite hasn't
   // been accepted, so there is no child to enroll. accept-invite will
