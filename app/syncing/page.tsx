@@ -15,13 +15,6 @@ const EDGES: [number, number][] = [
   [1, 6], [2, 7], [0, 8], [0, 9],
 ];
 
-const STATUS_STEPS = [
-  'LOADING MISSION DATA',
-  'SYNCING AVATAR',
-  'MAPPING CONSTELLATIONS',
-  'ALMOST READY',
-];
-
 export default function SyncingPage() {
   const router = useRouter();
 
@@ -37,15 +30,18 @@ export default function SyncingPage() {
         if (r.status === 401 || r.status === 403) return { __redirect: '/' };
         return r.json();
       })
-      .catch(() => ({}));
+      .catch(() => null); // null = network error; don't cache so /home fetches fresh
 
     Promise.all([delay, homeCheck]).then(([, data]) => {
       if (!alive) return;
-      if ((data as any).__redirect) { router.replace((data as any).__redirect); return; }
-      // Cache the result so /home renders instantly without a second fetch.
-      try {
-        sessionStorage.setItem('astroli_home_cache', JSON.stringify({ data, ts: Date.now() }));
-      } catch { /* ignore quota/private-mode errors */ }
+      if ((data as any)?.__redirect) { router.replace((data as any).__redirect); return; }
+      // Only cache a real response — caching {} on error would show hasParent:false
+      // on /home even when the parent_child_link exists in the DB.
+      if (data) {
+        try {
+          sessionStorage.setItem('astroli_home_cache', JSON.stringify({ data, ts: Date.now() }));
+        } catch { /* ignore quota/private-mode errors */ }
+      }
       router.replace('/home');
     });
 
@@ -123,51 +119,15 @@ export default function SyncingPage() {
       </div>
 
       {/* ── Status text ─────────────────────────────────────────── */}
-      <div className="relative z-10 flex flex-col items-center gap-4">
+      <div className="relative z-10 flex flex-col items-center">
         <motion.p
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5, duration: 0.6 }}
           className="font-caveat text-3xl text-white/80 tracking-wide"
         >
-          Preparing your Mission...
+          Preparing your journey...
         </motion.p>
-
-        {/* Cycling status labels */}
-        <div className="flex flex-col items-center gap-1">
-          {STATUS_STEPS.map((step, i) => (
-            <motion.p
-              key={step}
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: [0, 0.6, 0.6, 0] }}
-              transition={{
-                delay: 0.8 + i * 0.55,
-                duration: 0.6,
-                times: [0, 0.15, 0.75, 1],
-              }}
-              className="text-[9px] tracking-[0.3em] text-[#00F5D4]/60 font-space uppercase"
-            >
-              {step}
-            </motion.p>
-          ))}
-        </div>
-
-        {/* Loading bar */}
-        <motion.div
-          className="mt-2 h-px rounded-full overflow-hidden"
-          style={{ width: 160, background: 'rgba(255,255,255,0.06)' }}
-        >
-          <motion.div
-            className="h-full rounded-full"
-            style={{
-              background: 'linear-gradient(90deg, #FF0080, #00F5D4)',
-              boxShadow: '0 0 6px rgba(0,245,212,0.5)',
-            }}
-            initial={{ width: '0%' }}
-            animate={{ width: '100%' }}
-            transition={{ delay: 0.6, duration: 2.4, ease: 'easeInOut' }}
-          />
-        </motion.div>
       </div>
     </motion.div>
   );
