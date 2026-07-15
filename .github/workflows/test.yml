@@ -1,0 +1,43 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A follow-up push makes the in-flight run obsolete — don't spend minutes on it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: vitest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # package.json has no `packageManager` field, so the version has to be
+      # pinned here. 10.x matches the lockfile (lockfileVersion 9.0).
+      # Must precede setup-node, which needs pnpm on PATH to resolve its cache.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Route handlers under test import @/lib/prisma, so the generated client
+      # has to exist. `generate` only reads prisma/schema.prisma and needs no
+      # database — unlike `pnpm build`, which runs `prisma migrate deploy`
+      # against a live one and therefore must never run here.
+      - run: pnpm prisma generate
+
+      # The full suite (vitest.config.ts): lib, api, component and hook tests.
+      # Needs no env vars or database — every test stubs its own boundaries.
+      - run: pnpm test

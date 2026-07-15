@@ -1,3 +1,11 @@
+// @vitest-environment node
+//
+// Middleware runs in the Next.js server runtime, never in a browser. Under the
+// jsdom environment the global `Headers` is jsdom's own class, while NextRequest
+// builds `req.headers` from the undici `Headers` bundled inside Next — so Next's
+// internal `instanceof Headers` guard in NextResponse.next({ request }) throws
+// "request.headers must be an instance of Headers". Pinning this file to the
+// node environment keeps both sides on the same Headers class.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import type { User } from '@supabase/supabase-js';
