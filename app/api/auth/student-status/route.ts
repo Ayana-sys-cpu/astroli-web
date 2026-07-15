@@ -84,15 +84,20 @@ export async function POST(req: NextRequest) {
       authToken = authResult?.authToken ?? null;
     }
 
+    // A teacher-invited student exists in `users` but hasn't done onboarding yet.
+    // Only mark onboarding complete if they have an avatar or alien_name — both
+    // are set during the reveal screen, so their absence means onboarding was skipped.
+    const onboardingComplete = !!(data.alien_name || data.base_avatar_url || data.avatar_url);
+
     return NextResponse.json({
       authToken,
-      exists:             true,
-      onboardingComplete: true,
-      studentId:          data.id,
-      firstName:          data.first_name ?? firstName,
-      baseAvatarUrl:      data.base_avatar_url ?? null,
-      avatarUrl:          data.avatar_url ?? null,
-      alienName:          data.alien_name ?? null,
+      exists: true,
+      onboardingComplete,
+      studentId:     data.id,
+      firstName:     data.first_name ?? firstName,
+      baseAvatarUrl: data.base_avatar_url ?? null,
+      avatarUrl:     data.avatar_url ?? null,
+      alienName:     data.alien_name ?? null,
     });
   }
 
