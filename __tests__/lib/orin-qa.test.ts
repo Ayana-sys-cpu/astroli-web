@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { askOrin, ORIN_BOT_URL } from '@/lib/orin-qa';
+import { getSessionToken } from '@/lib/session';
+
+// getSessionToken() needs a real browser (window + Supabase client) and would
+// throw under the node test environment, making askOrin return null before
+// fetch is ever called. Mock it — this suite unit-tests the fetch behaviour.
+vi.mock('@/lib/session', () => ({
+  getSessionToken: vi.fn(),
+}));
 
 const QUESTION = {
   studentId:       'student-1',
@@ -12,6 +20,7 @@ const QUESTION = {
 describe('askOrin', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn());
+    vi.mocked(getSessionToken).mockResolvedValue('session-token');
   });
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -30,7 +39,10 @@ describe('askOrin', () => {
     const reply = await askOrin(QUESTION);
 
     expect(reply).toBe('Zync! One letter dissolved every loyalty oath.');
-    expect(fetch).toHaveBeenCalledWith(ORIN_BOT_URL, expect.objectContaining({ method: 'POST' }));
+    expect(fetch).toHaveBeenCalledWith(ORIN_BOT_URL, expect.objectContaining({
+      method:  'POST',
+      headers: expect.objectContaining({ Authorization: 'Bearer session-token' }),
+    }));
     const sentBody = JSON.parse((fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body);
     expect(sentBody).toEqual({
       studentId:      'student-1',
