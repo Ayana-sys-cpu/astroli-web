@@ -202,8 +202,15 @@ export async function POST(req: NextRequest) {
     }
 
     // Waitlist path — not teacher, not approved parent
-    const { data: existingUser } = await supabaseAdmin
-      .from('users').select('role').eq('email', email).maybeSingle();
+    // Use array query instead of maybeSingle(): when duplicate rows exist
+    // (email column may lack a UNIQUE constraint) maybeSingle() returns null,
+    // causing a registered student to be misidentified as unregistered and
+    // sent down the invite/waitlist path. Prefer the student-role row.
+    const { data: userRoles } = await supabaseAdmin
+      .from('users').select('role').eq('email', email);
+    const existingUser = (userRoles ?? []).find(u => u.role === 'student')
+      ?? (userRoles ?? [])[0]
+      ?? null;
 
     if (!existingUser || existingUser.role === 'parent') {
       // Before waitlisting, check for a pending invite. If the student received
@@ -298,11 +305,15 @@ export async function POST(req: NextRequest) {
 
   // ── 4b. Student path ──────────────────────────────────────────────────────
   // Check existence before upsert so we know whether to generate an identity.
-  const { data: existing } = await supabaseAdmin
+  // Use array query — prefer the row with alien_name (fully onboarded student)
+  // so duplicate rows don't reset the student's identity on every sign-in.
+  const { data: existingRows } = await supabaseAdmin
     .from('users')
     .select('id, first_name, base_avatar_url, alien_name')
-    .eq('email', email)
-    .maybeSingle();
+    .eq('email', email);
+  const existing = (existingRows ?? []).find(u => u.alien_name)
+    ?? (existingRows ?? [])[0]
+    ?? null;
 
   // A student needs onboarding if they have no alien_name — covers both genuinely
   // new users (no DB row) and users whose record exists but onboarding was never
