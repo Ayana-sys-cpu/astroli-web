@@ -12,24 +12,16 @@ export default async function ParentAppLayout({ children }: { children: React.Re
   const parentId = resolveParentId(user);
   if (!parentId) redirect('/');
 
-  const { childId } = await getParentContext(parentId);
-  if (!childId) {
-    return (
-      <div data-theme="light" style={{ minHeight: '100vh', background: 'linear-gradient(145deg, #EEF2FF 0%, #F5F0FF 55%, #F0FDF9 100%)', backgroundAttachment: 'fixed', color: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ maxWidth: 420, padding: '32px 28px', textAlign: 'center' }}>
-          <p style={{ fontSize: 14, fontWeight: 700, color: '#1a1a2e', marginBottom: 10 }}>
-            Account not linked yet
-          </p>
-          <p style={{ fontSize: 13, color: 'rgba(26,26,46,0.55)', lineHeight: 1.6 }}>
-            Your account is registered but not yet linked to a child. Check your email for an invite link, or contact support.
-          </p>
-        </div>
-      </div>
-    );
+  const { childId, familyClass } = await getParentContext(parentId);
+
+  // If the parent has neither a linked child nor a family class, they haven't
+  // started onboarding — send them back to begin.
+  if (!childId && !familyClass) {
+    redirect('/parent/onboarding');
   }
 
-  const [{ data: childAuthUser }, { data: familyClasses }] = await Promise.all([
-    supabaseAdmin.auth.admin.getUserById(childId),
+  const [childAuthResult, { data: familyClasses }] = await Promise.all([
+    childId ? supabaseAdmin.auth.admin.getUserById(childId) : Promise.resolve({ data: { user: null } }),
     supabaseAdmin
       .from('classes')
       .select('id, title')
@@ -38,10 +30,10 @@ export default async function ParentAppLayout({ children }: { children: React.Re
       .order('created_at', { ascending: true }),
   ]);
 
-  const childName =
-    (childAuthUser?.user?.user_metadata?.full_name as string | undefined) ??
-    (childAuthUser?.user?.email as string | undefined) ??
-    null;
+  const childAuthUser = (childAuthResult as { data: { user: { user_metadata?: Record<string, unknown>; email?: string } | null } }).data.user;
+  const childName = childAuthUser
+    ? ((childAuthUser.user_metadata?.full_name as string | undefined) ?? (childAuthUser.email as string | undefined) ?? null)
+    : null;
 
   const journeys = (familyClasses ?? []).map((c: { id: string; title: string }) => ({
     id: c.id,

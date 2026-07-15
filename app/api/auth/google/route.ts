@@ -181,7 +181,9 @@ export async function POST(req: NextRequest) {
 
       const authResult = await upsertAuthUserAndToken(email, {
         role: 'parent', parent_id: parent.id, student_id: null, teacher_id: null,
-        has_child: childLink !== null,
+        // true once the parent has a linked child OR has picked a journey —
+        // both mean onboarding is complete; skip the welcome tour on next login.
+        has_child: childLink !== null || familyClass !== null,
       }, 'google');
       if (!authResult) {
         return NextResponse.json({ error: 'Failed to create auth session' }, { status: 503 });

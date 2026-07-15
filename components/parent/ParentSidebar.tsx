@@ -36,7 +36,7 @@ interface Journey {
 
 interface ParentSidebarProps {
   childName: string | null;
-  childId: string;
+  childId: string | null;
   journeys: Journey[];
 }
 
@@ -52,7 +52,7 @@ export default function ParentSidebar({ childName, childId, journeys }: ParentSi
     .slice(0, 2)
     .toUpperCase() || '?';
 
-  const color = avatarColor(childId);
+  const color = childId ? avatarColor(childId) : '#6b7280';
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
 

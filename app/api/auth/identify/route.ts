@@ -104,7 +104,9 @@ async function handlePOST(req: NextRequest) {
         role:       'parent',
         student_id: null,
         teacher_id: null,
-        has_child:  childLink !== null,
+        // true once the parent has a linked child OR has picked a journey —
+        // both mean onboarding is complete; skip the welcome tour on next login.
+        has_child:  childLink !== null || familyClass !== null,
       }, 'identify');
 
       if (!authResult) {
