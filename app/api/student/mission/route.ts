@@ -34,27 +34,22 @@ export async function GET(req: NextRequest) {
     // owned by the template only (never duplicated per class), so state
     // lives in class_mission_state — find the student's class for this
     // mission's template, then look up that pair.
-    const { data: enrollment } = await supabaseAdmin
-      .from('student_classes')
-      .select('class_id')
-      .eq('student_id', studentId)
-      .eq('template_journey_id', data.journey_id)
-      .maybeSingle();
+    const enrolledClassId = await findEnrolledClassId(studentId, data.journey_id);
 
     let state: string | null = null;
     let classLanguage: 'en' | 'he' | null = null;
-    if (enrollment?.class_id) {
+    if (enrolledClassId) {
       const [stateRes, classRes] = await Promise.all([
         supabaseAdmin
           .from('class_mission_state')
           .select('state')
-          .eq('class_id', enrollment.class_id)
+          .eq('class_id', enrolledClassId)
           .eq('mission_id', missionId)
           .maybeSingle(),
         supabaseAdmin
           .from('classes')
           .select('language')
-          .eq('id', enrollment.class_id)
+          .eq('id', enrolledClassId)
           .maybeSingle(),
       ]);
       state = stateRes.data?.state ?? 'locked';
@@ -125,17 +120,12 @@ export async function GET(req: NextRequest) {
     if (!classLang) {
       const journeyId = missionData?.journey_id;
       if (journeyId) {
-        const { data: enrollment } = await supabaseAdmin
-          .from('student_classes')
-          .select('class_id')
-          .eq('student_id', studentId)
-          .eq('template_journey_id', journeyId)
-          .maybeSingle();
-        if (enrollment?.class_id) {
+        const enrolledClassId = await findEnrolledClassId(studentId, journeyId);
+        if (enrolledClassId) {
           const { data: classRow } = await supabaseAdmin
             .from('classes')
             .select('language')
-            .eq('id', enrollment.class_id)
+            .eq('id', enrolledClassId)
             .maybeSingle();
           classLang = classRow?.language ?? undefined;
         }
@@ -168,4 +158,27 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({ error: 'missionId or planetId required' }, { status: 400 });
+}
+
+// A student can hold more than one enrollment on the same template journey
+// (e.g. a school class and a family class) — data predating the
+// one-per-template unique index still allows it. maybeSingle() without a
+// limit errors on multiple rows and silently drops the class context, so
+// pick the most recent enrollment deterministically instead.
+async function findEnrolledClassId(
+  studentId: string,
+  templateJourneyId: string,
+): Promise<string | null> {
+  const { data, error } = await supabaseAdmin
+    .from('student_classes')
+    .select('class_id')
+    .eq('student_id', studentId)
+    .eq('template_journey_id', templateJourneyId)
+    .order('enrolled_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) console.error('[student/mission] enrollment lookup error:', error);
+  return data?.class_id ?? null;
 }
