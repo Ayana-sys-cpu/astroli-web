@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import CoinRewardProvider from '@/components/CoinRewardProvider';
 import IconFontActivator from '@/components/IconFontActivator';
+import ActivityPing from '@/components/analytics/ActivityPing';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="bg-black text-white font-inter antialiased">
         <IconFontActivator />
+        <ActivityPing />
         <CoinRewardProvider>
           {children}
         </CoinRewardProvider>

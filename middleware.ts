@@ -79,6 +79,33 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // ── Admin page guard ──────────────────────────────────────────────────────
+  // /admin and all sub-routes are founder-only: a valid Supabase session whose
+  // email matches ADMIN_EMAIL. Fails closed when ADMIN_EMAIL is unset. Runs
+  // server-side so direct URL access never renders the page (307 redirect).
+  // The /api/admin/* routes are additionally guarded by requireAdmin().
+  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return req.cookies.getAll(); },
+          setAll() {},  // read-only in middleware redirect path
+        },
+      },
+    );
+    const { data: { user } } = await supabase.auth.getUser();
+    const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase();
+    const isAdmin = Boolean(adminEmail && user?.email?.toLowerCase() === adminEmail);
+    if (!isAdmin) {
+      const redirectUrl = req.nextUrl.clone();
+      redirectUrl.pathname = '/';
+      return NextResponse.redirect(redirectUrl);
+    }
+    return NextResponse.next();
+  }
+
   // Only intercept API routes beyond this point.
   if (!pathname.startsWith('/api/')) {
     return NextResponse.next();
@@ -145,7 +172,7 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Run middleware on all API routes and teacher pages.
+  // Run middleware on all API routes, teacher pages, and admin pages.
   // Next.js built-ins (_next/static, _next/image, favicon.ico) are excluded automatically.
-  matcher: ['/api/:path*', '/teacher', '/teacher/:path*'],
+  matcher: ['/api/:path*', '/teacher', '/teacher/:path*', '/admin', '/admin/:path*'],
 };

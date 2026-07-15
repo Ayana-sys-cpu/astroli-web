@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { requireAdmin } from '@/lib/admin-auth';
+import { messageKeysFor } from '@/lib/student-message-keys';
 
 export async function GET(
   _req: NextRequest,
@@ -30,11 +31,22 @@ export async function GET(
     return NextResponse.json({ conversations: [] });
   }
 
+  const { data: child } = await supabaseAdmin
+    .from('users')
+    .select('id, auth_user_id')
+    .eq('id', link.child_id)
+    .maybeSingle();
+
+  const messageKeys = child ? messageKeysFor(child) : [link.child_id];
+  if (messageKeys.length === 0) {
+    return NextResponse.json({ conversations: [] });
+  }
+
   // Fetch messages from the bot's messages table
   const { data: messages, error } = await supabaseAdmin
     .from('messages')
     .select('id, role, content, screen_context, created_at')
-    .eq('student_id', link.child_id)
+    .in('student_id', messageKeys)
     .order('created_at', { ascending: true })
     .limit(500);
 
