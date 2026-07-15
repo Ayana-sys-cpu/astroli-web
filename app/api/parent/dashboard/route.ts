@@ -124,11 +124,34 @@ export async function GET() {
 
   const setupState = buildSetupState({ hasChild: !!childId, familyClass, hasStartedMission });
 
+  // Pending invite — only relevant while the child hasn't linked yet. Powers the
+  // dashboard empty state's "sent to <email> · resend" card.
+  let pendingInvite: { childEmail: string; createdAt: string; expiresAt: string } | null = null;
+  if (!childId) {
+    const { data: invite } = await supabaseAdmin
+      .from('child_invites')
+      .select('child_email, created_at, expires_at')
+      .eq('parent_id', parentId)
+      .is('accepted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (invite) {
+      pendingInvite = {
+        childEmail: invite.child_email,
+        createdAt:  invite.created_at,
+        expiresAt:  invite.expires_at,
+      };
+    }
+  }
+
   return NextResponse.json({
     child,
     familyClass: familyClass
       ? { id: familyClass.id, title: familyClass.title, journeyId: familyClass.journey_id }
       : null,
+    pendingInvite,
     missionProgress,
     botUsage: {
       used:    parentUser?.bot_conversations_used ?? 0,

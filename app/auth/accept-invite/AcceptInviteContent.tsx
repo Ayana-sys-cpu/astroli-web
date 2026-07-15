@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import SigningInAnimation from '@/components/SigningInAnimation';
 
 export default function AcceptInviteContent() {
   const router = useRouter();
@@ -78,12 +79,7 @@ export default function AcceptInviteContent() {
     );
   }
 
-  return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-4 text-center">
-      <div className="max-w-md space-y-4">
-        <div className="w-6 h-6 rounded-full border-2 border-white/30 border-t-white animate-spin mx-auto" />
-        <p className="text-muted-foreground">Joining Astroli…</p>
-      </div>
-    </main>
-  );
+  // Same visual as /auth/callback — the redirect to Supabase happens mid-flight,
+  // so the student sees one continuous animation rather than two loaders.
+  return <SigningInAnimation />;
 }

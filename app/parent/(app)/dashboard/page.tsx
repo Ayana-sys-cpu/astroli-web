@@ -6,6 +6,7 @@ import AllTimeView from '@/components/teacher/drill-down/AllTimeView';
 import CrossJourneyInsights from '@/components/teacher/drill-down/CrossJourneyInsights';
 import ThisWeekView from '@/components/teacher/drill-down/ThisWeekView';
 import SetupChecklist, { type SetupStep } from './SetupChecklist';
+import InvitePendingState from './InvitePendingState';
 import type { DrillDownResponse } from '@/lib/drill-down-types';
 
 type MainTab = 'this-week' | 'all-time';
@@ -13,6 +14,7 @@ type MainTab = 'this-week' | 'all-time';
 type SetupData = {
   child: { id: string; name: string | null } | null;
   familyClass: { id: string; title: string; journeyId: string } | null;
+  pendingInvite: { childEmail: string; createdAt: string; expiresAt: string } | null;
   setupState: { step: SetupStep; nextActionLabel: string | null; nextActionHref: string | null };
 };
 
@@ -72,7 +74,7 @@ export default function ParentDashboardPage() {
 
   if (!setupData) return null;
 
-  const { setupState, child, familyClass } = setupData;
+  const { setupState, child, familyClass, pendingInvite } = setupData;
 
   // No family class yet → parent hasn't completed onboarding; show the checklist.
   if (!familyClass) {
@@ -99,7 +101,6 @@ export default function ParentDashboardPage() {
   // Family class exists but child hasn't accepted the invite yet — show the
   // full dashboard shell with an empty state in the content area.
   if (!progressData) {
-    const childDisplay = child?.name ?? 'your child';
     return (
       <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'rgba(248,248,252,0.8)' }}>
         {/* Journey pill row */}
@@ -118,22 +119,7 @@ export default function ParentDashboardPage() {
           </span>
         </div>
 
-        {/* Empty state */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', gap: 12 }}>
-          <div style={{
-            width: 48, height: 48, borderRadius: '50%',
-            background: 'rgba(139,0,255,0.08)', border: '1px solid rgba(139,0,255,0.2)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
-          }}>
-            ✉
-          </div>
-          <p style={{ fontSize: 15, fontWeight: 700, color: '#1a1a2e', margin: 0, textAlign: 'center' }}>
-            Waiting for {childDisplay} to accept the invite
-          </p>
-          <p style={{ fontSize: 13, color: 'rgba(26,26,46,0.5)', margin: 0, textAlign: 'center', maxWidth: 320 }}>
-            Once {childDisplay} clicks the link in their email and signs in, their progress will appear here.
-          </p>
-        </div>
+        <InvitePendingState childName={child?.name ?? null} pendingInvite={pendingInvite} />
       </div>
     );
   }
