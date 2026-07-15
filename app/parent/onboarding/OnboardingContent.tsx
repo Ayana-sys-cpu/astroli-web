@@ -50,13 +50,13 @@ export default function ParentOnboardingContent() {
   const [journeysLoading, setJourneysLoading] = useState(true);
 
   useEffect(() => {
-    fetchJourneys();
-  }, []);
+    fetchJourneys(language);
+  }, [language]);
 
-  async function fetchJourneys() {
+  async function fetchJourneys(lang: 'en' | 'he') {
     setJourneysLoading(true);
     try {
-      const res  = await fetch('/api/parent/journeys/catalog');
+      const res  = await fetch(`/api/parent/journeys/catalog?language=${lang}`);
       const data = await res.json();
       setJourneys(data.journeys ?? []);
     } catch {

@@ -143,6 +143,31 @@ export async function POST(req: NextRequest) {
     .update({ accepted_at: new Date().toISOString() })
     .eq('id', invite.id);
 
+  // 5b. Auto-enroll child in any family class the parent created before the
+  //     invite was accepted (parent picked a journey during onboarding Step 2).
+  const { data: pendingClasses } = await supabaseAdmin
+    .from('classes')
+    .select('id, journey_id')
+    .eq('teacher_id', invite.parent_id)
+    .eq('type', 'family');
+
+  if (pendingClasses && pendingClasses.length > 0) {
+    for (const cls of pendingClasses) {
+      const { data: alreadyEnrolled } = await supabaseAdmin
+        .from('student_classes')
+        .select('id')
+        .eq('student_id', canonicalId)
+        .eq('class_id', cls.id)
+        .maybeSingle();
+
+      if (!alreadyEnrolled) {
+        await supabaseAdmin
+          .from('student_classes')
+          .insert({ student_id: canonicalId, class_id: cls.id, template_journey_id: cls.journey_id });
+      }
+    }
+  }
+
   // 6. Stamp user_metadata and link auth user to our users row
   const authUserId = user.id;
   await supabaseAdmin.auth.admin.updateUserById(authUserId, {

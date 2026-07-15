@@ -1,15 +1,16 @@
-// GET /api/parent/journeys/catalog
+// GET /api/parent/journeys/catalog?language=en
 //
 // Returns journey templates available to enroll the child in.
 // Excludes journeys the child is already enrolled in.
+// Filters by language query param (defaults to 'en').
 // Response: 200 { journeys: [{ id, title, description, missionCount }] }
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { requireAuth } from '@/lib/auth';
 import { resolveParentId, getParentContext } from '@/lib/parent-auth';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
 
@@ -17,6 +18,8 @@ export async function GET() {
   if (!parentId) {
     return NextResponse.json({ error: 'Forbidden: parent session required' }, { status: 403 });
   }
+
+  const language = req.nextUrl.searchParams.get('language') ?? 'en';
 
   const { childId } = await getParentContext(parentId);
 
@@ -40,6 +43,7 @@ export async function GET() {
     .from('journeys')
     .select('id, title, description, missions(id)')
     .eq('is_template', true)
+    .eq('language', language)
     .order('title');
 
   if (enrolledIds.length > 0) {
