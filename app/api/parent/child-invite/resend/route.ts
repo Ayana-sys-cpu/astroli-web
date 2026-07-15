@@ -23,18 +23,38 @@ export async function POST() {
     return NextResponse.json({ error: 'Forbidden: parent session required' }, { status: 403 });
   }
 
-  // Find the most recent pending invite for this parent
+  // Find the most recent invite for this parent — accepted or not.
+  //
+  // We deliberately do NOT filter on `accepted_at IS NULL`. A row marked
+  // accepted does not prove the student ever registered: acceptance can be
+  // stamped while the auth user / users row is left half-provisioned, which
+  // strands the parent with no way to send a working link. The parent may
+  // resend until the child is genuinely registered — the check below.
   const { data: lastInvite } = await supabaseAdmin
     .from('child_invites')
     .select('id, child_email, token, created_at')
     .eq('parent_id', parentId)
-    .is('accepted_at', null)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
   if (!lastInvite) {
-    return NextResponse.json({ error: 'No pending invite found' }, { status: 404 });
+    return NextResponse.json({ error: 'No invite found' }, { status: 404 });
+  }
+
+  // Registered = the child signed in for real (auth user linked). Only then is
+  // resending pointless — the child should just log in instead.
+  const { data: childUser } = await supabaseAdmin
+    .from('users')
+    .select('auth_user_id')
+    .eq('email', lastInvite.child_email.toLowerCase())
+    .maybeSingle();
+
+  if (childUser?.auth_user_id) {
+    return NextResponse.json(
+      { error: 'Your child has already signed up — they can log in directly.' },
+      { status: 409 },
+    );
   }
 
   // Rate-limit: refuse resend within 60 seconds of the last one
