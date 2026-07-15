@@ -32,17 +32,31 @@ function makeBuilder(name: string) {
   const state = tableState(name);
   const filters: Array<[string, any]> = [];
   let deleting = false;
+  let sort: { col: string; ascending: boolean } | null = null;
+  let limit: number | null = null;
 
-  const matching = () =>
-    state.rows.filter(row =>
+  const matching = () => {
+    let rows = state.rows.filter(row =>
       filters.every(([col, val]) =>
         Array.isArray(val) ? val.includes(row[col]) : row[col] === val,
       ),
     );
+    if (sort) {
+      const { col, ascending } = sort;
+      rows = [...rows].sort((a, b) =>
+        a[col] === b[col] ? 0 : (a[col] < b[col] ? -1 : 1) * (ascending ? 1 : -1),
+      );
+    }
+    return limit === null ? rows : rows.slice(0, limit);
+  };
 
   const builder: any = {
     select: () => builder,
-    order:  () => builder,
+    order:  (col: string, opts?: { ascending?: boolean }) => {
+      sort = { col, ascending: opts?.ascending ?? true };
+      return builder;
+    },
+    limit: (n: number) => { limit = n; return builder; },
     eq: (col: string, val: any) => { filters.push([col, val]); return builder; },
     in: (col: string, vals: any[]) => { filters.push([col, vals]); return builder; },
     maybeSingle: async () => ({ data: matching()[0] ?? null, error: null }),

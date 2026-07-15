@@ -4,7 +4,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { usePlanetVoice } from '@/hooks/usePlanetVoice';
 
 vi.mock('@/lib/session', () => ({
-  getSessionStudentId: vi.fn().mockResolvedValue('student-1'),
+  getSessionToken: vi.fn().mockResolvedValue('session-token-1'),
 }));
 
 function mockFetchSequence(charData: unknown, histData: unknown) {
