@@ -217,11 +217,10 @@ export default function ParentWelcomePage() {
       .then(({ data: { session } }: { data: { session: import('@supabase/supabase-js').Session | null } }) => {
         if (cancelled) return;
         if (session?.user.user_metadata?.role === 'parent') {
-          if (session.user.user_metadata?.has_child === true) {
-            router.replace('/parent/dashboard');
-            return;
-          }
-          setLoggedIn(true);
+          // Always send to dashboard — layout checks real DB state and routes
+          // to /parent/onboarding when the parent hasn't completed setup yet.
+          router.replace('/parent/dashboard');
+          return;
         }
         setChecking(false);
       })

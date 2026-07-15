@@ -66,9 +66,9 @@ export default function LoginPage() {
         const role = session.user.user_metadata?.role;
         if (role === 'teacher') router.replace('/teacher');
         else if (role === 'parent') {
-          // has_child is written into user_metadata at login time by both auth routes.
-          const hasChild = session.user.user_metadata?.has_child === true;
-          router.replace(hasChild ? '/parent/dashboard' : '/parent/welcome');
+          // Always send parents to the dashboard — the server-side layout checks
+          // real DB state and redirects to /parent/onboarding when needed.
+          router.replace('/parent/dashboard');
         }
         else if (role === 'student') router.replace('/syncing');
         else {
