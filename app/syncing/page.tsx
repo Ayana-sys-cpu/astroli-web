@@ -28,24 +28,24 @@ export default function SyncingPage() {
   useEffect(() => {
     let alive = true;
 
-    // Race: wait for the animation (3.2s) AND the journey check, then route.
-    // studentId comes from the server session — not passed in the URL.
+    // Race: wait for the animation (3.2s) AND the home data fetch, then route.
+    // We pre-fetch /api/student/home here so /home can render immediately
+    // without a second loading state — one animation covers the full load.
     const delay = new Promise<void>((res) => setTimeout(res, 3200));
-    const journeyCheck = fetch('/api/student/journey')
+    const homeCheck = fetch('/api/student/home')
       .then((r) => {
-        // 401 = no session — send back to login rather than silently
-        // treating it as "no active journey" (which traps the student).
         if (r.status === 401 || r.status === 403) return { __redirect: '/' };
         return r.json();
       })
-      .catch(() => ({ __redirect: '/' }));
+      .catch(() => ({}));
 
-    Promise.all([delay, journeyCheck]).then(([, data]) => {
+    Promise.all([delay, homeCheck]).then(([, data]) => {
       if (!alive) return;
       if ((data as any).__redirect) { router.replace((data as any).__redirect); return; }
-      // Multi-journey: always land on the home hub, which lists every
-      // enrolled class by its own state. See
-      // docs/superpowers/specs/2026-06-16-student-multi-journey-home-design.md.
+      // Cache the result so /home renders instantly without a second fetch.
+      try {
+        sessionStorage.setItem('astroli_home_cache', JSON.stringify({ data, ts: Date.now() }));
+      } catch { /* ignore quota/private-mode errors */ }
       router.replace('/home');
     });
 

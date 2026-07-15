@@ -9,6 +9,21 @@ import { getFirstName } from '@/lib/student-store';
 import { t, type Lang } from '@/lib/i18n';
 import type { HomeJourney } from '@/lib/student-home';
 
+const HOME_CACHE_TTL = 10_000; // 10 s — fresh enough after /syncing navigation
+
+function consumeHomeCache(): { journeys: HomeJourney[]; hasParent: boolean } | null {
+  try {
+    const raw = sessionStorage.getItem('astroli_home_cache');
+    if (!raw) return null;
+    const { data, ts } = JSON.parse(raw) as { data: any; ts: number };
+    sessionStorage.removeItem('astroli_home_cache');
+    if (Date.now() - ts > HOME_CACHE_TTL) return null;
+    return { journeys: data.journeys ?? [], hasParent: !!data.hasParent };
+  } catch {
+    return null;
+  }
+}
+
 export default function HomePage() {
   const router = useRouter();
   const [journeys, setJourneys] = useState<HomeJourney[] | null>(null);
@@ -29,7 +44,17 @@ export default function HomePage() {
     }
   }, [router]);
 
-  useEffect(() => { load(); }, [load]);
+  // On mount: read the /syncing prefetch cache if available, otherwise fetch.
+  // Reading in useEffect (not during render) avoids SSR/hydration mismatches.
+  useEffect(() => {
+    const cached = consumeHomeCache();
+    if (cached) {
+      setJourneys(cached.journeys);
+      setHasParent(cached.hasParent);
+    } else {
+      load();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Re-check whenever the student returns to this tab — e.g. after the
   // teacher activates a mission or opens a new vote while this was idle.
