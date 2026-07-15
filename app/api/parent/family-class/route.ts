@@ -66,13 +66,15 @@ export async function POST(req: NextRequest) {
     return enrollmentConflictResponse();
   }
 
-  // If the parent already has a family class, return it — idempotent so
-  // re-submitting the journey picker never creates duplicates.
+  // Idempotent: if the parent already has a family class for THIS journey,
+  // return the existing one instead of creating a duplicate.
+  // A different journey_id means a new selection — allow it.
   const { data: existingClass } = await supabaseAdmin
     .from('classes')
     .select('id')
     .eq('teacher_id', parentId)
     .eq('type', 'family')
+    .eq('journey_id', journeyId)
     .limit(1)
     .maybeSingle();
 
