@@ -60,12 +60,10 @@ export async function GET(req: NextRequest) {
     const translations = ((data as any).translations as Record<string, any>) ?? {};
     const heTranslations = translations['he'] ?? {};
     const hasHeTranslations = Object.keys(heTranslations).length > 0;
-    // Only honour classLanguage='he' when the mission has Hebrew translations;
-    // otherwise fall back to the mission's authored language so the bot and
-    // content stay in sync.
-    const language: 'en' | 'he' = classLanguage === 'he' && hasHeTranslations ? 'he'
-      : classLanguage === 'en' ? 'en'
-      : missionBaseLang;
+    // Class language wins. Only use Hebrew when the class is explicitly Hebrew
+    // AND the mission has Hebrew translations. Default to English in all other
+    // cases (including when enrollment lookup returned no class → classLanguage null).
+    const language: 'en' | 'he' = classLanguage === 'he' && hasHeTranslations ? 'he' : 'en';
     const missionTx = translations[language] ?? {};
 
     return NextResponse.json({
