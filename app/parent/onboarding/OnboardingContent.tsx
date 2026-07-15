@@ -78,9 +78,14 @@ export default function ParentOnboardingContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Keyed off `step`, not `status`: `step` is what actually renders the picker.
+  // `status` only reports what the server said on mount, so a parent who reaches
+  // Step 2 via the Continue button (their child has not accepted yet, leaving
+  // status at 'needs_invite') would never trigger the fetch and would sit on
+  // skeleton loaders forever.
   useEffect(() => {
-    if (status === 'needs_journey' || status === 'already_done') fetchJourneys(language);
-  }, [language, status]);
+    if (step === 'journey') fetchJourneys(language);
+  }, [language, step]);
 
   async function fetchJourneys(lang: 'en' | 'he') {
     setJourneysLoading(true);
