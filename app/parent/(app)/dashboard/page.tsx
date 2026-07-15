@@ -12,6 +12,7 @@ type MainTab = 'this-week' | 'all-time';
 
 type SetupData = {
   child: { id: string; name: string | null } | null;
+  familyClass: { id: string; title: string; journeyId: string } | null;
   setupState: { step: SetupStep; nextActionLabel: string | null; nextActionHref: string | null };
 };
 
@@ -35,12 +36,19 @@ export default function ParentDashboardPage() {
         if (!setup) return;
         setSetupData(setup);
 
-        if (setup.setupState.step === 'active') {
+        // Fetch progress data whenever there is a family class — even if the
+        // child hasn't accepted the invite yet (drill-down returns 403 in that
+        // case, which we handle gracefully by showing an empty state rather
+        // than redirecting).
+        if (setup.familyClass) {
           const pr = await fetch('/api/parent/student/drill-down', { signal: ctrl.signal });
-          if (pr.status === 401 || pr.status === 403) { router.replace('/'); return; }
-          const pd: DrillDownResponse = await pr.json();
-          setProgressData(pd);
-          if (pd.journeys.length > 0) setSelectedJourneyId(pd.journeys[0].id);
+          if (pr.status === 401) { router.replace('/'); return; }
+          if (pr.status !== 403) {
+            const pd: DrillDownResponse = await pr.json();
+            setProgressData(pd);
+            if (pd.journeys.length > 0) setSelectedJourneyId(pd.journeys[0].id);
+          }
+          // 403 = no linked child yet — stay on empty state, do not redirect
         }
       })
       .catch((e: Error) => { if (e.name !== 'AbortError') router.replace('/'); })
@@ -64,9 +72,10 @@ export default function ParentDashboardPage() {
 
   if (!setupData) return null;
 
-  const { setupState, child } = setupData;
+  const { setupState, child, familyClass } = setupData;
 
-  if (setupState.step !== 'active' || !progressData) {
+  // No family class yet → parent hasn't completed onboarding; show the checklist.
+  if (!familyClass) {
     return (
       <div style={{ padding: '40px 32px' }}>
         <div className="glass-panel" style={{ maxWidth: 480, padding: '24px 28px' }}>
@@ -82,6 +91,48 @@ export default function ParentDashboardPage() {
             nextActionHref={setupState.nextActionHref}
             childName={child?.name ?? null}
           />
+        </div>
+      </div>
+    );
+  }
+
+  // Family class exists but child hasn't accepted the invite yet — show the
+  // full dashboard shell with an empty state in the content area.
+  if (!progressData) {
+    const childDisplay = child?.name ?? 'your child';
+    return (
+      <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'rgba(248,248,252,0.8)' }}>
+        {/* Journey pill row */}
+        <div style={{
+          display: 'flex', alignItems: 'center', padding: '16px 20px',
+          borderBottom: '1px solid rgba(26,26,46,0.06)',
+          background: 'rgba(255,255,255,0.5)', flexShrink: 0,
+        }}>
+          <span style={{
+            fontSize: 12, fontWeight: 600, color: '#8B00FF',
+            padding: '5px 14px', borderRadius: 20,
+            border: '1px solid rgba(139,0,255,0.3)',
+            background: 'rgba(139,0,255,0.08)', whiteSpace: 'nowrap',
+          }}>
+            {familyClass.title}
+          </span>
+        </div>
+
+        {/* Empty state */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', gap: 12 }}>
+          <div style={{
+            width: 48, height: 48, borderRadius: '50%',
+            background: 'rgba(139,0,255,0.08)', border: '1px solid rgba(139,0,255,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
+          }}>
+            ✉
+          </div>
+          <p style={{ fontSize: 15, fontWeight: 700, color: '#1a1a2e', margin: 0, textAlign: 'center' }}>
+            Waiting for {childDisplay} to accept the invite
+          </p>
+          <p style={{ fontSize: 13, color: 'rgba(26,26,46,0.5)', margin: 0, textAlign: 'center', maxWidth: 320 }}>
+            Once {childDisplay} clicks the link in their email and signs in, their progress will appear here.
+          </p>
         </div>
       </div>
     );
