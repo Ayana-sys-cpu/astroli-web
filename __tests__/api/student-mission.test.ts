@@ -187,11 +187,14 @@ describe('GET /api/student/mission — class language resolution', () => {
     expect(body.mission.state).toBe('locked');
   });
 
-  it('falls back to the mission language when the student has no enrollment', async () => {
+  // Class language always wins; without a class the route defaults to English
+  // rather than the mission's authored language (f2ba7cb — Hebrew-tagged
+  // missions must not serve Hebrew to students outside an explicit Hebrew class).
+  it('defaults to English when the student has no enrollment', async () => {
     tables.student_classes = [];
     const res = await callStudentMission('?missionId=m1');
     const body = await res.json();
-    expect(body.mission.language).toBe('he');
+    expect(body.mission.language).toBe('en');
     expect(body.mission.state).toBe(null);
   });
 });
