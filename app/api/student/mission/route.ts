@@ -130,7 +130,10 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const missionLanguage: 'en' | 'he' = classLang === 'he' ? 'he' : classLang === 'en' ? 'en' : (missionData?.language === 'he' ? 'he' : 'en');
+    // Class language wins. Default to English when no class is resolvable (same
+    // policy as the missionId path — Hebrew-tagged missions must not leak Hebrew
+    // to English-class students or unenrolled contexts such as the AvatarBot panel).
+    const missionLanguage: 'en' | 'he' = classLang === 'he' ? 'he' : 'en';
 
     const ptx = (((data as any).translations as Record<string, any>) ?? {})[missionLanguage] ?? {};
 

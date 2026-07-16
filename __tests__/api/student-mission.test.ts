@@ -197,4 +197,12 @@ describe('GET /api/student/mission — class language resolution', () => {
     expect(body.mission.language).toBe('en');
     expect(body.mission.state).toBe(null);
   });
+
+  it('defaults to English on the planetId path when the student has no enrollment', async () => {
+    tables.student_classes = [];
+    const res = await callStudentMission('?planetId=p1');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.planet.missionLanguage).toBe('en'); // Hebrew-tagged mission must not serve Hebrew to unenrolled/bot contexts
+  });
 });
