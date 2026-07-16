@@ -90,7 +90,7 @@ export async function getHomescreenData(teacherId: string): Promise<HomescreenDa
   const studentIds = Array.from(new Set(activeSignals.map(s => s.studentId)));
   const { data: studentRows } = await supabaseAdmin
     .from('users')
-    .select('id, alien_name, base_avatar_url')
+    .select('id, first_name, base_avatar_url')
     .in('id', studentIds.length > 0 ? studentIds : ['__none__']);
 
   const studentMap = new Map((studentRows ?? []).map(s => [s.id, s]));
@@ -103,7 +103,7 @@ export async function getHomescreenData(teacherId: string): Promise<HomescreenDa
     })
     .map(s => {
       const student = studentMap.get(s.studentId);
-      const name    = student?.alien_name ?? 'Student';
+      const name    = student?.first_name ?? 'Student';
       const words   = (name.trim() || 'S').split(/\s+/);
       const initials = words.map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
       return {

@@ -142,7 +142,7 @@ const strings = {
 
   // ── AvatarBot ───────────────────────────────────────────────────────────────
   alienScout: {
-    en: 'Your Alien Scout',
+    en: 'Your Alien Guide',
     he: 'חייזר המדריך שלך',
   },
   tapToSync: {

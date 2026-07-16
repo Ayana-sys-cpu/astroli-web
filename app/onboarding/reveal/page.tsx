@@ -3,7 +3,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
-import { getFirstName, markOnboardingComplete, saveBaseAvatarUrl, saveAlienName, getAlienName, getBaseAvatarUrl, isOnboardingComplete } from '@/lib/student-store';
+import { getFirstName, markOnboardingComplete, saveBaseAvatarUrl, getBaseAvatarUrl, isOnboardingComplete } from '@/lib/student-store';
+import { GUIDE_NAME } from '@/lib/guide';
 
 export default function RevealPage() {
   const router = useRouter();
@@ -14,7 +15,7 @@ export default function RevealPage() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const firstName = getFirstName();
-  const alienName  = getAlienName() ?? 'Orin';
+  const guideName  = GUIDE_NAME;
   const storedBase = getBaseAvatarUrl();
   const baseUrl    = storedBase ?? '/avatars/base/base-03.png';
   const videoUrl   = baseUrl.replace('.png', '.mp4');
@@ -40,7 +41,6 @@ export default function RevealPage() {
     if (saving) return; // double-tap on slow Wi-Fi would re-fire the PATCH
     setSaving(true);
     saveBaseAvatarUrl(baseUrl);
-    saveAlienName(alienName);
     markOnboardingComplete();
 
     // Persist alien name and avatar URL to Supabase BEFORE navigating.
@@ -51,7 +51,7 @@ export default function RevealPage() {
       const res = await fetch('/api/student', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ alien_name: alienName, base_avatar_url: baseUrl }),
+        body: JSON.stringify({ base_avatar_url: baseUrl }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -160,7 +160,7 @@ export default function RevealPage() {
                   lineHeight: 1.1,
                 }}
               >
-                {alienName}.
+                {guideName}.
               </p>
             </motion.div>
           )}

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Script from 'next/script';
 import StarField from '@/components/StarField';
-import { saveStudent, markOnboardingComplete, saveAlienName, saveBaseAvatarUrl, clearSession } from '@/lib/student-store';
+import { saveStudent, markOnboardingComplete, saveBaseAvatarUrl, clearSession } from '@/lib/student-store';
 import { saveTeacher, saveCourses } from '@/lib/teacher-store';
 import { createBrowserClient } from '@supabase/ssr';
 import type { Session } from '@supabase/supabase-js';
@@ -198,7 +198,6 @@ export default function LoginPage() {
     if (data.isNewStudent) clearSession();
 
     saveStudent({ firstName: data.firstName, baseAvatarUrl: data.baseAvatarUrl ?? null, avatarUrl: data.avatarUrl ?? null });
-    if (data.alienName)     saveAlienName(data.alienName);
     if (data.baseAvatarUrl) saveBaseAvatarUrl(data.baseAvatarUrl);
     if (!data.isNewStudent) markOnboardingComplete();
 

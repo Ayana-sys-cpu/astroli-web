@@ -97,7 +97,9 @@ export async function POST(req: NextRequest) {
     .eq('email', email)
     .maybeSingle();
 
-  const isNewStudent = !existing || !existing.alien_name;
+  // base_avatar_url is the onboarding-complete marker; alien_name is a
+  // deprecated legacy fallback so pre-deprecation accounts aren't re-onboarded.
+  const isNewStudent = !existing || !(existing.base_avatar_url || existing.alien_name);
 
   const { data: child, error: childError } = await supabaseAdmin
     .from('users')
@@ -114,13 +116,12 @@ export async function POST(req: NextRequest) {
   }
 
   const canonicalId   = existing?.id ?? child.id;
-  const alienName     = 'Orin';
   const baseAvatarUrl = '/avatars/base/base-03.png';
 
   if (isNewStudent) {
     await supabaseAdmin
       .from('users')
-      .update({ alien_name: alienName, base_avatar_url: baseAvatarUrl })
+      .update({ base_avatar_url: baseAvatarUrl })
       .eq('id', canonicalId);
   }
 
@@ -192,7 +193,6 @@ export async function POST(req: NextRequest) {
     userId:       canonicalId,
     email,
     firstName,
-    alienName,
     baseAvatarUrl,
     isNewStudent,
   });

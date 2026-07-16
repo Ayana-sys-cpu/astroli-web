@@ -17,44 +17,6 @@ function missingConfig(): boolean {
   return !SUPABASE_URL || !SUPABASE_KEY;
 }
 
-const FALLBACK_PREFIXES = ['Xylo', 'Kael', 'Zyr', 'Vor', 'Nexo', 'Ael', 'Crix', 'Thal', 'Grix', 'Oru', 'Vex', 'Nyx', 'Zara', 'Phos', 'Quill'];
-const FALLBACK_SUFFIXES = ['-9', '-Flux', '-Prime', '-Zyx', '-Omni', '-Sol', '-Nix', '-Ren', '-X', '-Pulse', '-Arc', '-Zero'];
-
-function fallbackAlienName(): string {
-  const p = FALLBACK_PREFIXES[Math.floor(Math.random() * FALLBACK_PREFIXES.length)];
-  const s = FALLBACK_SUFFIXES[Math.floor(Math.random() * FALLBACK_SUFFIXES.length)];
-  return p + s;
-}
-
-async function generateAlienName(): Promise<string> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return fallbackAlienName();
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 16,
-        messages: [{
-          role: 'user',
-          content: "Invent one unique sci-fi alien name for a student's avatar companion in a space learning game. One word, 5–10 characters, kid-friendly, memorable, no real words. Reply with ONLY the name.",
-        }],
-      }),
-    });
-    if (!res.ok) return fallbackAlienName();
-    const json = await res.json();
-    const name = (json.content?.[0]?.text ?? '').trim().replace(/[^A-Za-z0-9\-]/g, '');
-    return name.length >= 3 && name.length <= 20 ? name : fallbackAlienName();
-  } catch {
-    return fallbackAlienName();
-  }
-}
-
 function pickAvatarUrl(): string {
   const index = Math.floor(Math.random() * 10) + 1;
   return `/avatars/base/base-${String(index).padStart(2, '0')}.png`;
@@ -69,11 +31,8 @@ const RegisterSchema = z.object({
 });
 
 const PatchStudentSchema = z.object({
-  alien_name:      z.string().trim().min(1).max(50).optional(),
   // Accept both relative paths (/avatars/…) and absolute URLs (https://…)
-  base_avatar_url: z.string().trim().min(1).optional(),
-}).refine(d => d.alien_name || d.base_avatar_url, {
-  message: 'At least one of alien_name or base_avatar_url is required',
+  base_avatar_url: z.string().trim().min(1, 'base_avatar_url is required'),
 });
 
 // POST /api/student — register a new student, generate their alien identity,
@@ -113,21 +72,19 @@ export async function POST(req: NextRequest) {
   }
   const userId: string = data[0].id;
 
-  // Generate alien identity and persist it. Fire-and-forget the Supabase
-  // write but await the name so we can return it to the client immediately.
-  const [alienName, baseAvatarUrl] = await Promise.all([
-    generateAlienName(),
-    Promise.resolve(pickAvatarUrl()),
-  ]);
+  // Assign the student's starter avatar. base_avatar_url doubles as the
+  // "onboarding complete" marker read by the sign-in routes, so persist it.
+  // The guide's name is a constant ("Orin") and is no longer stored per student.
+  const baseAvatarUrl = pickAvatarUrl();
 
   fetch(
     `${SUPABASE_URL}users?id=eq.${encodeURIComponent(userId)}`,
     {
       method: 'PATCH',
       headers: { ...supabaseHeaders(), Prefer: 'return=minimal' },
-      body: JSON.stringify({ alien_name: alienName, base_avatar_url: baseAvatarUrl }),
+      body: JSON.stringify({ base_avatar_url: baseAvatarUrl }),
     },
-  ).catch((err) => console.error('[POST /api/student] identity persist error:', err));
+  ).catch((err) => console.error('[POST /api/student] avatar persist error:', err));
 
   // Enroll in matching journeys if caller provided a Google access token.
   if (accessToken && userId) {
@@ -135,7 +92,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Alias id as student_id — client code (onboarding pages) reads this field.
-  return NextResponse.json({ student_id: userId, alien_name: alienName, base_avatar_url: baseAvatarUrl });
+  return NextResponse.json({ student_id: userId, base_avatar_url: baseAvatarUrl });
 }
 
 // PATCH /api/student — update alien_name and/or base_avatar_url for the
@@ -151,11 +108,9 @@ export async function PATCH(req: NextRequest) {
 
   const parsed = await parseBody(req, PatchStudentSchema);
   if (!parsed.ok) return parsed.response;
-  const { alien_name, base_avatar_url } = parsed.data;
+  const { base_avatar_url } = parsed.data;
 
-  const patch: Record<string, string> = {};
-  if (alien_name)       patch.alien_name      = alien_name;
-  if (base_avatar_url)  patch.base_avatar_url = base_avatar_url;
+  const patch: Record<string, string> = { base_avatar_url };
 
   console.log('[PATCH /api/student] studentId:', studentId, 'fields:', Object.keys(patch));
 
@@ -210,7 +165,7 @@ export async function DELETE(req: NextRequest) {
 // exists), so it must never expose more than the fields the mobile
 // StudentRecord consumes — no select=*, no apple_user_id, no role.
 const STUDENT_LOOKUP_COLUMNS =
-  'id,email,full_name,first_name,alien_name,base_avatar_url,avatar_url,area_of_interest';
+  'id,email,full_name,first_name,base_avatar_url,avatar_url,area_of_interest';
 
 export async function GET(req: NextRequest) {
   if (missingConfig()) {

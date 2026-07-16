@@ -11,6 +11,7 @@
  */
 
 import { toDisplayFirstName } from './display-name';
+import { GUIDE_NAME } from './guide';
 
 const K = {
   FIRST_NAME:       'astroli_first_name',
@@ -18,7 +19,6 @@ const K = {
   AVATAR_URL:       'astroli_avatar_url',
   ONBOARDING:       'astroli_onboarding_complete',
   INTEREST:         'astroli_interest',
-  ALIEN_NAME:       'astroli_alien_name',
   JOURNEY_ACTIVE:   'astroli_journey_active',
   MISSION_REVEALED: 'astroli_mission_revealed_id',
 } as const;
@@ -83,14 +83,6 @@ export function getInterest(): string {
   return ls()?.getItem(K.INTEREST) ?? '';
 }
 
-export function saveAlienName(name: string): void {
-  ls()?.setItem(K.ALIEN_NAME, name);
-}
-
-export function getAlienName(): string | null {
-  return ls()?.getItem(K.ALIEN_NAME) ?? null;
-}
-
 export function markOnboardingComplete(): void {
   ls()?.setItem(K.ONBOARDING, '1');
 }
@@ -124,22 +116,7 @@ export function clearSession(): void {
 
 // ── Bot identity ─────────────────────────────────────────────────────────────
 
-// Deterministic algorithm shared with the mobile app (FloatingBot.tsx) and
-// the onboarding reveal page. Same input → same name, every time.
-export function generateAlienName(interest: string): string {
-  const prefixes = ['Xylo', 'Kael', 'Zyr', 'Vor', 'Nexo', 'Ael', 'Crix', 'Thal', 'Grix', 'Oru'];
-  const suffixes = ['-Vex', '-9', '-Flux', '-Prime', '-Zyx', '-Kael', '-Omni', '-Sol', '-Nix', '-Ren'];
-  const seed = Array.from(interest).reduce((a, c) => a + c.charCodeAt(0), 0);
-  return prefixes[seed % prefixes.length] + suffixes[(seed * 7) % suffixes.length];
-}
-
-/**
- * Returns the student's bot companion name.
- * Priority: Supabase-persisted name (saved at onboarding) → computed from interest → 'Orin'.
- */
+/** The guide's name. Always "Orin" — never per-student, never "Scout". */
 export function getBotName(): string {
-  const stored = getAlienName();
-  if (stored) return stored;
-  const interest = getInterest();
-  return interest ? generateAlienName(interest) : 'Orin';
+  return GUIDE_NAME;
 }

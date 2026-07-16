@@ -19,6 +19,9 @@ model User {
   updatedAt                   DateTime                     @default(now()) @updatedAt @map("updated_at")
   first_name                  String?
   full_name                   String?
+  /// @deprecated Guide name is always "Orin"; this column is no longer written or
+  /// read for display. Retained only as a legacy onboarding-complete fallback —
+  /// safe to DROP once no pre-deprecation rows rely on it. See base_avatar_url.
   alien_name                  String?
   base_avatar_url             String?
   avatar_url                  String?

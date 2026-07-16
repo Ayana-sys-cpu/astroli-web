@@ -4,7 +4,8 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import StarField from '@/components/StarField';
 import TopBar from '@/components/TopBar';
-import { getInterest, loadStudent } from '@/lib/student-store';
+import { loadStudent } from '@/lib/student-store';
+import { GUIDE_NAME } from '@/lib/guide';
 
 // ── Animation variants ──────────────────────────────────────────────────────
 
@@ -34,13 +35,6 @@ function pickBaseIndex(studentId: string): number {
   return (sum % 10) + 1;
 }
 
-function generateAlienName(interest: string): string {
-  const prefixes = ['Xylo', 'Kael', 'Zyr', 'Vor', 'Nexo', 'Ael', 'Crix', 'Thal', 'Grix', 'Oru'];
-  const suffixes = ['-Vex', '-9', '-Flux', '-Prime', '-Zyx', '-Kael', '-Omni', '-Sol', '-Nix', '-Ren'];
-  const seed = Array.from(interest).reduce((a, c) => a + c.charCodeAt(0), 0);
-  return prefixes[seed % prefixes.length] + suffixes[(seed * 7) % suffixes.length];
-}
-
 // ── Message ─────────────────────────────────────────────────────────────────
 
 const ORIN_MSG =
@@ -51,7 +45,7 @@ const ORIN_MSG =
 export default function PendingJourneyPage() {
   const router = useRouter();
 
-  const [alienName,     setAlienName]     = useState('');
+  const guideName = GUIDE_NAME;
   const [baseAvatarUrl, setBaseAvatarUrl] = useState<string | null>(null);
   const [charIndex,     setCharIndex]     = useState(0);
   const [typingLive,    setTypingLive]    = useState(false);
@@ -60,9 +54,6 @@ export default function PendingJourneyPage() {
   // studentId is not stored in localStorage — if no stored avatar exists,
   // we fall back to a fixed placeholder until the DB is loaded.
   useEffect(() => {
-    const interest = getInterest();
-    setAlienName(interest ? generateAlienName(interest) : 'Xylo-Vex');
-
     const record = loadStudent();
     if (record?.baseAvatarUrl) {
       setBaseAvatarUrl(record.baseAvatarUrl);
@@ -236,7 +227,7 @@ export default function PendingJourneyPage() {
               {avatarSrc ? (
                 <img
                   src={avatarSrc}
-                  alt={alienName}
+                  alt={guideName}
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
               ) : (
@@ -260,7 +251,7 @@ export default function PendingJourneyPage() {
               className="font-space font-bold text-xs tracking-[0.16em] uppercase"
               style={{ color: '#00F5D4' }}
             >
-              {alienName}
+              {guideName}
             </p>
             <p
               className="font-inter text-sm leading-relaxed"

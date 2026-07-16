@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
-import { saveStudent, saveAlienName, saveBaseAvatarUrl, markOnboardingComplete, clearSession } from '@/lib/student-store';
+import { saveStudent, saveBaseAvatarUrl, markOnboardingComplete, clearSession } from '@/lib/student-store';
 import SigningInAnimation from '@/components/SigningInAnimation';
 
 // Singleton browser client — reads/writes the Supabase session via cookies so
@@ -154,7 +154,6 @@ export default function CallbackContent() {
             baseAvatarUrl: data.baseAvatarUrl ?? null,
             avatarUrl:     null,
           });
-          if (data.alienName)     saveAlienName(data.alienName);
           if (data.baseAvatarUrl) saveBaseAvatarUrl(data.baseAvatarUrl);
           if (!data.isNewStudent) markOnboardingComplete();
 

@@ -31,39 +31,6 @@ import { upsertAuthUserAndToken } from '@/lib/auth-token';
 import { parseBody, AuthCodeSchema } from '@/lib/validate';
 import { enrollStudentInJourneys } from '@/lib/enroll-student';
 
-// ── Alien identity helpers (mirrors /api/student) ─────────────────────────────
-
-const ALIEN_PREFIXES = ['Xylo','Kael','Zyr','Vor','Nexo','Ael','Crix','Thal','Grix','Oru','Vex','Nyx','Zara','Phos','Quill'];
-const ALIEN_SUFFIXES = ['-9','-Flux','-Prime','-Zyx','-Omni','-Sol','-Nix','-Ren','-X','-Pulse','-Arc','-Zero'];
-
-function fallbackAlienName(): string {
-  const p = ALIEN_PREFIXES[Math.floor(Math.random() * ALIEN_PREFIXES.length)];
-  const s = ALIEN_SUFFIXES[Math.floor(Math.random() * ALIEN_SUFFIXES.length)];
-  return p + s;
-}
-
-async function generateAlienName(): Promise<string> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return fallbackAlienName();
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 16,
-        messages: [{ role: 'user', content: "Invent one unique sci-fi alien name for a student's avatar companion in a space learning game. One word, 5–10 characters, kid-friendly, memorable, no real words. Reply with ONLY the name." }],
-      }),
-    });
-    if (!res.ok) return fallbackAlienName();
-    const json = await res.json();
-    const n = (json.content?.[0]?.text ?? '').trim().replace(/[^A-Za-z0-9\-]/g, '');
-    return n.length >= 3 && n.length <= 20 ? n : fallbackAlienName();
-  } catch {
-    return fallbackAlienName();
-  }
-}
-
 function pickAvatarUrl(): string {
   const index = Math.floor(Math.random() * 10) + 1;
   return `/avatars/base/base-${String(index).padStart(2, '0')}.png`;
@@ -304,21 +271,22 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 4b. Student path ──────────────────────────────────────────────────────
-  // Check existence before upsert so we know whether to generate an identity.
-  // Use array query — prefer the row with alien_name (fully onboarded student)
-  // so duplicate rows don't reset the student's identity on every sign-in.
+  // Check existence before upsert so we know whether onboarding is needed.
+  // Prefer the fully-onboarded row (has a base avatar) so duplicate rows don't
+  // reset the student on every sign-in. alien_name is a deprecated legacy
+  // fallback — kept only so pre-deprecation accounts aren't forced to re-onboard.
   const { data: existingRows } = await supabaseAdmin
     .from('users')
     .select('id, first_name, base_avatar_url, alien_name')
     .eq('email', email);
-  const existing = (existingRows ?? []).find(u => u.alien_name)
+  const existing = (existingRows ?? []).find(u => u.base_avatar_url || u.alien_name)
     ?? (existingRows ?? [])[0]
     ?? null;
 
-  // A student needs onboarding if they have no alien_name — covers both genuinely
-  // new users (no DB row) and users whose record exists but onboarding was never
-  // completed (e.g. pre-enrolled by a teacher, or interrupted mid-flow).
-  const isNewStudent = !existing || !existing.alien_name;
+  // A student needs onboarding if they have no base avatar — covers both
+  // genuinely new users (no DB row) and users whose record exists but onboarding
+  // was never completed (e.g. pre-enrolled by a teacher, or interrupted mid-flow).
+  const isNewStudent = !existing || !(existing.base_avatar_url || existing.alien_name);
 
   // Upsert user row — safe to call on every sign-in.
   const { data: student, error: studentError } = await supabaseAdmin
@@ -346,16 +314,14 @@ export async function POST(req: NextRequest) {
     console.warn('[google] duplicate users row — existing.id:', existing.id, 'upsert.id:', student.id, '— using existing.id as canonical');
   }
 
-  // Generate alien identity for new students; reuse existing for returning ones.
-  // Prefer the canonical row's values — they may differ from student.* when a
+  // Assign a starter avatar for new students; reuse existing for returning ones.
+  // Prefer the canonical row's value — it may differ from student.* when a
   // duplicate row was inserted and student.* reflects the new (empty) row.
-  let alienName     = (existing?.alien_name     ?? student.alien_name)     as string | null;
   let baseAvatarUrl = (existing?.base_avatar_url ?? student.base_avatar_url) as string | null;
 
   if (isNewStudent) {
-    alienName     = 'Orin';
     baseAvatarUrl = '/avatars/base/base-03.png';
-    // Do NOT save alien_name to DB here. The reveal page (/onboarding/reveal)
+    // Do NOT save base_avatar_url to DB here. The reveal page (/onboarding/reveal)
     // saves it via PATCH /api/student when the student clicks "BEGIN YOUR JOURNEY".
     // Saving here would cause isNewStudent to be false on the next sign-in if the
     // student closed the browser before completing the reveal, silently skipping
@@ -387,6 +353,5 @@ export async function POST(req: NextRequest) {
     isNewStudent,
     firstName:    (student.first_name ?? nameParts[0]) as string,
     baseAvatarUrl,
-    alienName,
   });
 }

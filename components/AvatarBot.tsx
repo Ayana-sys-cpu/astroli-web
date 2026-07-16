@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { getBotName, getFirstName, getEffectiveAvatarUrl } from '@/lib/student-store';
+import { getFirstName, getEffectiveAvatarUrl } from '@/lib/student-store';
+import { GUIDE_NAME } from '@/lib/guide';
 import { getSessionToken } from '@/lib/session';
 import { t, type Lang } from '@/lib/i18n';
 
@@ -56,13 +57,12 @@ export default function AvatarBot() {
   const [input, setInput]     = useState('');
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [botName, setBotName] = useState('Scout');
+  const botName = GUIDE_NAME;
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [missionLanguage, setMissionLanguage] = useState<'en' | 'he'>('en');
   const openingFetched = useRef(false);
 
   useEffect(() => {
-    setBotName(getBotName());
     setAvatarUrl(getEffectiveAvatarUrl());
   }, []);
 
