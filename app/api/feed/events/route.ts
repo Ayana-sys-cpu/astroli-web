@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { resolveStudentIdFromRequest } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase-server';
 
-const VALID_ACTIONS = new Set([
+const VALID_ACTIONS_LIST = [
   'impression', 'dwell', 'like', 'comment',
   'learn_more', 'task_done', 'skip',
-]);
+] as const;
+const VALID_ACTIONS = new Set<string>(VALID_ACTIONS_LIST);
 
 export async function POST(req: NextRequest) {
   const studentId = await resolveStudentIdFromRequest(req);
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
 
   if (!VALID_ACTIONS.has(action)) {
     return NextResponse.json(
-      { error: `action must be one of: ${[...VALID_ACTIONS].join(', ')}` },
+      { error: `action must be one of: ${VALID_ACTIONS_LIST.join(', ')}` },
       { status: 400 },
     );
   }

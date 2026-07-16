@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
     const engagementCounts = { did_you_know: 0, inspiring_human: 0, real_world_task: 0 };
 
     if (engagementEvents && engagementEvents.length > 0) {
-      const editIds = [...new Set(engagementEvents.map((e: any) => e.edit_id))];
+      const editIds = Array.from(new Set<string>(engagementEvents.map((e: any) => e.edit_id as string)));
       if (editIds.length > 0) {
         const { data: editTypes } = await supabaseAdmin
           .from('feed_edits')
