@@ -26,6 +26,8 @@ interface Planet {
   id: string;
   title: string;
   label: string | null;
+  planetQuestion: string | null;
+  missionTitle: string | null;
   content: string;
   openingMessage:       string | null;
   characterFigure:      string | null;
@@ -469,9 +471,17 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
           }} />
 
           {/* Mission context — always pinned */}
-          <div className="px-4 py-3 border-b border-white/5 flex-shrink-0" style={{ borderLeft: '2px solid rgba(155,143,212,0.35)' }}>
-            <p className="text-[9px] tracking-[0.18em] text-[#9b8fd4]/50 font-space uppercase mb-1.5">{t('yourMission', missionLang)}</p>
-            <p className="text-[15px] font-semibold text-white/80 font-inter leading-snug">{planet.title}</p>
+          <div className="border-b border-white/5 flex-shrink-0" style={{ borderLeft: '2px solid rgba(155,143,212,0.35)' }}>
+            {planet.missionTitle && (
+              <div className="px-4 pt-3 pb-2 border-b border-white/5">
+                <p className="text-[9px] tracking-[0.18em] text-[#9b8fd4]/50 font-space uppercase mb-1">{t('yourMission', missionLang)}</p>
+                <p className="text-[12px] font-medium text-white/50 font-inter leading-snug">{planet.missionTitle}</p>
+              </div>
+            )}
+            <div className="px-4 py-3">
+              <p className="text-[9px] tracking-[0.18em] text-[#9b8fd4]/50 font-space uppercase mb-1.5">{t('exploring', missionLang)}</p>
+              <p className="text-[15px] font-semibold text-white/80 font-inter leading-snug">{planet.planetQuestion ?? planet.title}</p>
+            </div>
           </div>
 
           {/* Chat panel — fills remaining space */}

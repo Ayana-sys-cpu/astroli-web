@@ -167,6 +167,10 @@ const strings = {
     en: 'YOUR MISSION',
     he: 'המשימה שלך',
   },
+  exploring: {
+    en: 'EXPLORING',
+    he: 'חוקרים',
+  },
   speakingWith: {
     en: 'SPEAKING WITH',
     he: 'מדברים עם',

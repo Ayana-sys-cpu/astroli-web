@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
     const [planetRes, classRes] = await Promise.all([
       supabaseAdmin
         .from('planets')
-        .select('id, title, label, short_title, planet_question, content, opening_message, character_figure, character_year, character_location, student_reveal_message, media_url, media_type, translations, mission_id, missions!mission_id ( language, translations, journey_id )')
+        .select('id, title, label, short_title, planet_question, content, opening_message, character_figure, character_year, character_location, student_reveal_message, media_url, media_type, translations, mission_id, missions!mission_id ( language, translations, journey_id, question )')
         .eq('id', planetId)
         .single(),
       classId
@@ -134,6 +134,7 @@ export async function GET(req: NextRequest) {
 
     const ptx = (((data as any).translations as Record<string, any>) ?? {})[missionLanguage] ?? {};
 
+    const missionTx = ((missionData?.translations as Record<string, any>) ?? {})[missionLanguage] ?? {};
     return NextResponse.json({
       planet: {
         id:                   data.id,
@@ -141,6 +142,7 @@ export async function GET(req: NextRequest) {
         label:                ptx.label           ?? data.label           ?? null,
         shortTitle:           ptx.short_title     ?? data.short_title     ?? null,
         planetQuestion:       ptx.planet_question ?? data.planet_question ?? null,
+        missionTitle:         missionTx.question  ?? missionData?.question ?? null,
         content:              ptx.content         ?? data.content,
         openingMessage:       ptx.opening_message ?? data.opening_message ?? null,
         characterFigure:      ptx.character_figure   ?? data.character_figure  ?? null,
