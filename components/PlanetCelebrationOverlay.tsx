@@ -161,15 +161,12 @@ export default function PlanetCelebrationOverlay({
     card.style.transform  = `translate(${dx}px, ${dy}px) scale(0.2)`;
     card.style.opacity    = '0';
     card.style.filter     = 'blur(12px)';
-    // Orin travels with the card. Transform-only (never opacity) — fading a
-    // mix-blend:screen video isolates it and leaves a faint light box around him.
-    // Place him on the card, then aim his CSS fly animation's start at the panel.
+    // Orin does NOT travel with the card. His video hides its black matte via
+    // mix-blend:screen against the overlay's dark backdrop — but the backdrop is
+    // transparent until it dims in at 1.2s, so during the flight the matte would
+    // render as a solid black box over the planet screen. He stays hidden and
+    // materializes on the card once the veil is opaque (see `.pco-src-orin`).
     placeOrinOnCard();
-    const orin = orinRef.current;
-    if (orin) {
-      orin.style.setProperty('--orin-dx', `${pcx - (parseFloat(orin.style.left) || 0)}px`);
-      orin.style.setProperty('--orin-dy', `${pcy - (parseFloat(orin.style.top) || 0)}px`);
-    }
     void card.offsetWidth; // reflow so the jump-to-panel isn't itself animated
     const EASE = 'cubic-bezier(0.16,1,0.3,1)';
     card.style.transition = `transform 0.85s 0.35s ${EASE}, opacity 0.85s 0.35s ${EASE}, filter 0.85s 0.35s ${EASE}`;
@@ -317,17 +314,18 @@ export default function PlanetCelebrationOverlay({
   }
 
   // ── Navigation ────────────────────────────────────────────────────────────────
+  // No onClose() before push: closing first unmounts the overlay and flashes the
+  // just-finished planet while the next route loads. The overlay stays up until
+  // the destination takes over (the planet page resets celebration state when a
+  // new planet starts loading; other routes unmount this page entirely).
   function handleExploreNext() {
     if (!nextPlanet) return;
-    onClose();
     router.push(`/landscape/${nextPlanet.id}?lang=${language}${classId ? `&classId=${classId}` : ''}`);
   }
   function handleBackToMap() {
-    onClose();
     router.push(classId ? `/landscape?classId=${classId}` : '/landscape');
   }
   function handleBackToHome() {
-    onClose();
     router.push('/home');
   }
 
@@ -566,14 +564,15 @@ const CSS = `
 /* Beat-1 card: JS drives the fly-out from the chat panel — disable the CSS materialize
    and start hidden so there's no one-frame flash at centre before the effect runs. */
 .pco-src-entry { animation:none !important; opacity:0; }
-/* Orin flies out of the chat WITH the card (same 0.35s hold → 0.85s flight).
-   Transform-only, never opacity — fading a mix-blend:screen video isolates it and
-   leaves a faint light box around him. --orin-dx/--orin-dy are set by the entrance
-   effect to point the launch at the chat panel. */
-.pco-src-orin { animation:pco-orin-fly .85s .35s cubic-bezier(.16,1,.3,1) both; }
-@keyframes pco-orin-fly {
-  from { transform:translate(-50%,-50%) translate(var(--orin-dx,0), var(--orin-dy,0)) scale(.2); }
-  to   { transform:translate(-50%,-50%) translate(0px,0px) scale(1); }
+/* Orin materializes on the card only after the veil is fully opaque (card lands at
+   1.2s + veil dims in over 0.8s = 2.0s). His mix-blend:screen matte is only
+   invisible against an opaque dark backdrop — any earlier and the video's black
+   box shows over the planet screen. Transform+visibility only, never opacity —
+   fading a mix-blend:screen video isolates it and leaves a faint light box. */
+.pco-src-orin { animation:pco-orin-materialize .5s 2s cubic-bezier(.16,1,.3,1) both; }
+@keyframes pco-orin-materialize {
+  from { transform:translate(-50%,-50%) scale(.2); visibility:hidden; }
+  to   { transform:translate(-50%,-50%) scale(1); visibility:visible; }
 }
 
 /* backdrop */

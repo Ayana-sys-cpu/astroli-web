@@ -554,6 +554,10 @@ const strings = {
     en: 'Planet not found',
     he: 'הכוכב לא נמצא',
   },
+  preparingPlanet: {
+    en: 'Preparing your planet...',
+    he: 'מכינים את הכוכב שלך...',
+  },
   noCharacterAvailable: {
     en: 'No character available for this planet.',
     he: 'אין דמות זמינה בכוכב הזה.',

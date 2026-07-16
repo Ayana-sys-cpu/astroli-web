@@ -21,6 +21,7 @@ import { t, type Lang } from '@/lib/i18n';
 import { type SummaryInsight } from '@/hooks/usePlanetVoice';
 import type { MissionTerm } from '@/lib/orin-guide-types';
 import PlanetCelebrationOverlay, { type NextPlanetInfo, type MissionProgressInfo } from '@/components/PlanetCelebrationOverlay';
+import ConstellationLoader from '@/components/ConstellationLoader';
 
 interface Planet {
   id: string;
@@ -153,6 +154,12 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
   useEffect(() => {
     setLoadFailed(false);
     setLoading(true);
+    // Arriving from another planet's celebration overlay (the page component is
+    // reused across /landscape/[id] navigations, so state survives): clear the
+    // finished celebration so it doesn't linger over the new planet.
+    setShowCelebration(false);
+    setCelebrationAward(null);
+    setCelebrationNextPlanet(null);
     fetch(`/api/student/mission?planetId=${params.id}${classId ? `&classId=${classId}` : ''}`)
       .then(r => {
         // Expired session must go back to sign-in, not a "planet not found" dead end.
@@ -268,11 +275,7 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <span className="w-5 h-5 rounded-full border-2 border-[#a855f7]/30 border-t-[#00C4CC] animate-spin" />
-      </div>
-    );
+    return <ConstellationLoader message={t('preparingPlanet', missionLang)} />;
   }
 
   if (loadFailed) {
