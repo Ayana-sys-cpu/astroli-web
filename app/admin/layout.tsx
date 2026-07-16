@@ -13,6 +13,7 @@ const ADMIN_TABS = [
   { href: '/admin/students', label: 'Students' },
   { href: '/admin/feedback', label: 'Feedback' },
   { href: '/admin/families', label: 'Families' },
+  { href: '/admin/feed-review', label: 'Feed Review' },
 ] as const;
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
