@@ -475,9 +475,6 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
 
           {/* Mission context — always pinned */}
           <div className="px-4 py-3 border-b border-white/5 flex-shrink-0" style={{ borderLeft: '2px solid rgba(155,143,212,0.35)' }}>
-            {planet.missionTitle && (
-              <p className="text-[10px] text-white/30 font-inter leading-snug mb-2">{planet.missionTitle}</p>
-            )}
             <p className="text-[9px] tracking-[0.18em] text-[#9b8fd4]/50 font-space uppercase mb-1.5">{t('exploring', missionLang)}</p>
             <p className="text-[15px] font-semibold text-white/80 font-inter leading-snug">{planet.planetQuestion ?? planet.title}</p>
           </div>
