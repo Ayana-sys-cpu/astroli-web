@@ -162,29 +162,37 @@ function LandscapeContent() {
           return;
         }
 
-        // All three only need activeMissionId — fetch concurrently so none
-        // waits on the others.  mission-state would otherwise be tier 3 (fetched
-        // by OrinGuidePanel on mount); pulling it up here removes that round-trip
-        // from the panel's critical path.
-        const [missionRes, progressRes, stateRes] = await Promise.all([
-          fetch(`/api/student/mission?missionId=${activeMissionId}${classId ? `&classId=${classId}` : ''}`),
-          fetch(`/api/student/planet-progress?missionId=${activeMissionId}`),
-          fetch(`/api/student/mission-state?missionId=${activeMissionId}`),
-        ]);
-        const { mission } = await missionRes.json();
-        const { progress } = await progressRes.json().catch(() => ({ progress: null }));
-        const statePayload: MissionStatePayload | null = await stateRes.json().catch(() => null);
+        // Fire all three concurrently.  The reveal overlay only needs the
+        // mission text (question / order / language), so we await *that* first
+        // and show the overlay the moment it arrives — planet-progress and
+        // mission-state feed the map that sits *underneath* the overlay and
+        // resolve in the background.  This keeps mission-state (several DB reads
+        // plus a visit-timestamp write) off the reveal's critical path.
+        const missionP  = fetch(`/api/student/mission?missionId=${activeMissionId}${classId ? `&classId=${classId}` : ''}`);
+        const progressP = fetch(`/api/student/planet-progress?missionId=${activeMissionId}`);
+        const stateP    = fetch(`/api/student/mission-state?missionId=${activeMissionId}`);
+
+        const { mission } = await missionP.then(r => r.json());
 
         if (!mission) {
           // 404/500 body without a mission — never reveal an empty map.
           setLoadError(true);
           return;
         }
+        setMission(mission);
         if (!missionStatus) {
           isFirstVisit.current = true;
           setShowOverlay(true);
         }
-        setMission(mission);
+
+        // Map data — resolve without blocking the reveal.  On a first visit the
+        // student is reading the overlay while these land; on a return visit
+        // (no overlay) we still wait for them before showing the map so its
+        // progress dots and Orin's return message never pop in empty.
+        const [{ progress }, statePayload] = await Promise.all([
+          progressP.then(r => r.json()).catch(() => ({ progress: null })),
+          stateP.then(r => r.json()).catch(() => null) as Promise<MissionStatePayload | null>,
+        ]);
         if (progress) setPlanetProgress(progress);
         setInitialMissionState(statePayload);
         if (missionStatus) setReady(true);
