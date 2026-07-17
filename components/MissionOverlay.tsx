@@ -16,6 +16,10 @@ export default function MissionOverlay({ question, order, onAccept, language }: 
   const words = question.split(' ');
   const label = `${t('missionLabel', lang)} ${String(order).padStart(2, '0')} · ${t('missionActivated', lang)}`;
   const lastWordDelay = 0.4 + words.length * 0.15;
+  const fontSize =
+    words.length <= 8  ? 'clamp(36px, 5.5vw, 88px)' :
+    words.length <= 12 ? 'clamp(28px, 4.5vw, 72px)' :
+                         'clamp(22px, 3.5vw, 56px)';
 
   return (
     <motion.div
@@ -23,7 +27,7 @@ export default function MissionOverlay({ question, order, onAccept, language }: 
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.5 }}
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 px-8"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 px-8 py-10 overflow-y-auto"
       style={{ background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(12px)' }}
     >
       <StarField count={80} seed={42} />
@@ -52,7 +56,7 @@ export default function MissionOverlay({ question, order, onAccept, language }: 
       <h1
         className="relative z-10 font-space font-black text-center leading-tight"
         dir={lang === 'he' ? 'rtl' : 'ltr'}
-        style={{ fontSize: 'clamp(44px, 6.5vw, 88px)', letterSpacing: '-0.02em', maxWidth: 800 }}
+        style={{ fontSize, letterSpacing: '-0.02em', maxWidth: 800 }}
       >
         {words.map((word, i) => (
           <motion.span
