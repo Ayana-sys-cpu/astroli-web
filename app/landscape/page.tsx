@@ -18,6 +18,7 @@ import { getBotName, loadStudent } from '@/lib/student-store';
 import { getPlanetMeta, PLANET_LAYOUT, PLANET_EDGES } from '@/lib/planet-meta';
 import type { OrinMission } from '@/lib/orin-guide-types';
 import type { MissionStatePayload } from '@/components/OrinGuidePanel';
+import { readLandscapeCache, writeLandscapeCache } from '@/lib/landscape-cache';
 
 interface Planet {
   id: string;
@@ -62,6 +63,9 @@ function LandscapeContent() {
   const [orinMission, setOrinMission] = useState<OrinMission | null>(null);
   const [initialMissionState, setInitialMissionState] = useState<MissionStatePayload | null>(null);
   const isFirstVisit = useRef(false);
+  // True once we've painted the map from the sessionStorage cache — used to keep
+  // the background revalidation silent (no overlay re-trigger, no SYNCING flash).
+  const hydratedFromCache = useRef(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   // True when the home orbit just played the hyperdrive launch — keep the same
   // streak overlay running here (instead of the SYNCING text) until the map or
@@ -134,6 +138,24 @@ function LandscapeContent() {
     }
 
     // ── Normal mode ──────────────────────────────────────────────────────────
+
+    // Stale-while-revalidate: if we cached this class's map on a previous visit,
+    // paint it instantly (no SYNCING flash, no overlay) and let the fetch
+    // waterfall below run in the background to refresh it.  A cache hit only
+    // ever happens on a return visit, so this never pre-empts the first-visit
+    // reveal overlay.
+    if (!hydratedFromCache.current) {
+      const cached = readLandscapeCache(classId);
+      if (cached) {
+        hydratedFromCache.current = true;
+        setMission(cached.mission as Mission);
+        setPlanetProgress(cached.planetProgress);
+        setInitialMissionState(cached.initialMissionState);
+        setOrinMission(cached.orinMission);
+        setReady(true);
+      }
+    }
+
     (async () => {
       try {
         const journeyRes = await fetch(`/api/student/journey${classId ? `?classId=${classId}` : ''}`);
@@ -180,6 +202,10 @@ function LandscapeContent() {
           return;
         }
         setMission(mission);
+        // missionStatus is falsy only for a not-yet-started mission — i.e. a
+        // genuine first reveal.  A cached map is always a started mission, so
+        // this never fires on an ordinary back-to-map; when it does fire during
+        // revalidation it means a *new* mission started, which should reveal.
         if (!missionStatus) {
           isFirstVisit.current = true;
           setShowOverlay(true);
@@ -200,16 +226,32 @@ function LandscapeContent() {
         // Tier 3: guide content for OrinGuidePanel.  Needs the resolved language
         // from tier 2 (class language may differ from mission.language).  This
         // endpoint is publicly CDN-cached so it resolves fast.
+        let orinData: OrinMission | null = null;
         try {
           const orinRes = await fetch(`/api/mission?missionId=${activeMissionId}&lang=${mission.language}`);
-          const orinData: OrinMission = await orinRes.json();
+          orinData = await orinRes.json();
           setOrinMission(orinData);
         } catch {
           // Panel falls back to its loading state; a retry isn't needed since
           // /api/mission is cached and failures are transient.
         }
+
+        // Persist the resolved bundle so the next return to the map paints
+        // instantly.  Only cache when planet-progress actually resolved — a
+        // failed progress fetch must not overwrite a good prior cache with an
+        // empty map.
+        if (progress) {
+          writeLandscapeCache(classId, {
+            mission,
+            planetProgress: progress,
+            initialMissionState: statePayload,
+            orinMission: orinData,
+          });
+        }
       } catch {
-        setLoadError(true);
+        // A network failure on revalidation must not blank out a map we already
+        // painted from cache — only surface the error state on a cold load.
+        if (!hydratedFromCache.current) setLoadError(true);
       }
     })();
   }, [isPreview, isReview, reviewMissionId, router, classId, loadAttempt]);
