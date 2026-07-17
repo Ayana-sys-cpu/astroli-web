@@ -8,6 +8,7 @@ import TopBar from '@/components/TopBar';
 import { getFirstName } from '@/lib/student-store';
 import { t, type Lang } from '@/lib/i18n';
 import type { HomeJourney } from '@/lib/student-home';
+import { readHomeCache, writeHomeCache } from '@/lib/home-cache';
 
 const HOME_CACHE_TTL = 10_000; // 10 s — fresh enough after /syncing navigation
 
@@ -37,23 +38,36 @@ export default function HomePage() {
       if (res.status === 401 || res.status === 403) { router.replace('/'); return; }
       const data = await res.json();
       const list: HomeJourney[] = data.journeys ?? [];
+      const parent = !!data.hasParent;
       setJourneys(list);
-      setHasParent(!!data.hasParent);
+      setHasParent(parent);
+      // Persist for instant paint on the next return to /home (SWR).
+      writeHomeCache({ journeys: list, hasParent: parent });
     } catch {
       // stay — next focus/poll will retry
     }
   }, [router]);
 
-  // On mount: read the /syncing prefetch cache if available, otherwise fetch.
-  // Reading in useEffect (not during render) avoids SSR/hydration mismatches.
+  // On mount, in priority order (reading in useEffect, not during render,
+  // avoids SSR/hydration mismatches):
+  //  1. The /syncing prefetch cache — freshest (just fetched, <10s old); when
+  //     present we paint it and skip the immediate refetch.
+  //  2. Otherwise the persistent SWR cache — paint the last-known journeys
+  //     instantly (no SYNCING skeleton on back-navigation), then revalidate.
+  //  3. Otherwise a cold load.
   useEffect(() => {
-    const cached = consumeHomeCache();
+    const fresh = consumeHomeCache();
+    if (fresh) {
+      setJourneys(fresh.journeys);
+      setHasParent(fresh.hasParent);
+      return;
+    }
+    const cached = readHomeCache();
     if (cached) {
       setJourneys(cached.journeys);
       setHasParent(cached.hasParent);
-    } else {
-      load();
     }
+    load(); // background revalidation (also the cold-load path)
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Re-check whenever the student returns to this tab — e.g. after the
