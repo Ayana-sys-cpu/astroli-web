@@ -163,15 +163,15 @@ function OrbitPlanet({ mission, orbitState: state, index, classId, language, red
             pointerEvents:  'none',
             backdropFilter: 'blur(10px)',
             boxShadow:      '0 8px 32px rgba(0,0,0,0.5)',
-            minWidth:       120,
-            maxWidth:       210,
+            minWidth:       160,
+            maxWidth:       268,
             textAlign:      'center',
             direction:      language === 'he' ? 'rtl' : 'ltr',
           }}
         >
           {mission.question && (
             <>
-              <p style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(205,155,255,0.7)', margin: '0 0 6px', fontWeight: 500 }}>
+              <p style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(205,155,255,0.7)', margin: '0 0 6px', fontWeight: 500, whiteSpace: 'nowrap' }}>
                 {t('orbitBigQuestion', language)}
               </p>
               <p style={{ fontSize: 12, fontStyle: 'normal', color: 'rgba(255,255,255,0.92)', margin: 0, lineHeight: 1.4 }}>
