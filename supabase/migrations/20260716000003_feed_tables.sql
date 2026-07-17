@@ -10,9 +10,15 @@ VALUES ('feed-media', 'feed-media', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Allow public (anon) reads so students can load media URLs without a token.
-CREATE POLICY IF NOT EXISTS "feed-media public read"
-  ON storage.objects FOR SELECT
-  USING (bucket_id = 'feed-media');
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE policyname = 'feed-media public read' AND schemaname = 'storage' AND tablename = 'objects'
+  ) THEN
+    CREATE POLICY "feed-media public read"
+      ON storage.objects FOR SELECT
+      USING (bucket_id = 'feed-media');
+  END IF;
+END $$;
 
 -- ── feed_edits ────────────────────────────────────────────────────────────────
 -- The shared edit library. One row per generated edit, shared by all students.
@@ -51,9 +57,15 @@ CREATE INDEX IF NOT EXISTS feed_edits_type_theme_status_idx
 ALTER TABLE feed_edits ENABLE ROW LEVEL SECURITY;
 
 -- Students see live edits only.
-CREATE POLICY IF NOT EXISTS "students read live feed edits"
-  ON feed_edits FOR SELECT
-  USING (status = 'live');
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE policyname = 'students read live feed edits' AND tablename = 'feed_edits'
+  ) THEN
+    CREATE POLICY "students read live feed edits"
+      ON feed_edits FOR SELECT
+      USING (status = 'live');
+  END IF;
+END $$;
 
 -- ── feed_events ───────────────────────────────────────────────────────────────
 -- Append-only engagement log. One row per student action on one edit.
@@ -77,13 +89,25 @@ CREATE INDEX IF NOT EXISTS feed_events_student_action_idx
 ALTER TABLE feed_events ENABLE ROW LEVEL SECURITY;
 
 -- Students may insert and read their own events only.
-CREATE POLICY IF NOT EXISTS "students insert own feed events"
-  ON feed_events FOR INSERT
-  WITH CHECK (student_id = current_setting('request.jwt.claims', true)::json->>'student_id');
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE policyname = 'students insert own feed events' AND tablename = 'feed_events'
+  ) THEN
+    CREATE POLICY "students insert own feed events"
+      ON feed_events FOR INSERT
+      WITH CHECK (student_id = current_setting('request.jwt.claims', true)::json->>'student_id');
+  END IF;
+END $$;
 
-CREATE POLICY IF NOT EXISTS "students read own feed events"
-  ON feed_events FOR SELECT
-  USING (student_id = current_setting('request.jwt.claims', true)::json->>'student_id');
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE policyname = 'students read own feed events' AND tablename = 'feed_events'
+  ) THEN
+    CREATE POLICY "students read own feed events"
+      ON feed_events FOR SELECT
+      USING (student_id = current_setting('request.jwt.claims', true)::json->>'student_id');
+  END IF;
+END $$;
 
 -- ── feed_edit_comments ────────────────────────────────────────────────────────
 -- Student comments on edits. All new comments land as 'pending' and require
@@ -112,14 +136,26 @@ CREATE INDEX IF NOT EXISTS feed_edit_comments_moderation_queue_idx
 ALTER TABLE feed_edit_comments ENABLE ROW LEVEL SECURITY;
 
 -- Students may INSERT their own comments.
-CREATE POLICY IF NOT EXISTS "students insert own feed comments"
-  ON feed_edit_comments FOR INSERT
-  WITH CHECK (author_id = current_setting('request.jwt.claims', true)::json->>'student_id');
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE policyname = 'students insert own feed comments' AND tablename = 'feed_edit_comments'
+  ) THEN
+    CREATE POLICY "students insert own feed comments"
+      ON feed_edit_comments FOR INSERT
+      WITH CHECK (author_id = current_setting('request.jwt.claims', true)::json->>'student_id');
+  END IF;
+END $$;
 
 -- Students may SELECT approved comments plus their own pending comments.
-CREATE POLICY IF NOT EXISTS "students read approved and own pending comments"
-  ON feed_edit_comments FOR SELECT
-  USING (
-    moderation_status = 'approved'
-    OR author_id = current_setting('request.jwt.claims', true)::json->>'student_id'
-  );
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE policyname = 'students read approved and own pending comments' AND tablename = 'feed_edit_comments'
+  ) THEN
+    CREATE POLICY "students read approved and own pending comments"
+      ON feed_edit_comments FOR SELECT
+      USING (
+        moderation_status = 'approved'
+        OR author_id = current_setting('request.jwt.claims', true)::json->>'student_id'
+      );
+  END IF;
+END $$;
