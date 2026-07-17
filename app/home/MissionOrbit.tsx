@@ -7,6 +7,7 @@ import { PLANET_STATE_THEME } from '@/lib/planet-state-themes';
 import { t } from '@/lib/i18n';
 import type { MissionSummary } from '@/lib/student-home';
 import HyperdriveStreaks from '@/components/HyperdriveStreaks';
+import { writeMissionRevealHandoff } from '@/lib/mission-reveal-handoff';
 
 // Handoff flag: set just before navigating so the landscape page knows to keep
 // the hyperdrive overlay running (instead of its SYNCING text) until the map
@@ -60,8 +61,22 @@ function OrbitPlanet({ mission, orbitState: state, index, classId, language, red
     ? 'clamp(56px, 13vw, 72px)'
     : 'clamp(44px, 10vw, 56px)';
 
+  // Carry the mission text forward so the landscape reveal overlay can paint
+  // from it instantly (no wait on the mission fetch) once the journey check
+  // confirms a first visit.  Only the question/order/language are needed.
+  const handOffRevealText = () => {
+    if (mission.question) {
+      writeMissionRevealHandoff({
+        missionId: mission.id,
+        question:  mission.question,
+        order:     mission.order,
+        language,
+      });
+    }
+  };
+
   const handleClick = async () => {
-    if (state === 'active')    { router.push(`/landscape?classId=${classId}`); return; }
+    if (state === 'active')    { handOffRevealText(); router.push(`/landscape?classId=${classId}`); return; }
     if (state === 'completed') { router.push(`/landscape?reviewMissionId=${mission.id}&classId=${classId}`); return; }
     if (state !== 'choosable' || activating) return;
 
@@ -74,6 +89,9 @@ function OrbitPlanet({ mission, orbitState: state, index, classId, language, red
         body:    JSON.stringify({ missionId: mission.id, classId }),
       });
       if (!res.ok) throw new Error(`mission-activate ${res.status}`);
+
+      // Igniting a choosable mission always lands on a first-visit reveal.
+      handOffRevealText();
 
       // Give the streaks a beat before the route swap; the landscape keeps the
       // same overlay running (via WARP_ENTRY_FLAG) until the map is ready.

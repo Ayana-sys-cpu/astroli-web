@@ -19,6 +19,7 @@ import { getPlanetMeta, PLANET_LAYOUT, PLANET_EDGES } from '@/lib/planet-meta';
 import type { OrinMission } from '@/lib/orin-guide-types';
 import type { MissionStatePayload } from '@/components/OrinGuidePanel';
 import { readLandscapeCache, writeLandscapeCache } from '@/lib/landscape-cache';
+import { readMissionRevealHandoff, clearMissionRevealHandoff } from '@/lib/mission-reveal-handoff';
 
 interface Planet {
   id: string;
@@ -194,20 +195,52 @@ function LandscapeContent() {
         const progressP = fetch(`/api/student/planet-progress?missionId=${activeMissionId}`);
         const stateP    = fetch(`/api/student/mission-state?missionId=${activeMissionId}`);
 
-        const { mission } = await missionP.then(r => r.json());
-
-        if (!mission) {
-          // 404/500 body without a mission — never reveal an empty map.
-          setLoadError(true);
-          return;
-        }
-        setMission(mission);
         // missionStatus is falsy only for a not-yet-started mission — i.e. a
         // genuine first reveal.  A cached map is always a started mission, so
         // this never fires on an ordinary back-to-map; when it does fire during
         // revalidation it means a *new* mission started, which should reveal.
+        //
+        // First-visit reveal: if the home orbit handed off this mission's text,
+        // paint the overlay *now* from a lightweight stub — no wait on the
+        // mission fetch — and let missionP reconcile the full object underneath.
+        // The one-shot handoff is always cleared, even when unused, so a stale
+        // entry can never leak into a later visit.
+        const handoff = readMissionRevealHandoff();
+        clearMissionRevealHandoff();
+        let overlayShown = false;
         if (!missionStatus) {
           isFirstVisit.current = true;
+          if (handoff && handoff.missionId === activeMissionId) {
+            setMission({
+              id:                  activeMissionId,
+              question:            handoff.question,
+              order:               handoff.order,
+              language:            handoff.language,
+              openingMessage:      null,
+              questionDescription: null,
+              projectTitle:        null,
+              projectDescription:  null,
+              planets:             [],
+            });
+            setShowOverlay(true);
+            overlayShown = true;
+          }
+        }
+
+        const { mission } = await missionP.then(r => r.json());
+
+        if (!mission) {
+          // 404/500 body without a mission — never reveal an empty map.  If the
+          // handoff already painted the overlay, pull it back so the student
+          // isn't stranded on a reveal whose map can never load.
+          if (overlayShown) setShowOverlay(false);
+          setLoadError(true);
+          return;
+        }
+        setMission(mission);
+        // Handoff already covered this above; only show here on a cold reveal
+        // (no matching handoff — e.g. a direct link or a missing question).
+        if (!missionStatus && !overlayShown) {
           setShowOverlay(true);
         }
 
