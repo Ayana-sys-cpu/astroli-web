@@ -137,7 +137,14 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
   // `isRetry` lets the server replay an already-persisted turn instead of
   // processing it twice.
   const runTurn = useCallback(async (text: string, isRetry: boolean): Promise<'ok' | 'retry'> => {
-    const token = tokenRef.current;
+    // Fetch a fresh token each turn. The token was previously read once at mount
+    // and cached in tokenRef, but Supabase access tokens expire after ~1h; the
+    // SDK auto-refreshes in the background, yet the cached copy never updated —
+    // so a long conversation started sending an expired token and every turn
+    // 401'd mid-session. getSession() is served from the SDK's in-memory cache
+    // (no network round-trip unless a refresh is actually due), so this is cheap.
+    const token = (await getSessionToken()) ?? tokenRef.current;
+    tokenRef.current = token;
     try {
       const res = await fetch(`${BOT_URL}/api/planet-voice`, {
         method: 'POST',
