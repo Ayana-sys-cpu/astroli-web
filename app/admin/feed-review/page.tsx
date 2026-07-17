@@ -57,6 +57,7 @@ export default function FeedReviewPage() {
   const [comments, setComments] = useState<CommentRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState<string | null>(null);
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
 
   // Generate-more form state
@@ -281,6 +282,72 @@ export default function FeedReviewPage() {
 
                   {expanded === edit.id && (
                     <div className="px-5 pb-5 border-t border-white/8 pt-4 space-y-4">
+                      {/* Preview toggle */}
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => setPreviewing((p) => p === edit.id ? null : edit.id)}
+                          className={`px-3 py-1 rounded text-[11px] font-medium uppercase tracking-widest transition-colors border ${previewing === edit.id ? 'bg-white/10 border-white/20 text-white' : 'border-white/10 text-white/40 hover:text-white/70'}`}
+                        >
+                          {previewing === edit.id ? 'Hide Preview' : '📱 Preview Card'}
+                        </button>
+                      </div>
+
+                      {/* Phone-frame card preview */}
+                      {previewing === edit.id && (
+                        <div className="flex justify-center py-2">
+                          <div className="relative rounded-[2.5rem] overflow-hidden border-4 border-white/20 shadow-2xl"
+                            style={{ width: 280, height: 580 }}>
+                            {/* Background media */}
+                            {edit.media_url ? (
+                              edit.media_url.endsWith('.mp4') ? (
+                                <video
+                                  src={edit.media_url}
+                                  autoPlay loop muted playsInline
+                                  className="absolute inset-0 w-full h-full object-cover"
+                                />
+                              ) : (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={edit.media_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                              )
+                            ) : (
+                              <div className="absolute inset-0 bg-gradient-to-b from-slate-800 to-slate-900" />
+                            )}
+                            {/* Dark gradient wash */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/30" />
+                            {/* Type badge */}
+                            <div className="absolute top-4 left-4">
+                              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${TYPE_COLORS[edit.edit_type]}`}>
+                                {TYPE_LABELS[edit.edit_type]}
+                              </span>
+                            </div>
+                            {/* Right action column */}
+                            <div className="absolute right-3 bottom-24 flex flex-col items-center gap-4">
+                              {[['♥','Like'],['💬','Comment'],['→','More']].map(([icon, label]) => (
+                                <div key={label} className="flex flex-col items-center">
+                                  <div className="w-9 h-9 rounded-full bg-white/15 backdrop-blur flex items-center justify-center text-base">{icon}</div>
+                                  <span className="text-[8px] text-white/70 mt-0.5">{label}</span>
+                                </div>
+                              ))}
+                            </div>
+                            {/* Hook text overlay */}
+                            <div className="absolute bottom-0 left-0 right-12 px-4 pb-5">
+                              <p className="text-white text-xs font-semibold leading-snug drop-shadow-lg">
+                                {edit.hook}
+                                <span className="text-white/50 font-normal"> …more</span>
+                              </p>
+                              {edit.edit_type === 'real_world_task' && (
+                                <div className="mt-3 w-full bg-amber-500 rounded-lg py-1.5 text-center text-black text-[10px] font-bold">
+                                  Did it! — tell your class
+                                </div>
+                              )}
+                              {edit.media_credit && (
+                                <p className="text-white/30 text-[8px] mt-2">{edit.media_credit}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {edit.planet_name && (
                         <p className="text-[11px] text-white/40 uppercase tracking-widest">
                           Planet: {edit.planet_name}
