@@ -159,3 +159,13 @@ DO $$ BEGIN
       );
   END IF;
 END $$;
+
+-- ── Grants ────────────────────────────────────────────────────────────────────
+-- Required when migration is applied via Management API (not supabase CLI),
+-- which does not auto-apply the default Supabase role grants.
+GRANT ALL ON TABLE feed_edits TO postgres, service_role;
+GRANT ALL ON TABLE feed_events TO postgres, service_role;
+GRANT ALL ON TABLE feed_edit_comments TO postgres, service_role;
+GRANT SELECT, INSERT ON TABLE feed_edits TO anon, authenticated;
+GRANT SELECT, INSERT ON TABLE feed_events TO anon, authenticated;
+GRANT SELECT, INSERT ON TABLE feed_edit_comments TO anon, authenticated;
