@@ -616,6 +616,14 @@ const strings = {
     en: '{n} / {total} done',
     he: '{n} / {total} הושלמו',
   },
+  orbitBigQuestion: {
+    en: 'The Big Question',
+    he: 'השאלה הגדולה',
+  },
+  orbitWorldsLabel: {
+    en: '{n} worlds',
+    he: '{n} עולמות',
+  },
   reviewModeBanner: {
     en: 'REVIEWING PAST MISSION',
     he: 'סוקר משימה קודמת',

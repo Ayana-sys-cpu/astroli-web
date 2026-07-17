@@ -92,11 +92,11 @@ function OrbitPlanet({ mission, orbitState: state, index, classId, language, red
     ? `0 0 24px ${theme.glow}, 0 0 48px rgba(${theme.rgb},0.25), inset -8px -6px 20px rgba(0,0,0,0.5)`
     : 'inset -8px -6px 20px rgba(0,0,0,0.5)';
 
-  const cta: { label: string; color: string } =
-    state === 'active'    ? { label: t('orbitContinue', language), color: '#cd9bff' } :
-    state === 'completed' ? { label: t('doneReview', language),    color: 'rgba(0,212,176,0.9)' } :
-    state === 'choosable' ? { label: t('orbitIgnite', language),   color: '#cd9bff' } :
-                            { label: t('orbitLocked', language),   color: 'rgba(255,255,255,0.28)' };
+  const cta: { label: string; color: string; chipBg: string } =
+    state === 'active'    ? { label: t('orbitContinue', language), color: '#cd9bff',              chipBg: 'rgba(205,155,255,0.18)' } :
+    state === 'completed' ? { label: t('doneReview', language),    color: 'rgba(0,212,176,0.9)', chipBg: 'rgba(0,212,176,0.15)'  } :
+    state === 'choosable' ? { label: t('orbitIgnite', language),   color: '#cd9bff',              chipBg: 'rgba(205,155,255,0.18)' } :
+                            { label: t('orbitLocked', language),   color: 'rgba(255,255,255,0.3)', chipBg: 'rgba(255,255,255,0.06)' };
 
   const titleColor =
     state === 'active'    ? 'rgba(255,255,255,0.95)' :
@@ -105,12 +105,6 @@ function OrbitPlanet({ mission, orbitState: state, index, classId, language, red
                             'rgba(255,255,255,0.3)';
 
   const dir = language === 'he' ? 'rtl' : 'ltr';
-
-  const tooltipLine: string | null =
-    state === 'choosable' && mission.planetCount != null ? `${mission.planetCount} worlds to explore`  :
-    state === 'active'    && mission.planetCount != null ? `${mission.planetCount} worlds`             :
-    state === 'completed' && mission.planetCount != null ? `${mission.planetCount} worlds explored`    :
-    null;
 
   return (
     <div
@@ -157,43 +151,55 @@ function OrbitPlanet({ mission, orbitState: state, index, classId, language, red
       {hovered && (
         <div
           style={{
-            position:        'absolute',
-            bottom:          ORB_ZONE_HEIGHT + 20,
-            left:            '50%',
-            transform:       'translateX(-50%)',
-            background:      'rgba(20,16,30,0.97)',
-            border:          '1px solid rgba(255,255,255,0.13)',
-            borderRadius:    10,
-            padding:         '8px 12px',
-            zIndex:          10,
-            pointerEvents:   'none',
-            backdropFilter:  'blur(10px)',
-            boxShadow:       '0 8px 32px rgba(0,0,0,0.5)',
-            minWidth:        100,
-            maxWidth:        160,
-            textAlign:       'center',
+            position:       'absolute',
+            bottom:         ORB_ZONE_HEIGHT + 20,
+            left:           '50%',
+            transform:      'translateX(-50%)',
+            background:     'rgba(20,16,30,0.97)',
+            border:         '1px solid rgba(205,155,255,0.22)',
+            borderRadius:   12,
+            padding:        '10px 14px 11px',
+            zIndex:         10,
+            pointerEvents:  'none',
+            backdropFilter: 'blur(10px)',
+            boxShadow:      '0 8px 32px rgba(0,0,0,0.5)',
+            minWidth:       120,
+            maxWidth:       210,
+            textAlign:      'center',
+            direction:      language === 'he' ? 'rtl' : 'ltr',
           }}
         >
           {mission.question && (
-            <p style={{ fontSize: 11, fontStyle: 'italic', color: 'rgba(255,255,255,0.92)', margin: 0, marginBottom: tooltipLine ? 4 : 0, lineHeight: 1.4, wordBreak: 'break-word' }}>
-              {mission.question}
-            </p>
+            <>
+              <p style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(205,155,255,0.7)', margin: '0 0 6px', fontWeight: 500 }}>
+                {t('orbitBigQuestion', language)}
+              </p>
+              <p style={{ fontSize: 12, fontStyle: 'normal', color: 'rgba(255,255,255,0.92)', margin: 0, lineHeight: 1.4 }}>
+                {mission.question}
+              </p>
+            </>
           )}
-          {tooltipLine && (
-            <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', margin: 0, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-              {tooltipLine}
-            </p>
+          {mission.planetCount != null && (
+            <div style={{ marginTop: 9, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+              <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
+                <circle cx="5.5" cy="5.5" r="4.5" stroke="rgba(205,155,255,0.6)" strokeWidth="1"/>
+                <ellipse cx="5.5" cy="5.5" rx="2" ry="4.5" stroke="rgba(205,155,255,0.4)" strokeWidth="0.75"/>
+              </svg>
+              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.06em' }}>
+                {t('orbitWorldsLabel', language).replace('{n}', String(mission.planetCount))}
+              </span>
+            </div>
           )}
           {/* Arrow pointing down */}
           <div style={{
-            position:    'absolute',
-            bottom:      -5,
-            left:        '50%',
-            width:       8,
-            height:      8,
-            background:  'rgba(20,16,30,0.97)',
-            borderBottom: '1px solid rgba(255,255,255,0.13)',
-            borderRight:  '1px solid rgba(255,255,255,0.13)',
+            position:     'absolute',
+            bottom:       -5,
+            left:         '50%',
+            width:        8,
+            height:       8,
+            background:   'rgba(20,16,30,0.97)',
+            borderBottom: '1px solid rgba(205,155,255,0.22)',
+            borderRight:  '1px solid rgba(205,155,255,0.22)',
             transform:    'translateX(-50%) rotate(45deg)',
           }} />
         </div>
@@ -256,8 +262,8 @@ function OrbitPlanet({ mission, orbitState: state, index, classId, language, red
               borderRadius: '50%',
               background:   `radial-gradient(circle at 32% 28%, ${theme.highlight} 0%, ${theme.mid} 42%, ${theme.core} 100%)`,
               boxShadow:    glowStyle,
-              opacity:      theme.dimOpacity,
-              filter:       theme.saturate < 1 ? `saturate(${theme.saturate})` : undefined,
+              opacity:      state === 'completed' ? 0.65 : state === 'locked' ? 0.4 : theme.dimOpacity,
+              filter:       state === 'locked' ? 'saturate(0.25)' : theme.saturate < 1 ? `saturate(${theme.saturate})` : undefined,
               position:     'relative',
               transition:   'transform 0.15s ease',
               transform:    hovered && isInteractive ? 'scale(1.1)' : 'scale(1)',
@@ -288,6 +294,18 @@ function OrbitPlanet({ mission, orbitState: state, index, classId, language, red
                 ✓
               </div>
             )}
+            {/* Lock icon centered in locked orb */}
+            {state === 'locked' && (
+              <div
+                aria-hidden
+                style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <svg width="9" height="12" viewBox="0 0 9 12" fill="none">
+                  <rect x="0.5" y="5" width="8" height="6.5" rx="1.5" stroke="rgba(255,255,255,0.35)" strokeWidth="1"/>
+                  <path d="M2.5 5V3.5a2 2 0 0 1 4 0V5" stroke="rgba(255,255,255,0.35)" strokeWidth="1" strokeLinecap="round"/>
+                </svg>
+              </div>
+            )}
           </div>
         </motion.div>
       </div>
@@ -311,16 +329,20 @@ function OrbitPlanet({ mission, orbitState: state, index, classId, language, red
         {mission.title}
       </span>
 
-      {/* State CTA */}
+      {/* State chip */}
       <span
         className="font-space"
         dir={dir}
         style={{
-          fontSize:      9,
-          letterSpacing: '0.14em',
-          textTransform: 'uppercase',
-          color:         cta.color,
-          whiteSpace:    'nowrap',
+          fontSize:        9,
+          letterSpacing:   '0.12em',
+          textTransform:   'uppercase',
+          color:           cta.color,
+          whiteSpace:      'nowrap',
+          background:      cta.chipBg,
+          padding:         '3px 10px',
+          borderRadius:    20,
+          display:         'inline-block',
         }}
       >
         {cta.label}
@@ -339,7 +361,25 @@ export default function MissionOrbit({ missions, classId, isFamilyClass, hasActi
     return a.order - b.order;
   });
 
+  const totalCount     = sorted.length;
+  const completedCount = sorted.filter(m => toOrbitState(m, isFamilyClass, hasActive) === 'completed').length;
+  const progressPct    = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+  const progressLabel  = t('missionsDoneOf', language)
+    .replace('{n}',     String(completedCount))
+    .replace('{total}', String(totalCount));
+
   return (
+    <div style={{ margin: '0 -24px' }}>
+      {/* Progress bar */}
+      <div style={{ padding: '0 24px', marginBottom: 4 }}>
+        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.06em' }}>
+          {progressLabel}
+        </span>
+        <div style={{ height: 2, background: 'rgba(255,255,255,0.08)', borderRadius: 2, marginTop: 5 }}>
+          <div style={{ height: '100%', width: `${progressPct}%`, background: 'linear-gradient(90deg,rgba(0,212,176,0.7),rgba(205,155,255,0.7))', borderRadius: 2, transition: 'width 0.4s ease' }} />
+        </div>
+      </div>
+
     <div
       style={{
         position: 'relative',
@@ -349,7 +389,7 @@ export default function MissionOrbit({ missions, classId, isFamilyClass, hasActi
         justifyContent: 'space-between',
         alignItems:     'flex-start',
         padding:        '16px 0 8px',
-        margin:         '0 -24px',
+        margin:         '0',
       }}
     >
       {/* Dashed orbit line through orb centers */}
@@ -379,6 +419,7 @@ export default function MissionOrbit({ missions, classId, isFamilyClass, hasActi
           reducedMotion={reducedMotion}
         />
       ))}
+    </div>
     </div>
   );
 }
