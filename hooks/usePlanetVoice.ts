@@ -136,7 +136,7 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
   // the caller owns those so silent retries stay seamless and can't duplicate.
   // `isRetry` lets the server replay an already-persisted turn instead of
   // processing it twice.
-  const runTurn = useCallback(async (text: string, isRetry: boolean): Promise<'ok' | 'retry'> => {
+  const runTurn = useCallback(async (text: string, isRetry: boolean): Promise<'ok' | 'retry' | 'consent'> => {
     // Fetch a fresh token each turn. The token was previously read once at mount
     // and cached in tokenRef, but Supabase access tokens expire after ~1h; the
     // SDK auto-refreshes in the background, yet the cached copy never updated —
@@ -152,6 +152,10 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
         body: JSON.stringify({ planetId, message: text, language, isRetry }),
       });
       if (!isMounted.current) return 'ok';
+      // A parental-consent block (428) is a definitive stop, not a transient
+      // hiccup — retrying it 3× only to show the generic "words escape me"
+      // fallback hides the real reason. Surface it immediately and clearly.
+      if (res.status === 428) return 'consent';
       if (!res.ok) return 'retry';
 
       const data = await res.json();
@@ -205,7 +209,17 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
         if (!isMounted.current) return;
         outcome = await runTurn(trimmed, true);
       }
-      if (outcome === 'retry' && isMounted.current) {
+      if (outcome === 'consent' && isMounted.current) {
+        // Blocked pending parental consent — show a clear, out-of-character
+        // notice so the student knows a parent must act, not that the bot broke.
+        setMessages(prev => [...prev, {
+          id: nextId('figure'),
+          speaker: 'figure',
+          content: language === 'he'
+            ? 'כדי לשוחח כאן, הורה צריך קודם לאשר את שותף ה‑AI בחשבון הזה. אחרי שהאישור יושלם — חזרו ונתחיל!'
+            : 'Before we can talk here, a parent needs to approve the AI companion for this account. Once that\'s done, come back and we\'ll begin!',
+        }]);
+      } else if (outcome === 'retry' && isMounted.current) {
         // Exhausted silent retries — stay in character, no system UI.
         setMessages(prev => [...prev, {
           id: nextId('figure'),
@@ -217,7 +231,7 @@ export function usePlanetVoice(planetId: string, language: 'en' | 'he' = 'en') {
       if (isMounted.current) { setThinking(false); setLoading(false); }
       inFlightRef.current = false;
     }
-  }, [character, runTurn, nextId]);
+  }, [character, runTurn, nextId, language]);
 
   const sendText = useCallback((text: string) => { void deliver(text); }, [deliver]);
 
