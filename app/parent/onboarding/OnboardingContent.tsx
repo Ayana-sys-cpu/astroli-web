@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import ConsentStep from './ConsentStep';
 
 type Journey = { id: string; title: string; description: string; missionCount: number };
 
@@ -24,7 +25,7 @@ const GRADIENT_STRIPE = (
   />
 );
 
-type OnboardingStatus = 'checking' | 'already_done' | 'needs_invite' | 'needs_journey';
+type OnboardingStatus = 'checking' | 'already_done' | 'needs_consent' | 'needs_invite' | 'needs_journey';
 
 export default function ParentOnboardingContent() {
   const router      = useRouter();
@@ -34,9 +35,16 @@ export default function ParentOnboardingContent() {
   // always provide an escape hatch if the parent already completed setup.
   const [status, setStatus] = useState<OnboardingStatus>('checking');
 
-  const [step, setStep]       = useState<'invite' | 'journey'>('invite');
+  const [step, setStep]       = useState<'consent' | 'invite' | 'journey'>('consent');
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
+
+  // Consent step state
+  const [reconsent, setReconsent]         = useState(false);
+  // True when the parent already finished setup (existing-parent back-fill or a
+  // policy version bump): after consenting they return to the dashboard rather
+  // than re-running the invite/journey steps.
+  const [setupComplete, setSetupComplete] = useState(false);
 
   // Invite step state
   const [childEmail, setChildEmail] = useState('');
@@ -61,7 +69,22 @@ export default function ParentOnboardingContent() {
     fetch('/api/parent/dashboard')
       .then(r => (r.ok ? r.json() : null))
       .then(data => {
-        if (!data) { setStatus('needs_invite'); setStep('invite'); return; }
+        if (!data) { setStatus('needs_consent'); setStep('consent'); return; }
+
+        // Consent gate first — a parent without current-version consent is always
+        // routed to the consent screen, even if their setup is otherwise complete
+        // (existing-parent back-fill / re-consent after a policy version bump).
+        const cs = data.consentStatus;
+        if (cs && !cs.hasCurrentConsent) {
+          setReconsent(!!cs.needsReconsent);
+          setSetupComplete(!!data.familyClass);
+          if (data.pendingInvite?.childEmail) setChildEmail(data.pendingInvite.childEmail);
+          else if (data.child?.name && data.child?.email) setChildEmail(data.child.email);
+          setStatus('needs_consent');
+          setStep('consent');
+          return;
+        }
+
         if (data.familyClass) {
           setStatus('already_done');
           return;
@@ -74,7 +97,7 @@ export default function ParentOnboardingContent() {
           setStep('invite');
         }
       })
-      .catch(() => { setStatus('needs_invite'); setStep('invite'); });
+      .catch(() => { setStatus('needs_consent'); setStep('consent'); });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -219,6 +242,34 @@ export default function ParentOnboardingContent() {
               Go to dashboard →
             </button>
           </div>
+        </div>
+      </main>
+    );
+  }
+
+  // ── Step 0: Consent ──────────────────────────────────────────────────────────
+  // Shown before the invite for new parents, and on entry for existing parents
+  // who lack current-version consent (back-fill / re-consent). No invite is ever
+  // dispatched until this records a consent (the API also enforces this — 428).
+  if (step === 'consent') {
+    return (
+      <main className="bg-grid min-h-screen flex flex-col items-center justify-center px-6 py-12">
+        <div className="w-full max-w-md" style={CARD}>
+          {GRADIENT_STRIPE}
+          <ConsentStep
+            childEmail={childEmail}
+            setChildEmail={setChildEmail}
+            reconsent={reconsent}
+            onConsented={() => {
+              if (setupComplete) {
+                // Existing parent re-consented — nothing else to set up.
+                router.replace('/parent/dashboard');
+              } else {
+                setStatus('needs_invite');
+                setStep('invite');
+              }
+            }}
+          />
         </div>
       </main>
     );

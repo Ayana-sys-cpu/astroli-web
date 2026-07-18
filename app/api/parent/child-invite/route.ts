@@ -17,6 +17,7 @@ import { requireAuth } from '@/lib/auth';
 import { resolveParentId } from '@/lib/parent-auth';
 import { z, parseBody } from '@/lib/validate';
 import { sendInviteEmail } from '@/lib/email';
+import { hasCurrentConsent } from '@/lib/consent';
 
 const Schema = z.object({
   childEmail: z.string().email('Invalid email address').toLowerCase(),
@@ -35,6 +36,18 @@ export async function POST(req: NextRequest) {
   const parsed = await parseBody(req, Schema);
   if (!parsed.ok) return parsed.response;
   const { childEmail, childName } = parsed.data;
+
+  // Consent gate (defense-in-depth). The onboarding UI shows the consent step
+  // before this call, but no invite may EVER be dispatched — and therefore no
+  // child may sign in — without a current-version parental consent on file for
+  // this child. 428 Precondition Required signals the client to show consent.
+  const consented = await hasCurrentConsent(parentId, childEmail);
+  if (!consented) {
+    return NextResponse.json(
+      { error: 'Parental consent is required before inviting your child.', code: 'consent_required' },
+      { status: 428 },
+    );
+  }
 
   // One child per parent (v1 limit)
   const { data: existingLink } = await supabaseAdmin

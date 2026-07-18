@@ -13,6 +13,7 @@ import { requireAuth } from '@/lib/auth';
 import { resolveParentId, getParentContext } from '@/lib/parent-auth';
 import { generateSignals } from '@/lib/signals';
 import { getSignalCopy } from '@/lib/parent-signal-copy';
+import { getConsentStatus } from '@/lib/consent';
 
 const TEN_DAYS_AGO_MS = 10 * 24 * 60 * 60 * 1000;
 const SIGNAL_ORDER = { breakthrough: 0, grace_completion: 1, stuck: 2, non_engagement: 3 } as const;
@@ -124,6 +125,11 @@ export async function GET() {
 
   const setupState = buildSetupState({ hasChild: !!childId, familyClass, hasStartedMission });
 
+  // Consent status drives the onboarding consent step + existing-parent back-fill
+  // (a parent from before this feature, or after a policy version bump, is routed
+  // to re-consent and their child's AI is blocked until they do).
+  const consentStatus = await getConsentStatus(parentId);
+
   // Pending invite — only relevant while the child hasn't linked yet. Powers the
   // dashboard empty state's "sent to <email> · resend" card.
   let pendingInvite: { childEmail: string; createdAt: string; expiresAt: string } | null = null;
@@ -159,6 +165,7 @@ export async function GET() {
       resetsAt: parentUser?.bot_cap_reset_at ?? null,
     },
     setupState,
+    consentStatus,
     weeklySignals,
   });
 }
