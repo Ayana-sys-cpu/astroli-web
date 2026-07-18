@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS feed_edits (
                                CHECK (media_type IN ('image','video')),
   media_credit     text        NOT NULL,
   media_license    text        NOT NULL,
+  media_source_url text,
   source_url       text        NOT NULL,
   language         text        NOT NULL DEFAULT 'en',
   status           text        NOT NULL DEFAULT 'draft'
@@ -47,6 +48,10 @@ CREATE TABLE IF NOT EXISTS feed_edits (
   generated_at     timestamptz NOT NULL DEFAULT now(),
   created_at       timestamptz NOT NULL DEFAULT now()
 );
+
+-- Idempotent for DBs created before the column existed (dedupe key —
+-- the original third-party URL; no media item may ever be used twice).
+ALTER TABLE feed_edits ADD COLUMN IF NOT EXISTS media_source_url text;
 
 CREATE INDEX IF NOT EXISTS feed_edits_planet_status_idx
   ON feed_edits (planet_id, status);
