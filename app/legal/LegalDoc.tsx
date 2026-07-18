@@ -3,7 +3,7 @@
 // truth = lib/consent.ts). Used by both /legal/terms and /legal/privacy.
 
 import Link from 'next/link';
-import { CURRENT_POLICY_VERSION, POLICY_EFFECTIVE_DATE } from '@/lib/consent';
+import { CURRENT_POLICY_VERSION, POLICY_EFFECTIVE_DATE } from '@/lib/consent-constants';
 
 export default function LegalDoc({
   title,

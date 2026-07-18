@@ -7,7 +7,7 @@
 // append-only consent record and calls onConsented() to advance to the invite.
 
 import { useState } from 'react';
-import { CONSENT_ITEM_LABELS, CONSENT_ITEMS, POLICY_EFFECTIVE_DATE } from '@/lib/consent';
+import { CONSENT_ITEM_LABELS, CONSENT_ITEMS, POLICY_EFFECTIVE_DATE } from '@/lib/consent-constants';
 
 type Props = {
   childEmail: string;
