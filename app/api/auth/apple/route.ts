@@ -283,6 +283,10 @@ async function handlePOST(req: NextRequest) {
     exists,
     onboardingComplete,
     studentId: user.id,
+    // The stored account email. Apple omits the email claim from the client
+    // credential on repeat sign-ins, so the app relies on this for session
+    // persistence.
+    email: user.email,
     firstName: user.first_name ?? null,
     baseAvatarUrl: user.base_avatar_url ?? null,
     avatarUrl: user.avatar_url ?? null,
