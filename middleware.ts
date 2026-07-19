@@ -13,6 +13,7 @@ const PUBLIC_API_ROUTES = new Set([
   '/api/auth/dev-teacher-login',     // dev-only: one-click teacher session (delete before prod)
   '/api/auth/dev-parent-login',      // dev-only: one-click parent session (delete before prod)
   '/api/auth/student-status',
+  '/api/auth/apple',     // mobile Sign in with Apple — verifies the identity token server-side
   '/api/auth/session',   // mobile: exchange sign-in authToken for a session — no session exists yet
   '/api/auth/refresh',   // mobile: rotate refresh token — access token may already be expired
   '/api/vote-counts',
