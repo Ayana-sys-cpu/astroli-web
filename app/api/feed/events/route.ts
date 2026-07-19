@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase-server';
 
 const VALID_ACTIONS_LIST = [
   'impression', 'dwell', 'like', 'comment',
-  'learn_more', 'task_done', 'skip',
+  'learn_more', 'skip',
 ] as const;
 const VALID_ACTIONS = new Set<string>(VALID_ACTIONS_LIST);
 

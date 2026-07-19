@@ -100,9 +100,9 @@ export async function GET(req: NextRequest) {
       .from('feed_events')
       .select('edit_id, action')
       .eq('student_id', studentId)
-      .in('action', ['like', 'task_done', 'learn_more']);
+      .in('action', ['like', 'learn_more']);
 
-    const engagementCounts = { did_you_know: 0, inspiring_human: 0, real_world_task: 0 };
+    const engagementCounts = { did_you_know: 0, inspiring_human: 0, real_world_connection: 0 };
 
     if (engagementEvents && engagementEvents.length > 0) {
       const editIds = Array.from(new Set<string>(engagementEvents.map((e: any) => e.edit_id as string)));

@@ -6,7 +6,7 @@ type EditStatus = 'draft' | 'live' | 'rejected';
 
 interface FeedEditRow {
   id: string;
-  edit_type: 'did_you_know' | 'inspiring_human' | 'real_world_task';
+  edit_type: 'did_you_know' | 'inspiring_human' | 'real_world_connection';
   hook: string;
   body: string;
   bridge: string;
@@ -33,13 +33,13 @@ interface CommentRow {
 const TYPE_LABELS: Record<string, string> = {
   did_you_know: 'Did You Know',
   inspiring_human: 'Inspiring Human',
-  real_world_task: 'Real-World Task',
+  real_world_connection: 'Real-World Connection',
 };
 
 const TYPE_COLORS: Record<string, string> = {
   did_you_know: 'bg-cyan-900/60 text-cyan-300 border border-cyan-500/30',
   inspiring_human: 'bg-purple-900/60 text-purple-300 border border-purple-500/30',
-  real_world_task: 'bg-amber-900/60 text-amber-300 border border-amber-500/30',
+  real_world_connection: 'bg-amber-900/60 text-amber-300 border border-amber-500/30',
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -48,7 +48,7 @@ const STATUS_COLORS: Record<string, string> = {
   rejected: 'text-red-400',
 };
 
-const EDIT_TYPES = ['did_you_know', 'inspiring_human', 'real_world_task'];
+const EDIT_TYPES = ['did_you_know', 'inspiring_human', 'real_world_connection'];
 
 export default function FeedReviewPage() {
   const [tab, setTab] = useState<'edits' | 'comments'>('edits');
@@ -335,11 +335,6 @@ export default function FeedReviewPage() {
                                 {edit.hook}
                                 <span className="text-white/50 font-normal"> …more</span>
                               </p>
-                              {edit.edit_type === 'real_world_task' && (
-                                <div className="mt-3 w-full bg-amber-500 rounded-lg py-1.5 text-center text-black text-[10px] font-bold">
-                                  Did it! — tell your class
-                                </div>
-                              )}
                               {edit.media_credit && (
                                 <p className="text-white/30 text-[8px] mt-2">{edit.media_credit}</p>
                               )}

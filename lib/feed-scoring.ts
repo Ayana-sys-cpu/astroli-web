@@ -1,4 +1,4 @@
-export type EditType = 'did_you_know' | 'inspiring_human' | 'real_world_task';
+export type EditType = 'did_you_know' | 'inspiring_human' | 'real_world_connection';
 
 export interface FeedEdit {
   id: string;
@@ -63,7 +63,7 @@ function topEngagedType(counts: Record<EditType, number>): EditType | null {
 function applyCompositionRules(ordered: ScoredEdit[]): FeedEdit[] {
   const result: FeedEdit[] = [];
   let lastType: EditType | null = null;
-  let taskCount = 0;
+  let connectionCount = 0;
   let totalCount = 0;
 
   const remaining = [...ordered];
@@ -71,15 +71,15 @@ function applyCompositionRules(ordered: ScoredEdit[]): FeedEdit[] {
   while (remaining.length > 0 && result.length < 12) {
     totalCount++;
 
-    const needTask =
-      totalCount % 20 === 0 && taskCount === 0 && totalCount > 0;
+    const needConnection =
+      totalCount % 20 === 0 && connectionCount === 0 && totalCount > 0;
 
     let chosen: ScoredEdit | undefined;
 
-    if (needTask) {
-      const taskIdx = remaining.findIndex((e) => e.edit_type === 'real_world_task');
-      if (taskIdx !== -1) {
-        chosen = remaining.splice(taskIdx, 1)[0];
+    if (needConnection) {
+      const connectionIdx = remaining.findIndex((e) => e.edit_type === 'real_world_connection');
+      if (connectionIdx !== -1) {
+        chosen = remaining.splice(connectionIdx, 1)[0];
       }
     }
 
@@ -97,7 +97,7 @@ function applyCompositionRules(ordered: ScoredEdit[]): FeedEdit[] {
     if (!chosen) break;
 
     lastType = chosen.edit_type;
-    if (chosen.edit_type === 'real_world_task') taskCount++;
+    if (chosen.edit_type === 'real_world_connection') connectionCount++;
 
     result.push(chosen);
   }

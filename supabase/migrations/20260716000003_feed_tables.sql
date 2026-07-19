@@ -26,7 +26,7 @@ END $$;
 CREATE TABLE IF NOT EXISTS feed_edits (
   id               uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   edit_type        text        NOT NULL
-                               CHECK (edit_type IN ('did_you_know','inspiring_human','real_world_task')),
+                               CHECK (edit_type IN ('did_you_know','inspiring_human','real_world_connection')),
   planet_id        text        NOT NULL REFERENCES planets(id),
   interest_theme   text,
   hook             text        NOT NULL,
@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS feed_events (
   student_id text        NOT NULL,
   edit_id    uuid        NOT NULL REFERENCES feed_edits(id),
   action     text        NOT NULL
-             CHECK (action IN ('impression','dwell','like','comment','learn_more','task_done','skip')),
+             CHECK (action IN ('impression','dwell','like','comment','learn_more','skip')),
   value      numeric,
   created_at timestamptz NOT NULL DEFAULT now()
 );
