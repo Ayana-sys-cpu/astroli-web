@@ -306,8 +306,10 @@ export default function FeedReviewPage() {
                                   className="absolute inset-0 w-full h-full object-cover"
                                 />
                               ) : (
+                                // Ken Burns: still photos get the same slow zoom+drift
+                                // the mobile player applies, so preview == reality.
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img src={edit.media_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                                <img src={edit.media_url} alt="" className="absolute inset-0 w-full h-full object-cover feed-kenburns" />
                               )
                             ) : (
                               <div className="absolute inset-0 bg-gradient-to-b from-slate-800 to-slate-900" />

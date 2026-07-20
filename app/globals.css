@@ -370,3 +370,15 @@ body:has([data-theme="light"]) {
 }
 .breathe { animation: breathe 3s ease-in-out infinite; }
 .breathe-magenta { animation: breathe-magenta 3s ease-in-out infinite 1.5s; }
+
+/* Feed admin preview — Ken Burns effect on still-photo cards (mirrors the
+   mobile player: slow documentary zoom + drift so images feel alive). */
+@keyframes feedKenBurns {
+  0%   { transform: scale(1.02) translateX(-6px); }
+  50%  { transform: scale(1.14) translateX(6px); }
+  100% { transform: scale(1.02) translateX(-6px); }
+}
+.feed-kenburns {
+  animation: feedKenBurns 28s ease-in-out infinite;
+  will-change: transform;
+}
