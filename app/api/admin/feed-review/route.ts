@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
       hook, body, bridge, media_url, media_credit,
       source_url, safety_pass, safety_reason,
       status, rejection_reason, generated_at,
+      audio_url, audio_status, music_url,
       planets!inner(title)
     `)
     .eq('status', status)
@@ -46,6 +47,9 @@ export async function GET(req: NextRequest) {
     status: e.status,
     rejection_reason: e.rejection_reason,
     generated_at: e.generated_at,
+    audio_url: e.audio_url,
+    audio_status: e.audio_status,
+    music_url: e.music_url,
   }));
 
   return NextResponse.json({

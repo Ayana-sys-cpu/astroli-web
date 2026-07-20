@@ -12,6 +12,10 @@ export interface FeedEdit {
   media_type: 'image' | 'video';
   media_credit: string;
   interest_theme_label?: string | null;
+  /** Podcast episode (amendment 2026-07-20) — null = no podcast button. */
+  audio_url?: string | null;
+  /** Background music track from the curated pack — null = silent card. */
+  music_url?: string | null;
 }
 
 export interface StudentContext {

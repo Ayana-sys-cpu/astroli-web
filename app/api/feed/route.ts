@@ -124,7 +124,7 @@ export async function GET(req: NextRequest) {
 
     const { data: candidates } = await supabaseAdmin
       .from('feed_edits')
-      .select('id, edit_type, planet_id, interest_theme, hook, body, bridge, media_url, media_type, media_credit')
+      .select('id, edit_type, planet_id, interest_theme, hook, body, bridge, media_url, media_type, media_credit, audio_url, music_url')
       .eq('status', 'live')
       .in('planet_id', planetIds.length > 0 ? planetIds : ['__none__']);
 

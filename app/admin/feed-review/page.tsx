@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 type EditStatus = 'draft' | 'live' | 'rejected';
 
@@ -19,6 +19,14 @@ interface FeedEditRow {
   planet_name: string | null;
   planet_question: string | null;
   pending_comments: number;
+  audio_url: string | null;
+  audio_status: 'generating' | 'ready' | 'failed' | null;
+  music_url: string | null;
+}
+
+interface MusicTrack {
+  name: string;
+  url: string;
 }
 
 interface CommentRow {
@@ -66,8 +74,21 @@ export default function FeedReviewPage() {
   const [genTypes, setGenTypes] = useState<string[]>(EDIT_TYPES);
   const [genThemes, setGenThemes] = useState('');
   const [genPilot, setGenPilot] = useState(false);
+  const [genCount, setGenCount] = useState(1);
+  const [genPodcast, setGenPodcast] = useState(false);
   const [genLoading, setGenLoading] = useState(false);
   const [genResult, setGenResult] = useState<string | null>(null);
+
+  // Podcast + music state (amendment 2026-07-20)
+  const [uploadingAudio, setUploadingAudio] = useState<string | null>(null);
+  const [musicTracks, setMusicTracks] = useState<MusicTrack[]>([]);
+  const audioFileInput = useRef<HTMLInputElement | null>(null);
+  const uploadTargetId = useRef<string | null>(null);
+
+  // Cards only ≈ 1.3¢ each; podcast (script + TTS-1-HD) ≈ 6.3¢ each.
+  const genThemeCount = genPilot ? 1 : Math.max(1, genThemes.split(',').map((t) => t.trim()).filter(Boolean).length || 1);
+  const genCardCount = genTypes.length * genThemeCount * (genPilot ? 1 : genCount);
+  const genEstimate = (genCardCount * (genPodcast ? 0.063 : 0.013)).toFixed(2);
 
   const loadEdits = useCallback(async () => {
     setLoading(true);
@@ -95,6 +116,63 @@ export default function FeedReviewPage() {
     if (tab === 'edits') loadEdits();
     else loadComments();
   }, [tab, loadEdits, loadComments]);
+
+  // The curated music pack — loaded once for the per-card dropdown.
+  useEffect(() => {
+    fetch('/api/admin/feed-review/music-tracks')
+      .then((res) => (res.ok ? res.json() : { tracks: [] }))
+      .then((json) => setMusicTracks(json.tracks ?? []))
+      .catch(() => {});
+  }, []);
+
+  function startAudioUpload(editId: string) {
+    uploadTargetId.current = editId;
+    audioFileInput.current?.click();
+  }
+
+  async function handleAudioFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    const editId = uploadTargetId.current;
+    e.target.value = '';
+    if (!file || !editId) return;
+    setUploadingAudio(editId);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch(`/api/admin/feed-review/${editId}/audio`, { method: 'POST', body: form });
+      const json = await res.json();
+      if (res.ok) {
+        setEdits((prev) => prev.map((ed) => ed.id === editId ? { ...ed, audio_url: json.audio_url, audio_status: 'ready' } : ed));
+      } else {
+        alert(`Audio upload failed: ${json.error ?? res.status}`);
+      }
+    } finally {
+      setUploadingAudio(null);
+    }
+  }
+
+  async function handleRemoveAudio(editId: string) {
+    if (!confirm('Remove this card’s podcast audio?')) return;
+    const res = await fetch(`/api/admin/feed-review/${editId}/audio`, { method: 'DELETE' });
+    if (res.ok) {
+      setEdits((prev) => prev.map((ed) => ed.id === editId ? { ...ed, audio_url: null, audio_status: null } : ed));
+    } else {
+      alert('Failed to remove audio.');
+    }
+  }
+
+  async function handleMusicChange(editId: string, musicUrl: string | null) {
+    const res = await fetch(`/api/admin/feed-review/${editId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ music_url: musicUrl }),
+    });
+    if (res.ok) {
+      setEdits((prev) => prev.map((ed) => ed.id === editId ? { ...ed, music_url: musicUrl } : ed));
+    } else {
+      alert('Failed to update music.');
+    }
+  }
 
   async function handleUpdateStatus(id: string, action: 'approve' | 'reject') {
     const reason = rejectionReasons[id] ?? '';
@@ -137,14 +215,16 @@ export default function FeedReviewPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           planet_id: genPlanetId.trim(),
-          types,
-          themes: genThemes.split(',').map((t) => t.trim()).filter(Boolean),
+          edit_types: types,
+          interest_themes: genThemes.split(',').map((t) => t.trim()).filter(Boolean),
+          count: genCount,
           pilot: genPilot,
+          include_podcast: genPodcast,
         }),
       });
       const json = await res.json();
       if (res.ok) {
-        setGenResult(`Generation triggered. Estimated cost: ${json.estimated_cost ?? '—'}. New drafts will appear in the queue shortly.`);
+        setGenResult(`Generation triggered. Estimated cost: $${json.estimated_cost_usd ?? '—'}. New drafts will appear in the queue shortly.`);
         setTimeout(() => { setShowGenerateForm(false); setGenResult(null); loadEdits(); }, 3500);
       } else {
         setGenResult(`Error: ${json.error ?? 'Unknown error'}`);
@@ -158,6 +238,14 @@ export default function FeedReviewPage() {
 
   return (
     <div className="px-8 py-8 max-w-5xl">
+      {/* Hidden file input shared by every card's Upload/Replace audio button */}
+      <input
+        ref={audioFileInput}
+        type="file"
+        accept=".mp3,.m4a,audio/mpeg,audio/mp4,audio/x-m4a"
+        onChange={handleAudioFile}
+        className="hidden"
+      />
       <div className="flex items-center gap-4 mb-6">
         <h1 className="text-xl font-bold tracking-tight">Feed Review</h1>
         <div className="flex gap-2 ml-4">
@@ -222,10 +310,29 @@ export default function FeedReviewPage() {
               ))}
             </div>
           </div>
+          <div className="flex items-center gap-6">
+            <label className="flex items-center gap-2 text-xs text-white/70">
+              <span className="uppercase tracking-widest text-white/50 text-[11px]">Cards per type</span>
+              <input
+                type="number" min={1} max={10}
+                value={genCount}
+                disabled={genPilot}
+                onChange={(e) => setGenCount(Math.max(1, Math.min(10, parseInt(e.target.value, 10) || 1)))}
+                className="w-16 bg-white/5 border border-white/10 rounded px-2 py-1 text-sm text-white outline-none focus:border-purple-500 disabled:opacity-40"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-xs text-white/70 cursor-pointer">
+              <input type="checkbox" checked={genPilot} onChange={(e) => setGenPilot(e.target.checked)} className="accent-purple-500" />
+              Pilot mode (1 edit per type — for prompt validation)
+            </label>
+          </div>
           <label className="flex items-center gap-2 text-xs text-white/70 cursor-pointer">
-            <input type="checkbox" checked={genPilot} onChange={(e) => setGenPilot(e.target.checked)} className="accent-purple-500" />
-            Pilot mode (1 edit per type — for prompt validation)
+            <input type="checkbox" checked={genPodcast} onChange={(e) => setGenPodcast(e.target.checked)} className="accent-purple-500" />
+            Include podcast (auto TTS — OpenAI, ~5¢ extra per card)
           </label>
+          <p className="text-[11px] text-white/50">
+            Estimated cost: <span className="text-white/90 font-medium">${genEstimate}</span> for {genCardCount} card{genCardCount === 1 ? '' : 's'}{genPodcast ? ' with podcast episodes' : ' (cards only — no audio)'}
+          </p>
           {genResult && <p className="text-sm text-green-400">{genResult}</p>}
           <div className="flex gap-3">
             <button
@@ -371,6 +478,57 @@ export default function FeedReviewPage() {
                           {edit.media_credit && <p className="text-[10px] text-white/30 mt-1">{edit.media_credit}</p>}
                         </div>
                       )}
+                      {/* Podcast audio (amendment 2026-07-20): play what students
+                          will hear, upload a NotebookLM export, or remove it. */}
+                      <div>
+                        <p className="text-[11px] text-white/40 uppercase tracking-widest mb-1">
+                          Podcast
+                          {edit.audio_status === 'failed' && <span className="ml-2 text-red-400 normal-case">auto-generation failed</span>}
+                          {!edit.audio_url && edit.audio_status !== 'failed' && <span className="ml-2 text-white/30 normal-case">no audio — card works without it</span>}
+                        </p>
+                        {edit.audio_url && (
+                          <audio controls src={edit.audio_url} className="w-full max-w-md h-9 mb-2" />
+                        )}
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => startAudioUpload(edit.id)}
+                            disabled={uploadingAudio === edit.id}
+                            className="px-4 py-1 bg-white/10 hover:bg-white/20 disabled:opacity-50 rounded text-[11px] font-medium uppercase tracking-widest"
+                          >
+                            {uploadingAudio === edit.id ? 'Uploading…' : edit.audio_url ? 'Replace audio' : 'Upload audio'}
+                          </button>
+                          {edit.audio_url && (
+                            <button
+                              onClick={() => handleRemoveAudio(edit.id)}
+                              className="px-4 py-1 rounded text-[11px] font-medium uppercase tracking-widest text-red-300 border border-red-500/30 hover:bg-red-900/30"
+                            >Remove</button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Card music: pick a pack track or leave the card silent. */}
+                      <div>
+                        <p className="text-[11px] text-white/40 uppercase tracking-widest mb-1">Music</p>
+                        <div className="flex items-center gap-3">
+                          <select
+                            value={edit.music_url ?? ''}
+                            onChange={(e) => handleMusicChange(edit.id, e.target.value || null)}
+                            className="bg-white/5 border border-white/10 rounded px-3 py-1.5 text-sm text-white outline-none focus:border-purple-500 max-w-xs"
+                          >
+                            <option value="">No music</option>
+                            {musicTracks.map((t) => (
+                              <option key={t.url} value={t.url}>{t.name}</option>
+                            ))}
+                            {edit.music_url && !musicTracks.some((t) => t.url === edit.music_url) && (
+                              <option value={edit.music_url}>(current track)</option>
+                            )}
+                          </select>
+                          {edit.music_url && (
+                            <audio controls src={edit.music_url} className="h-9 max-w-[220px]" />
+                          )}
+                        </div>
+                      </div>
+
                       {edit.safety_reason && (
                         <p className="text-[11px] text-red-300 bg-red-900/20 px-3 py-2 rounded border border-red-500/20">
                           Safety note: {edit.safety_reason}
