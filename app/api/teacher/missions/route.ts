@@ -70,7 +70,11 @@ export async function GET(req: NextRequest) {
       .from('missions')
       .select('*, planets(*)')
       .eq('id', missionId)
+      // Stable tiebreaker: identical bulk-insert created_at across a mission's
+      // planets — id keeps preview ordering deterministic and consistent with the
+      // student landscape map.
       .order('created_at', { referencedTable: 'planets' })
+      .order('id', { referencedTable: 'planets' })
       .maybeSingle();
 
     if (error || !data) {

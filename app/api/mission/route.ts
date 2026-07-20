@@ -30,7 +30,10 @@ export async function GET(req: NextRequest) {
       mission_brief, chapter, qa_answers, mission_qa_answers, translations,
       planets ( id, label, title, icon, hint, translations )
     `)
-    .order('created_at', { referencedTable: 'planets' });
+    // Stable tiebreaker: planets share an identical bulk-insert created_at, so
+    // id keeps ordering deterministic and consistent with the landscape map.
+    .order('created_at', { referencedTable: 'planets' })
+    .order('id', { referencedTable: 'planets' });
 
   if (missionId) {
     query = query.eq('id', missionId).limit(1);

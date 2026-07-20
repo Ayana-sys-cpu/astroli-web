@@ -46,11 +46,15 @@ export async function GET(req: NextRequest) {
   }
 
   // 3. Load all sibling planets (same mission) ordered by creation date.
+  //    Planets share an identical bulk-insert created_at, so id is a stable
+  //    tiebreaker — this keeps "next planet" deterministic and matched to the
+  //    landscape map's numbering.
   const { data: siblings } = await supabaseAdmin
     .from('planets')
     .select('id, label, title, translations, planet_question, created_at')
     .eq('mission_id', missionId)
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true });
 
   const siblingList = (siblings ?? []) as Array<{
     id: string;

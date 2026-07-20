@@ -23,7 +23,12 @@ export async function GET(req: NextRequest) {
         planets ( id, title, label, short_title, planet_question, translations )
       `)
       .eq('id', missionId)
+      // Planets are bulk-inserted in one transaction, so created_at is identical
+      // across a mission's planets — id is a stable tiebreaker so the map's
+      // PLANET 01/02/03 numbering and positions are deterministic and match every
+      // other surface (Orin guide, next-planet, teacher preview).
       .order('created_at', { referencedTable: 'planets' })
+      .order('id', { referencedTable: 'planets' })
       .single();
 
     if (error || !data) {
