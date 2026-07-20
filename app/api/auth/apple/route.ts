@@ -36,17 +36,12 @@ import { createPublicKey, verify as cryptoVerify } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { upsertAuthUserAndToken } from '@/lib/auth-token';
+import { enrollStudentInDemoClass } from '@/lib/demo-class';
 import { parseBody, z } from '@/lib/validate';
 
 const APPLE_ISSUER = 'https://appleid.apple.com';
 const APPLE_JWKS_URL = 'https://appleid.apple.com/auth/keys';
 const APPLE_AUDIENCE = 'com.ayanar.astroli'; // iOS bundle identifier
-
-// New Apple sign-ups are enrolled here so their first session shows a real
-// journey instead of an empty home. Same class the App Review demo account
-// uses (see astroli-reviewer seeding notes).
-const DEMO_CLASS_ID = 'dededede-0000-4000-8000-000000000001';
-const DEMO_CLASS_JOURNEY_ID = '98581683-3601-48af-90cf-1ac5a6338b2b';
 
 const AppleSignInSchema = z.object({
   identityToken: z.string().min(1),
@@ -154,23 +149,6 @@ async function verifyAppleIdentityToken(token: string): Promise<AppleTokenClaims
   return { sub: payload.sub, email: payload.email?.toLowerCase() ?? null };
 }
 
-/**
- * Enrolls a brand-new Apple student in the demo class. Best-effort: a
- * failure leaves them with an empty (but working) home, never blocks sign-in.
- * student_classes' one-per-template rule is a partial unique index that
- * ON CONFLICT can't target, so 23505 is swallowed (same as enroll-student).
- */
-async function enrollInDemoClass(studentId: string): Promise<void> {
-  const { error } = await supabaseAdmin.from('student_classes').insert({
-    student_id: studentId,
-    class_id: DEMO_CLASS_ID,
-    template_journey_id: DEMO_CLASS_JOURNEY_ID,
-  });
-  if (error && (error as { code?: string }).code !== '23505') {
-    console.error('[auth/apple] demo class enrollment failed:', error);
-  }
-}
-
 export async function POST(req: NextRequest) {
   try {
     return await handlePOST(req);
@@ -252,7 +230,7 @@ async function handlePOST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to create account' }, { status: 503 });
     }
     user = created;
-    await enrollInDemoClass(user.id);
+    await enrollStudentInDemoClass(user.id);
     console.log(`[auth/apple] created student ${user.id} for Apple user ${appleUserId}`);
   }
 

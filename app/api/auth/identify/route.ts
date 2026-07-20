@@ -5,9 +5,14 @@
 // authorized_teachers. Google Classroom API is called on the teacher path only —
 // for course syncing, not for role detection.
 //
+// Brand-new emails become student accounts enrolled in the demo journey — same
+// policy as /api/auth/apple. App Review guideline 2.2 requires the app to be
+// fully usable for any new user, so there is no mobile waitlist wall.
+//
 // Error contract:
 //   400 — missing/invalid body
 //   401 — Google token invalid or no email returned
+//   403 — the email belongs to a parent account (mobile app is students-only)
 //   503 — Supabase error (whitelist check or upsert) — never falls to student silently
 //
 // Request:  POST { accessToken: string }
@@ -16,6 +21,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { upsertAuthUserAndToken } from '@/lib/auth-token';
+import { enrollStudentInDemoClass } from '@/lib/demo-class';
 import { parseBody, AccessTokenSchema } from '@/lib/validate';
 
 export async function POST(req: NextRequest) {
@@ -62,6 +68,7 @@ async function handlePOST(req: NextRequest) {
   }
 
   const isTeacher = whitelist !== null;
+  let isNewStudent = false;
 
   // ── 3b-pre. Parent whitelist check ────────────────────────────────────────
   // Only reached when isTeacher is false. Fail closed on DB error.
@@ -128,25 +135,28 @@ async function handlePOST(req: NextRequest) {
       });
     }
 
-    // ── Waitlist path (non-approved, non-teacher, non-existing-parent) ─────
-    // Check if already an existing parent or student before waitlisting
-    const { data: existingUser } = await supabaseAdmin
+    // ── Route existing non-student accounts; new emails become students ───
+    const { data: existingUser, error: existingUserError } = await supabaseAdmin
       .from('users')
       .select('role')
       .eq('email', email)
       .maybeSingle();
 
-    if (!existingUser || existingUser.role === 'parent') {
-      // Insert into waitlist (ON CONFLICT DO NOTHING — no duplicate entries)
-      await supabaseAdmin
-        .from('parent_waitlist')
-        .upsert({ email, name: name ?? '' }, { onConflict: 'email', ignoreDuplicates: true });
+    // Fail closed: falling through on a failed lookup could flip an existing
+    // parent's role to student via the upsert below.
+    if (existingUserError) {
+      console.error('[identify] existing-user lookup error:', existingUserError);
+      return NextResponse.json({ error: 'Service temporarily unavailable' }, { status: 503 });
+    }
 
+    if (existingUser?.role === 'parent') {
       return NextResponse.json(
-        { role: 'waitlisted', message: 'Astroli is currently in limited early access.' },
+        { error: 'This Google account belongs to a parent account. Please sign in on the web app.' },
         { status: 403 },
       );
     }
+
+    isNewStudent = existingUser === null;
   }
 
   // ── 3a. Teacher path ───────────────────────────────────────────────────────
@@ -235,6 +245,10 @@ async function handlePOST(req: NextRequest) {
   if (studentError || !student) {
     console.error('[identify] upsert student error:', studentError);
     return NextResponse.json({ error: 'Failed to save student' }, { status: 503 });
+  }
+
+  if (isNewStudent) {
+    await enrollStudentInDemoClass(student.id);
   }
 
   const authResult = await upsertAuthUserAndToken(email, {
