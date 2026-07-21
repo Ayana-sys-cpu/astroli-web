@@ -72,9 +72,9 @@ describe('parent onboarding — email → consent → journey', () => {
     await user.click(screen.getByRole('button', { name: /Continue to consent/ }));
 
     // Step 2 of 3 — consent shows the email as text, button disabled until ticked.
-    expect(await screen.findByText('Your consent, as their parent')).toBeInTheDocument();
+    expect(await screen.findByText('Almost there')).toBeInTheDocument();
     expect(screen.getByText('child@gmail.com')).toBeInTheDocument();
-    const consentButton = screen.getByRole('button', { name: /I consent — send invite/ });
+    const consentButton = screen.getByRole('button', { name: /Send invite/ });
     expect(consentButton).toBeDisabled();
     await user.click(screen.getByRole('checkbox'));
     expect(consentButton).toBeEnabled();
