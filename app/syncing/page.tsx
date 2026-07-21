@@ -2,6 +2,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ConstellationLoader from '@/components/ConstellationLoader';
+import { writeHomeCache } from '@/lib/home-cache';
 
 export default function SyncingPage() {
   const router = useRouter();
@@ -29,6 +30,9 @@ export default function SyncingPage() {
         try {
           sessionStorage.setItem('astroli_home_cache', JSON.stringify({ data, ts: Date.now() }));
         } catch { /* ignore quota/private-mode errors */ }
+        // Also seed the persistent SWR cache so the FIRST back-navigation to
+        // /home after login paints instantly instead of fetching once.
+        writeHomeCache({ journeys: (data as any).journeys ?? [], hasParent: !!(data as any).hasParent });
       }
       router.replace('/home');
     });
