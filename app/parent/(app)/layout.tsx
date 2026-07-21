@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createSSRServerClient, supabaseAdmin } from '@/lib/supabase-server';
 import { resolveParentId, getParentContext } from '@/lib/parent-auth';
+import { getConsentStatus } from '@/lib/consent';
 import ParentSidebar from '@/components/parent/ParentSidebar';
 
 export default async function ParentAppLayout({ children }: { children: React.ReactNode }) {
@@ -17,6 +18,17 @@ export default async function ParentAppLayout({ children }: { children: React.Re
   // If the parent has neither a linked child nor a family class, they haven't
   // started onboarding — send them back to begin.
   if (!childId && !familyClass) {
+    redirect('/parent/onboarding');
+  }
+
+  // Consent gate (FR-005a back-fill): a parent who lacks current-version consent
+  // — because they predate the feature, or a policy-version bump invalidated
+  // their prior consent — must (re-)consent before reaching the dashboard. The
+  // consent screen lives on /parent/onboarding, which sits OUTSIDE this (app)
+  // route group, so this redirect cannot loop. Mirrors the parent-level check
+  // used by /api/parent/dashboard.
+  const { hasCurrentConsent } = await getConsentStatus(parentId);
+  if (!hasCurrentConsent) {
     redirect('/parent/onboarding');
   }
 
