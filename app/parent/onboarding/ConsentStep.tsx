@@ -1,45 +1,46 @@
 'use client';
 
-// Parental consent step — the FIRST step of parent onboarding, shown before the
-// child invite. Two plain consent points (AI companion + data storage), links to
-// the Terms of Use and Privacy Policy, and a deliberate affirmative action. No
-// voice line until the voice feature ships (FR-002). On success it POSTs an
-// append-only consent record and calls onConsented() to advance to the invite.
+// Parental consent — Step 2 of 3 of parent onboarding, after the child's email
+// is captured on Step 1. The email is displayed as text (never retyped here);
+// two plain consent points (AI companion + data storage), links to the Terms of
+// Use and Privacy Policy, and a deliberate affirmative action. The consent click
+// is also what dispatches the invite: onSubmit records the consent AND sends the
+// invite in one pass, so nothing ever reaches the child before consent exists.
 
 import { useState } from 'react';
 import { CONSENT_ITEM_LABELS, CONSENT_ITEMS, POLICY_EFFECTIVE_DATE } from '@/lib/consent-constants';
 
 type Props = {
   childEmail: string;
-  setChildEmail: (v: string) => void;
-  onConsented: () => void;
   reconsent?: boolean;
+  // False when the child is already linked or setup is complete — the click
+  // then only records the consent, so the button must not promise an invite.
+  willSendInvite: boolean;
+  // Present only while the email is still changeable (child not linked yet).
+  onChangeEmail?: () => void;
+  // Records the consent and (normal path) sends the invite. Throws with a
+  // user-facing message on failure — displayed under the checkbox.
+  onSubmit: () => Promise<void>;
 };
 
-export default function ConsentStep({ childEmail, setChildEmail, onConsented, reconsent }: Props) {
+export default function ConsentStep({ childEmail, reconsent, willSendInvite, onChangeEmail, onSubmit }: Props) {
   const [agreed, setAgreed]   = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
 
+  const disabled = !agreed || !childEmail || loading;
+
   async function handleConsent(e: React.FormEvent) {
     e.preventDefault();
-    if (!agreed) return;
+    if (disabled) return;
     setLoading(true);
     setError(null);
-
-    const res = await fetch('/api/parent/consent', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ childEmail, items: CONSENT_ITEMS }),
-    });
-    const data = await res.json();
-    setLoading(false);
-
-    if (!res.ok) {
-      setError(data.error ?? 'Something went wrong.');
-      return;
+    try {
+      await onSubmit();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong.');
+      setLoading(false);
     }
-    onConsented();
   }
 
   return (
@@ -47,7 +48,7 @@ export default function ConsentStep({ childEmail, setChildEmail, onConsented, re
       {/* Header */}
       <div className="space-y-1">
         <p className="font-space text-[9px] font-bold uppercase text-[#00F5D4]" style={{ letterSpacing: '0.22em' }}>
-          {reconsent ? 'Please review' : 'Before you begin'}
+          {reconsent ? 'Please review' : 'Step 2 of 3'}
         </p>
         <h1 className="font-space text-2xl font-bold text-white">
           {reconsent ? 'We updated our terms' : 'Your consent, as their parent'}
@@ -59,28 +60,34 @@ export default function ConsentStep({ childEmail, setChildEmail, onConsented, re
         </p>
       </div>
 
-      {/* Child email — the consent subject. Captured here so the record ties to
-          this child before the invite exists. */}
-      <div className="space-y-1.5">
-        <label
-          className="font-space text-[10px] font-bold uppercase"
-          style={{ color: 'rgba(255,255,255,0.4)', letterSpacing: '0.14em' }}
-          htmlFor="consentChildEmail"
-        >
-          Child&apos;s Gmail
-        </label>
-        <input
-          id="consentChildEmail"
-          type="email"
-          required
-          value={childEmail}
-          onChange={e => setChildEmail(e.target.value)}
-          placeholder="child@gmail.com"
-          className="input-dark"
-        />
+      {/* The consent subject — displayed, never retyped. Captured on Step 1. */}
+      <div
+        className="flex items-center justify-between gap-3 rounded-xl px-4 py-3"
+        style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)' }}
+      >
+        <div className="min-w-0">
+          <p
+            className="font-space text-[10px] font-bold uppercase"
+            style={{ color: 'rgba(255,255,255,0.4)', letterSpacing: '0.14em' }}
+          >
+            You&apos;re consenting for
+          </p>
+          <p className="font-inter text-sm text-white truncate">{childEmail}</p>
+        </div>
+        {onChangeEmail && (
+          <button
+            type="button"
+            onClick={onChangeEmail}
+            className="font-inter text-xs underline underline-offset-2 flex-shrink-0"
+            style={{ color: 'rgba(255,255,255,0.45)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+          >
+            Change
+          </button>
+        )}
       </div>
 
-      {/* The two plain consent points */}
+      {/* The two plain consent points — informational list, deliberately not
+          styled like controls (the checkbox below is the only interactive bit) */}
       <ul className="space-y-3" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
         {CONSENT_ITEMS.map(item => (
           <li
@@ -88,13 +95,13 @@ export default function ConsentStep({ childEmail, setChildEmail, onConsented, re
             className="flex items-start gap-3 rounded-xl p-4"
             style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)' }}
           >
-            <span
-              className="mt-0.5 flex-shrink-0 flex items-center justify-center rounded-full"
-              style={{ width: 16, height: 16, background: '#00F5D4' }}
+            <svg
+              className="mt-0.5 flex-shrink-0"
+              width="16" height="16" viewBox="0 0 16 16" fill="none"
               aria-hidden="true"
             >
-              <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#000' }} />
-            </span>
+              <path d="M3 8.5L6.5 12L13 4.5" stroke="#00F5D4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
             <p className="font-inter text-sm" style={{ color: 'rgba(255,255,255,0.75)' }}>
               {CONSENT_ITEM_LABELS[item]}
             </p>
@@ -134,11 +141,20 @@ export default function ConsentStep({ childEmail, setChildEmail, onConsented, re
 
         <button
           type="submit"
-          disabled={!agreed || !childEmail || loading}
+          disabled={disabled}
           className="btn-teal"
-          style={{ opacity: (!agreed || !childEmail || loading) ? 0.4 : 1 }}
+          style={disabled ? {
+            background: 'rgba(255,255,255,0.08)',
+            color: 'rgba(255,255,255,0.35)',
+            boxShadow: 'none',
+            cursor: 'default',
+          } : undefined}
         >
-          {loading ? 'Recording…' : 'I consent — continue →'}
+          {loading
+            ? (willSendInvite ? 'Sending invite…' : 'Recording…')
+            : willSendInvite
+              ? 'I consent — send invite →'
+              : (reconsent ? 'I agree — continue →' : 'I consent — continue →')}
         </button>
       </form>
     </div>

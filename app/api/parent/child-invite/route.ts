@@ -3,7 +3,9 @@
 // Creates a child profile record and sends an invite email to the child's Gmail.
 // The invite link contains a one-time UUID token that expires in 48 hours.
 //
-// Request:  POST { childEmail: string, childName: string }
+// Request:  POST { childEmail: string, childName?: string } — the display name
+//           is derived from the email when absent; the child's real profile
+//           name arrives from their Google account once they sign in.
 // Response: 200 { ok: true, inviteId: string }
 //           400 — missing/invalid fields
 //           401 — no session
@@ -18,10 +20,11 @@ import { resolveParentId } from '@/lib/parent-auth';
 import { z, parseBody } from '@/lib/validate';
 import { sendInviteEmail } from '@/lib/email';
 import { hasCurrentConsent } from '@/lib/consent';
+import { toDisplayFirstName } from '@/lib/display-name';
 
 const Schema = z.object({
   childEmail: z.string().email('Invalid email address').toLowerCase(),
-  childName:  z.string().trim().min(1, 'Child name is required'),
+  childName:  z.string().trim().min(1).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -93,7 +96,7 @@ export async function POST(req: NextRequest) {
   // resends never invalidate previous emails and email scanners can't consume
   // the token (they don't execute JavaScript).
   try {
-    await sendInviteEmail(childEmail, childName, invite.token);
+    await sendInviteEmail(childEmail, childName ?? toDisplayFirstName(childEmail), invite.token);
   } catch (err) {
     console.error('[parent/child-invite] Resend error:', err);
     // Don't fail the request — the invite row exists; parent can resend from dashboard.

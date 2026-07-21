@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import ConsentStep from './ConsentStep';
+import WelcomeTour from './WelcomeTour';
+import { CONSENT_ITEMS } from '@/lib/consent-constants';
+import { toDisplayFirstName } from '@/lib/display-name';
 
 type Journey = { id: string; title: string; description: string; missionCount: number };
 
@@ -25,7 +28,21 @@ const GRADIENT_STRIPE = (
   />
 );
 
-type OnboardingStatus = 'checking' | 'already_done' | 'needs_consent' | 'needs_invite' | 'needs_journey';
+type OnboardingStatus = 'checking' | 'already_done' | 'ready';
+
+// Flow: [tour] → email (1 of 3) → consent (2 of 3, the consent click sends the
+// invite) → journey (3 of 3, invite-sent banner + picker). The tour shows once,
+// only to brand-new parents with nothing set up yet.
+type Step = 'tour' | 'email' | 'consent' | 'journey';
+
+const TOUR_SEEN_KEY = 'astroli_parent_tour_seen';
+
+function tourSeen(): boolean {
+  try { return localStorage.getItem(TOUR_SEEN_KEY) === '1'; } catch { return false; }
+}
+function markTourSeen(): void {
+  try { localStorage.setItem(TOUR_SEEN_KEY, '1'); } catch { /* private mode — show again next time */ }
+}
 
 export default function ParentOnboardingContent() {
   const router      = useRouter();
@@ -34,22 +51,25 @@ export default function ParentOnboardingContent() {
   // On mount we check real DB state so we never show the wrong step and
   // always provide an escape hatch if the parent already completed setup.
   const [status, setStatus] = useState<OnboardingStatus>('checking');
+  const [step, setStep]     = useState<Step>('email');
 
-  const [step, setStep]       = useState<'consent' | 'invite' | 'journey'>('consent');
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
 
-  // Consent step state
+  // Consent state
   const [reconsent, setReconsent]         = useState(false);
   // True when the parent already finished setup (existing-parent back-fill or a
   // policy version bump): after consenting they return to the dashboard rather
   // than re-running the invite/journey steps.
   const [setupComplete, setSetupComplete] = useState(false);
 
-  // Invite step state
-  const [childEmail, setChildEmail] = useState('');
-  const [childName,  setChildName]  = useState('');
-  const [inviteSent, setInviteSent] = useState(false);
+  // Child + invite state
+  const [childEmail, setChildEmail]       = useState('');
+  const [childName, setChildName]         = useState<string | null>(null);
+  const [childAccepted, setChildAccepted] = useState(false);
+  const [inviteSent, setInviteSent]       = useState(false);
+  const [hadPendingInvite, setHadPendingInvite] = useState(false);
+  const [emailError, setEmailError]       = useState<string | null>(null);
 
   // Resend state (separate from main loading so it doesn't affect the form)
   const [resending,     setResending]     = useState(false);
@@ -69,19 +89,26 @@ export default function ParentOnboardingContent() {
     fetch('/api/parent/dashboard')
       .then(r => (r.ok ? r.json() : null))
       .then(data => {
-        if (!data) { setStatus('needs_consent'); setStep('consent'); return; }
+        if (!data) { setStatus('ready'); setStep('email'); return; }
+
+        const accepted = !!data.child;
+        setChildAccepted(accepted);
+        setChildName(data.child?.name ?? null);
+        setHadPendingInvite(!!data.pendingInvite);
+        if (data.child?.email) setChildEmail(data.child.email);
+        else if (data.pendingInvite?.childEmail) setChildEmail(data.pendingInvite.childEmail);
 
         // Consent gate first — a parent without current-version consent is always
-        // routed to the consent screen, even if their setup is otherwise complete
+        // routed to the consent flow, even if their setup is otherwise complete
         // (existing-parent back-fill / re-consent after a policy version bump).
         const cs = data.consentStatus;
         if (cs && !cs.hasCurrentConsent) {
           setReconsent(!!cs.needsReconsent);
           setSetupComplete(!!data.familyClass);
-          if (data.pendingInvite?.childEmail) setChildEmail(data.pendingInvite.childEmail);
-          else if (data.child?.name && data.child?.email) setChildEmail(data.child.email);
-          setStatus('needs_consent');
-          setStep('consent');
+          if (accepted) setStep('consent');                       // email known and fixed
+          else if (data.pendingInvite) setStep('email');          // re-confirm, may edit
+          else setStep(tourSeen() ? 'email' : 'tour');            // brand-new parent
+          setStatus('ready');
           return;
         }
 
@@ -90,22 +117,21 @@ export default function ParentOnboardingContent() {
           return;
         }
         if (data.setupState?.step === 'no_journey' || stepParam === 'journey') {
-          setStatus('needs_journey');
+          setStep('journey');
+        } else if (data.pendingInvite) {
+          // Invite already out, child hasn't accepted — Step 3 with the banner.
           setStep('journey');
         } else {
-          setStatus('needs_invite');
-          setStep('invite');
+          setStep('email');
         }
+        setStatus('ready');
       })
-      .catch(() => { setStatus('needs_consent'); setStep('consent'); });
+      .catch(() => { setStatus('ready'); setStep('email'); });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Keyed off `step`, not `status`: `step` is what actually renders the picker.
-  // `status` only reports what the server said on mount, so a parent who reaches
-  // Step 2 via the Continue button (their child has not accepted yet, leaving
-  // status at 'needs_invite') would never trigger the fetch and would sit on
-  // skeleton loaders forever.
+  // Keyed off `step`: the picker fetches as soon as it renders, however the
+  // parent reached it (mount routing or advancing from the consent step).
   useEffect(() => {
     if (step === 'journey') fetchJourneys(language);
   }, [language, step]);
@@ -129,25 +155,58 @@ export default function ParentOnboardingContent() {
     setSelected(null);
   }
 
-  async function handleSendInvite(e: React.FormEvent) {
+  function handleContinueToConsent(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
+    setEmailError(null);
+    setStep('consent');
+  }
 
-    const res  = await fetch('/api/parent/child-invite', {
+  // The consent click does both: records the consent, then dispatches the
+  // invite. Nothing is ever sent to the child before the consent exists (the
+  // API enforces the same order with a 428). Throws with a user-facing message
+  // so ConsentStep can display it inline.
+  async function handleConsentAndInvite() {
+    const consentRes = await fetch('/api/parent/consent', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ childEmail, childName }),
+      body:    JSON.stringify({ childEmail, items: CONSENT_ITEMS }),
     });
-    const data = await res.json();
-    setLoading(false);
+    const consentData = await consentRes.json();
+    if (!consentRes.ok) throw new Error(consentData.error ?? 'Something went wrong.');
 
-    if (!res.ok) {
-      setError(data.error ?? 'Something went wrong.');
+    if (setupComplete) {
+      // Existing parent re-consented — nothing else to set up.
+      router.replace('/parent/dashboard');
+      return;
+    }
+    if (childAccepted) {
+      // Child is already in — no invite to send, straight to the picker.
+      setStep('journey');
       return;
     }
 
+    const inviteRes  = await fetch('/api/parent/child-invite', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ childEmail }),
+    });
+    const inviteData = await inviteRes.json();
+
+    if (inviteRes.status === 409) {
+      // Already has a linked child — invite is moot, move on.
+      setStep('journey');
+      return;
+    }
+    if (inviteRes.status === 422) {
+      // School-linked email — back to Step 1 so the parent can change it.
+      setEmailError(inviteData.error ?? 'This email cannot be invited — try another.');
+      setStep('email');
+      return;
+    }
+    if (!inviteRes.ok) throw new Error(inviteData.error ?? 'Something went wrong.');
+
     setInviteSent(true);
+    setStep('journey');
   }
 
   async function handleResendInvite() {
@@ -199,8 +258,9 @@ export default function ParentOnboardingContent() {
     }
 
     const journeyTitle = journeys.find(j => j.id === selected)?.title ?? '';
+    const displayName  = toDisplayFirstName(childName ?? childEmail);
     router.push(
-      `/parent/reveal?childName=${encodeURIComponent(childName)}&journeyTitle=${encodeURIComponent(journeyTitle)}`
+      `/parent/reveal?childName=${encodeURIComponent(displayName)}&journeyTitle=${encodeURIComponent(journeyTitle)}`
     );
   }
 
@@ -247,10 +307,78 @@ export default function ParentOnboardingContent() {
     );
   }
 
-  // ── Step 0: Consent ──────────────────────────────────────────────────────────
-  // Shown before the invite for new parents, and on entry for existing parents
-  // who lack current-version consent (back-fill / re-consent). No invite is ever
-  // dispatched until this records a consent (the API also enforces this — 428).
+  // ── Intro: app preview tour (brand-new parents, once) ───────────────────────
+  if (step === 'tour') {
+    return (
+      <WelcomeTour
+        onDone={() => {
+          markTourSeen();
+          setStep('email');
+        }}
+      />
+    );
+  }
+
+  // ── Step 1 of 3: child's email ──────────────────────────────────────────────
+  if (step === 'email') {
+    return (
+      <main className="bg-grid min-h-screen flex flex-col items-center justify-center px-6 py-12">
+        <div className="w-full max-w-md" style={CARD}>
+          {GRADIENT_STRIPE}
+          <div className="p-8 space-y-6">
+            <div className="space-y-1">
+              <p className="font-space text-[9px] font-bold uppercase text-[#00F5D4]" style={{ letterSpacing: '0.22em' }}>
+                Step 1 of 3
+              </p>
+              <h1 className="font-space text-2xl font-bold text-white">
+                Set up your child&apos;s account
+              </h1>
+              <p className="font-inter text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                Enter your child&apos;s Gmail address. You&apos;ll review your consent next —
+                nothing is sent until you approve it.
+              </p>
+            </div>
+
+            <form onSubmit={handleContinueToConsent} className="space-y-4">
+              <div className="space-y-1.5">
+                <label
+                  className="font-space text-[10px] font-bold uppercase"
+                  style={{ color: 'rgba(255,255,255,0.4)', letterSpacing: '0.14em' }}
+                  htmlFor="childEmail"
+                >
+                  Child&apos;s Gmail
+                </label>
+                <input
+                  id="childEmail"
+                  type="email"
+                  required
+                  value={childEmail}
+                  onChange={e => setChildEmail(e.target.value)}
+                  placeholder="child@gmail.com"
+                  className="input-dark"
+                />
+              </div>
+
+              {emailError && (
+                <p className="font-inter text-sm" style={{ color: '#FF0080' }}>{emailError}</p>
+              )}
+
+              <button
+                type="submit"
+                disabled={!childEmail}
+                className="btn-teal"
+                style={{ marginTop: '8px', opacity: !childEmail ? 0.4 : 1 }}
+              >
+                Continue to consent →
+              </button>
+            </form>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // ── Step 2 of 3: consent (the consent click sends the invite) ───────────────
   if (step === 'consent') {
     return (
       <main className="bg-grid min-h-screen flex flex-col items-center justify-center px-6 py-12">
@@ -258,131 +386,19 @@ export default function ParentOnboardingContent() {
           {GRADIENT_STRIPE}
           <ConsentStep
             childEmail={childEmail}
-            setChildEmail={setChildEmail}
             reconsent={reconsent}
-            onConsented={() => {
-              if (setupComplete) {
-                // Existing parent re-consented — nothing else to set up.
-                router.replace('/parent/dashboard');
-              } else {
-                setStatus('needs_invite');
-                setStep('invite');
-              }
-            }}
+            willSendInvite={!setupComplete && !childAccepted}
+            onChangeEmail={!childAccepted ? () => { setEmailError(null); setStep('email'); } : undefined}
+            onSubmit={handleConsentAndInvite}
           />
         </div>
       </main>
     );
   }
 
-  // ── Step 1: Invite ──────────────────────────────────────────────────────────
-  if (step === 'invite') {
-    return (
-      <main className="bg-grid min-h-screen flex flex-col items-center justify-center px-6 py-12">
-        <div className="w-full max-w-md" style={CARD}>
-          {GRADIENT_STRIPE}
-          <div className="p-8 space-y-6">
-            {/* Header */}
-            <div className="space-y-1">
-              <p className="font-space text-[9px] font-bold uppercase text-[#00F5D4]" style={{ letterSpacing: '0.22em' }}>
-                Step 1 of 2
-              </p>
-              <h1 className="font-space text-2xl font-bold text-white">
-                Set up your child&apos;s account
-              </h1>
-              <p className="font-inter text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                Enter your child&apos;s Gmail address. They&apos;ll receive an invite to join your space.
-              </p>
-            </div>
+  // ── Step 3 of 3: journey picker (+ invite-sent banner) ──────────────────────
+  const showInviteBanner = (inviteSent || hadPendingInvite) && !childAccepted;
 
-            {!inviteSent ? (
-              <form onSubmit={handleSendInvite} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label
-                    className="font-space text-[10px] font-bold uppercase"
-                    style={{ color: 'rgba(255,255,255,0.4)', letterSpacing: '0.14em' }}
-                    htmlFor="childName"
-                  >
-                    Child&apos;s name
-                  </label>
-                  <input
-                    id="childName"
-                    type="text"
-                    required
-                    value={childName}
-                    onChange={e => setChildName(e.target.value)}
-                    placeholder="Alex"
-                    className="input-dark"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label
-                    className="font-space text-[10px] font-bold uppercase"
-                    style={{ color: 'rgba(255,255,255,0.4)', letterSpacing: '0.14em' }}
-                    htmlFor="childEmail"
-                  >
-                    Child&apos;s Gmail
-                  </label>
-                  <input
-                    id="childEmail"
-                    type="email"
-                    required
-                    value={childEmail}
-                    onChange={e => setChildEmail(e.target.value)}
-                    placeholder="child@gmail.com"
-                    className="input-dark"
-                  />
-                </div>
-
-                {error && (
-                  <p className="font-inter text-sm" style={{ color: '#FF0080' }}>{error}</p>
-                )}
-
-                <button type="submit" disabled={loading} className="btn-teal" style={{ marginTop: '8px' }}>
-                  {loading ? 'Sending…' : 'Send Invite →'}
-                </button>
-              </form>
-            ) : (
-              <div className="space-y-4">
-                {/* Success state */}
-                <div
-                  className="rounded-xl p-4 space-y-1"
-                  style={{ background: 'rgba(0,245,212,0.06)', border: '1px solid rgba(0,245,212,0.2)' }}
-                >
-                  <p className="font-space text-sm font-bold text-white">
-                    Invite sent to {childEmail}
-                  </p>
-                  <p className="font-inter text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                    Ask {childName} to check their email and click the invite link.
-                    The link expires in 48 hours.
-                  </p>
-                </div>
-
-                <button
-                  onClick={handleResendInvite}
-                  disabled={resending || resendSuccess}
-                  className="font-inter text-sm underline underline-offset-4 disabled:opacity-50"
-                  style={{ color: resendSuccess ? '#00F5D4' : 'rgba(255,255,255,0.4)', background: 'none', border: 'none', cursor: resending || resendSuccess ? 'default' : 'pointer', padding: 0 }}
-                >
-                  {resending ? 'Sending…' : resendSuccess ? 'Invite sent' : 'Resend invite'}
-                </button>
-
-                <button
-                  onClick={() => setStep('journey')}
-                  className="btn-teal"
-                >
-                  Continue — choose a journey →
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  // ── Step 2: Journey picker ──────────────────────────────────────────────────
   return (
     <main className="bg-grid min-h-screen flex flex-col items-center justify-center px-6 py-12">
       <div className="w-full max-w-md" style={CARD}>
@@ -391,7 +407,7 @@ export default function ParentOnboardingContent() {
           {/* Header */}
           <div className="space-y-1">
             <p className="font-space text-[9px] font-bold uppercase text-[#00F5D4]" style={{ letterSpacing: '0.22em' }}>
-              Step 2 of 2
+              Step 3 of 3
             </p>
             <h1 className="font-space text-2xl font-bold text-white">
               Choose a learning journey
@@ -400,6 +416,42 @@ export default function ParentOnboardingContent() {
               Pick the journey your child will explore. This cannot be changed later.
             </p>
           </div>
+
+          {/* Invite-sent banner — child can accept in parallel while the parent
+              picks the journey. Resend + change email both live here. */}
+          {showInviteBanner && (
+            <div
+              className="rounded-xl p-4 space-y-2"
+              style={{ background: 'rgba(0,245,212,0.06)', border: '1px solid rgba(0,245,212,0.2)' }}
+            >
+              <div className="space-y-1">
+                <p className="font-space text-sm font-bold text-white">
+                  Invite sent to {childEmail}
+                </p>
+                <p className="font-inter text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  Ask your child to check their email and click the invite link.
+                  The link expires in 48 hours.
+                </p>
+              </div>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={handleResendInvite}
+                  disabled={resending || resendSuccess}
+                  className="font-inter text-sm underline underline-offset-4 disabled:opacity-50"
+                  style={{ color: resendSuccess ? '#00F5D4' : 'rgba(255,255,255,0.4)', background: 'none', border: 'none', cursor: resending || resendSuccess ? 'default' : 'pointer', padding: 0 }}
+                >
+                  {resending ? 'Sending…' : resendSuccess ? 'Invite sent' : 'Resend invite'}
+                </button>
+                <button
+                  onClick={() => { setEmailError(null); setStep('email'); }}
+                  className="font-inter text-sm underline underline-offset-4"
+                  style={{ color: 'rgba(255,255,255,0.4)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                >
+                  Change email
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Language toggle */}
           <div

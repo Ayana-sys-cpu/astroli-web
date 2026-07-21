@@ -49,11 +49,25 @@ export async function GET() {
   }[] = [];
 
   if (childId) {
-    // Fetch child's name — null (never a placeholder string) when nothing is on file.
-    const { data: childUser } = await supabaseAdmin.auth.admin.getUserById(childId);
-    const childName = childUser.user?.user_metadata?.full_name ?? childUser.user?.email ?? null;
+    // Fetch child's name + email — null (never a placeholder string) when nothing
+    // is on file. childId is the app users.id, which is NOT the auth uid, so the
+    // users row is the reliable source; auth metadata only adds the Google name
+    // when the two ids happen to coincide.
+    const [childRowRes, childAuthRes] = await Promise.all([
+      supabaseAdmin.from('users').select('email, full_name, first_name').eq('id', childId).maybeSingle(),
+      supabaseAdmin.auth.admin.getUserById(childId),
+    ]);
+    const childRow = childRowRes.data as { email: string | null; full_name: string | null; first_name: string | null } | null;
+    const authUser = childAuthRes.data.user;
+    const childName =
+      authUser?.user_metadata?.full_name
+      ?? childRow?.full_name
+      ?? childRow?.first_name
+      ?? childRow?.email
+      ?? authUser?.email
+      ?? null;
 
-    child = { id: childId, name: childName };
+    child = { id: childId, name: childName, email: childRow?.email ?? authUser?.email ?? null };
 
     // Fetch mission progress + this week's signals if there's a family class
     if (familyClass) {
