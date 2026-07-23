@@ -339,6 +339,7 @@ export function AllDiscoveriesView({ summaries, orinHistory, onClose, lang, botN
         </div>
         <button
           onClick={onClose}
+          className="[@media(hover:none)]:!py-3"
           style={{
             background: 'none', border: `1px solid ${T.b2}`, borderRadius: 8,
             color: T.ts, fontSize: 12, cursor: 'pointer', padding: '5px 12px',

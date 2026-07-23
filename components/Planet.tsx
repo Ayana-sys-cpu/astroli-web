@@ -29,28 +29,59 @@ interface PlanetProps {
   lang?: Lang;
 }
 
-const PLANET_SIZE = 58;
+// Planet orb shrinks fluidly on narrow screens (58px on desktop).
+const PLANET_SIZE = 'clamp(46px, 12vw, 58px)';
+
+// True on touch-first devices, where hover never fires. Checked at event time
+// (not render) so SSR markup stays identical for every client.
+const isCoarsePointer = () =>
+  typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches;
 
 export default function Planet({ id, name, shortTitle, number, planetQuestion, x, y, explored = false, goalsDiscovered = 0, totalGoals = 0, onClick, lang = 'en' }: PlanetProps) {
   const [hovered, setHovered] = useState(false);
+  // Touch flow: first tap opens the question card, second tap (or the card's
+  // hint) launches. Hover-only tooltips would hide the question on phones.
+  const [touchOpen, setTouchOpen] = useState(false);
   const theme = THEMES[id] ?? FALLBACK;
+
+  const handleClick = () => {
+    if (isCoarsePointer() && !touchOpen) { setTouchOpen(true); return; }
+    setTouchOpen(false);
+    onClick?.();
+  };
+
+  const tooltipOpen = hovered || touchOpen;
+
+  // Touch placement derives from the planet's map position (no measuring):
+  // flip above/below by y, pin left/right/center by x so the card stays
+  // inside the viewport. Desktop keeps the classic right-side placement.
+  const touchPlacement: React.CSSProperties = {
+    width: 'min(270px, calc(100vw - 48px))',
+    ...(y > 55 ? { bottom: 'calc(100% + 14px)' } : { top: 'calc(100% + 14px)' }),
+    ...(x < 35 ? { left: -20 }
+      : x > 65 ? { right: -20 }
+      : { left: '50%', transform: 'translateX(-50%)' }),
+  };
 
   return (
     <div
       className="absolute"
       style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}
     >
-      {/* ── Hover tooltip ──────────────────────────────────────── */}
+      {/* ── Question tooltip (hover on desktop, tap on touch) ───── */}
       <AnimatePresence>
-        {hovered && (
+        {tooltipOpen && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.88, x: -8 }}
-            animate={{ opacity: 1, scale: 1, x: 0 }}
-            exit={{ opacity: 0, scale: 0.9 }}
+            initial={touchOpen ? { opacity: 0 } : { opacity: 0, scale: 0.88, x: -8 }}
+            animate={touchOpen ? { opacity: 1 } : { opacity: 1, scale: 1, x: 0 }}
+            exit={{ opacity: 0 }}
             transition={{ duration: 0.18 }}
-            className="absolute left-[calc(100%+18px)] top-1/2 -translate-y-1/2 rounded-xl p-5 z-30"
+            onClick={() => setTouchOpen(false)}
+            className={touchOpen
+              ? 'absolute rounded-xl p-5 z-30'
+              : 'absolute left-[calc(100%+18px)] top-1/2 -translate-y-1/2 rounded-xl p-5 z-30'}
             style={{
-              width: 270,
+              ...(touchOpen ? touchPlacement : { width: 270 }),
               background: '#07070F',
               border: `1px solid rgba(${theme.rgb},0.25)`,
               boxShadow: `0 0 24px rgba(${theme.rgb},0.18)`,
@@ -107,25 +138,30 @@ export default function Planet({ id, name, shortTitle, number, planetQuestion, x
                 </>
               )}
             </div>
+            {touchOpen && (
+              <p className="mt-3 text-[11px] font-space tracking-[0.14em] uppercase" style={{ color: `rgba(${theme.rgb},0.85)` }}>
+                {t('tapAgainToExplore', lang)}
+              </p>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* ── Planet ─────────────────────────────────────────────── */}
       <button
-        onClick={onClick}
+        onClick={handleClick}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         className="relative flex items-center justify-center cursor-pointer"
-        style={{ width: PLANET_SIZE + 20, height: PLANET_SIZE + 20 }}
+        style={{ width: `calc(${PLANET_SIZE} + 20px)`, height: `calc(${PLANET_SIZE} + 20px)` }}
         aria-label={shortTitle}
       >
         {/* Orbital ring — dashed at rest, solid on hover */}
         <motion.div
           className="absolute rounded-full border pointer-events-none"
           style={{
-            width: PLANET_SIZE + 20,
-            height: PLANET_SIZE + 20,
+            width: `calc(${PLANET_SIZE} + 20px)`,
+            height: `calc(${PLANET_SIZE} + 20px)`,
             borderColor: `rgba(${theme.orbitRgb},${hovered || explored ? 0.75 : 0.5})`,
             borderStyle: hovered ? 'solid' : 'dashed',
             borderWidth: hovered ? '1.5px' : '1px',
@@ -176,7 +212,7 @@ export default function Planet({ id, name, shortTitle, number, planetQuestion, x
 
         {/* Planet name label */}
         <span
-          className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[11px] tracking-[0.16em] whitespace-nowrap font-space uppercase transition-colors duration-200"
+          className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[11px] tracking-[0.16em] whitespace-normal max-w-[110px] lg:max-w-none lg:whitespace-nowrap text-center leading-tight font-space uppercase transition-colors duration-200"
           style={{
             color: hovered || explored
               ? `rgba(${theme.rgb},0.9)`

@@ -139,6 +139,9 @@ export default function PlanetVoicePanel({
             {goalsDiscovered < (totalGoals ?? 0) && (
               <button
                 onClick={() => setHintOpen(h => !h)}
+                // Padded hit area on touch only (!important outranks the inline padding:0);
+                // negative margin keeps the strip compact.
+                className="[@media(hover:none)]:!p-3 [@media(hover:none)]:!-m-3"
                 style={{ fontSize: 10, color: 'rgba(0,196,204,0.55)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'monospace', textDecoration: 'underline dotted', padding: 0, flexShrink: 0 }}
               >
                 {t('goalHintLabel', lang)}
@@ -202,7 +205,7 @@ export default function PlanetVoicePanel({
 
       {/* Input dock — hidden while CTA is shown, visible once conversation starts */}
       {messages.length > 0 && (
-        <div style={{ borderTop: `1px solid ${T.b1}`, padding: '12px' }}>
+        <div className="safe-bottom" style={{ borderTop: `1px solid ${T.b1}`, padding: '12px' }}>
           <ChatInputDock
             value={input}
             onChange={setInput}

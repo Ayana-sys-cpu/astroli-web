@@ -339,7 +339,7 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
-      className="relative h-screen bg-black overflow-hidden flex flex-col"
+      className="relative h-[100dvh] bg-black overflow-hidden flex flex-col"
     >
       <StarField count={60} seed={params.id.length * 7} />
 
@@ -356,11 +356,11 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
         lang={missionLang}
       />
 
-      {/* Main content row */}
-      <div className="flex flex-1 pt-11 overflow-hidden min-h-0">
+      {/* Main content — figure over chat on phones, side-by-side from lg */}
+      <div className="flex flex-col lg:flex-row flex-1 pt-11 overflow-hidden min-h-0">
 
-        {/* ── Left — Cinematic figure panel ── */}
-        <div className="flex-1 relative overflow-hidden bg-black">
+        {/* ── Cinematic figure panel — top on phones, left from lg ── */}
+        <div className="h-[36%] flex-shrink-0 lg:h-auto lg:flex-1 relative overflow-hidden bg-black">
 
           {/* SPEAKING WITH badge — top left overlay */}
           {figureDisplayName && (
@@ -410,7 +410,7 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
             />
           ) : figureDisplayName ? (
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-[140px] text-white/[0.025] font-space font-bold select-none leading-none">
+              <span className="text-[clamp(72px,18vw,140px)] text-white/[0.025] font-space font-bold select-none leading-none">
                 {figureDisplayName.split(' ').map((w: string) => w[0]).join('')}
               </span>
             </div>
@@ -449,21 +449,21 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
           )}
 
           {/* Bottom nav bar — inside left panel */}
-          <div className="absolute bottom-0 left-0 right-0 z-40 h-11 border-t border-white/6 bg-black/75 backdrop-blur-sm flex items-center justify-between px-5">
-            <span className="text-[9px] tracking-[0.18em] text-white/30 font-space uppercase">
+          <div className="absolute bottom-0 left-0 right-0 z-40 h-11 border-t border-white/6 bg-black/75 backdrop-blur-sm flex items-center justify-between gap-3 px-5">
+            <span className="text-[9px] tracking-[0.18em] text-white/30 font-space uppercase truncate min-w-0">
               {figureEra ? `${t('temporalLink', missionLang)} · ${figureEra}` : `${t('planetLabel', missionLang)} · ${label.toUpperCase()}`}
             </span>
             <button
               onClick={() => router.push(classId ? `/landscape?classId=${classId}` : '/landscape')}
-              className="flex items-center gap-1.5 text-[9px] tracking-[0.15em] font-space text-white/30 hover:text-white/60 transition-colors uppercase"
+              className="flex items-center gap-1.5 text-[9px] tracking-[0.15em] font-space text-white/30 hover:text-white/60 transition-colors uppercase whitespace-nowrap shrink-0"
             >
               {t('backToLandscape', missionLang)}
             </button>
           </div>
         </div>
 
-        {/* ── Right — Chat + Notebook panel ── */}
-        <aside ref={chatPanelRef} className="panel w-[380px] flex-shrink-0 flex flex-col overflow-hidden" style={{ position: 'relative' }}>
+        {/* ── Chat + Notebook panel — bottom on phones, right from lg ── */}
+        <aside ref={chatPanelRef} className="panel w-full flex-1 min-h-0 border-t border-white/10 lg:w-[380px] lg:flex-none lg:border-t-0 flex-shrink-0 flex flex-col overflow-hidden" style={{ position: 'relative' }}>
           {/* Atmospheric depth — nebula tint + animated left-edge strip */}
           <div className="absolute inset-0 pointer-events-none z-0" style={{
             background: 'radial-gradient(ellipse 100% 60% at 50% 0%, rgba(155,92,255,0.04) 0%, transparent 60%)',

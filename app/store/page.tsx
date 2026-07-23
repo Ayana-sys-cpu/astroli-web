@@ -10,7 +10,7 @@ export default function StorePage() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
-      className="relative h-screen bg-black overflow-hidden flex flex-col"
+      className="relative h-[100dvh] bg-black overflow-hidden flex flex-col"
     >
       <StarField count={80} seed={42} />
       <TopBar left="✦ STORE" />

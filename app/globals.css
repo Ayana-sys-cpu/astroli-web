@@ -37,6 +37,17 @@ html, body {
   overflow-x: hidden;
 }
 
+/* ─── Mobile / touch foundations ─────────────────────────────────────────
+   .safe-top / .safe-bottom pad fixed bars and floating controls clear of the
+   iPhone notch and home indicator (requires viewportFit: 'cover' in layout). */
+.safe-top { padding-top: env(safe-area-inset-top, 0px); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+@media (hover: none) {
+  /* Inputs below 16px trigger mobile Safari's auto-zoom on focus. */
+  input, textarea, select { font-size: 16px !important; }
+}
+
 /* ─── Light theme body override ──────────────────────────────────────────── */
 html:has([data-theme="light"]),
 body:has([data-theme="light"]) {

@@ -374,7 +374,7 @@ export default function LoginPage() {
           animate={{ opacity: 1, letterSpacing: '0.16em' }}
           transition={{ delay: 0.45, duration: 1, ease: 'easeOut' }}
           className="gradient-wordmark font-space font-black select-none relative z-10"
-          style={{ fontSize: 'clamp(68px, 10vw, 100px)', lineHeight: 1 }}
+          style={{ fontSize: 'clamp(44px, 15vw, 100px)', lineHeight: 1 }}
         >
           ASTROLI
         </motion.h1>

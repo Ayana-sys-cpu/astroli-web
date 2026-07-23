@@ -60,6 +60,8 @@ export function ChatInputDock({ value, onChange, onSend, placeholder, theme, dis
       <button
         onClick={send}
         disabled={!canSend}
+        // 44px minimum hit area on touch devices only — desktop keeps the compact dock.
+        className="[@media(hover:none)]:min-h-11 [@media(hover:none)]:min-w-11"
         style={{
           padding: '9px 14px', borderRadius: 8, border: 'none', flexShrink: 0,
           cursor: canSend ? 'pointer' : 'default',

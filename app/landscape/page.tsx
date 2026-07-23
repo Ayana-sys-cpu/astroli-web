@@ -338,7 +338,7 @@ function LandscapeContent() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6 }}
-      className="relative min-h-screen bg-black overflow-hidden flex flex-col"
+      className="relative min-h-[100dvh] bg-black overflow-hidden flex flex-col"
     >
       <StarField count={130} seed={55} />
 
@@ -452,7 +452,8 @@ function LandscapeContent() {
                   backdropFilter: 'blur(10px)',
                   padding: '8px 18px',
                   display: 'flex', alignItems: 'center', gap: 12,
-                  whiteSpace: 'nowrap',
+                  flexWrap: 'wrap', justifyContent: 'center',
+                  maxWidth: 'calc(100vw - 24px)',
                 }}
               >
                 <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(205,155,255,0.85)', letterSpacing: '0.14em' }}>
@@ -496,8 +497,8 @@ function LandscapeContent() {
               </div>
             )}
 
-            {/* ── Main layout ─────────────────────────────────────────────── */}
-            <div className="flex flex-1 pt-14 min-h-0 overflow-hidden">
+            {/* ── Main layout — stacked on phones, side-by-side from lg ───── */}
+            <div className="flex flex-col lg:flex-row flex-1 pt-14 min-h-0 overflow-hidden">
 
               {/* ── Planet field ──────────────────────────────────────────── */}
               <div className="flex-1 relative">
@@ -520,7 +521,7 @@ function LandscapeContent() {
                     animate={{ x: 0, opacity: 1 }}
                     exit={{ x: 300, opacity: 0 }}
                     transition={{ delay: 0.4, type: 'spring', damping: 24, stiffness: 180 }}
-                    className="panel w-[290px] flex-shrink-0 flex flex-col overflow-hidden min-h-0"
+                    className="panel w-full h-[46%] border-t border-white/10 lg:w-[290px] lg:h-auto lg:border-t-0 flex-shrink-0 flex flex-col overflow-hidden min-h-0"
                   >
                     {/* Panel header */}
                     <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 flex-shrink-0">
@@ -542,7 +543,8 @@ function LandscapeContent() {
                       </div>
                       <button
                         onClick={() => setOrinOpen(false)}
-                        className="text-white/18 hover:text-white/60 transition-colors text-lg leading-none"
+                        aria-label="Close guide"
+                        className="text-white/18 hover:text-white/60 transition-colors text-lg leading-none w-11 h-11 -m-3 flex items-center justify-center"
                       >
                         ×
                       </button>

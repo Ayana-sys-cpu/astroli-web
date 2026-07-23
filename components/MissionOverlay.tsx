@@ -27,7 +27,7 @@ export default function MissionOverlay({ question, order, onAccept, language }: 
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.5 }}
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 px-8 py-10 overflow-y-auto"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 px-5 sm:px-8 py-10 overflow-y-auto"
       style={{ background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(12px)' }}
     >
       <StarField count={80} seed={42} />

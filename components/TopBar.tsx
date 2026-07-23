@@ -50,12 +50,12 @@ export default function TopBar({ left, center, showUser = true, showHome = true,
   const avatarInitials = initials ?? getInitials(MOCK_STUDENT_USER.displayName);
 
   return (
-    <header className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-5 py-3 border-b border-white/5 bg-black/40 backdrop-blur-sm">
+    <header className="safe-top absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-5 py-3 border-b border-white/5 bg-black/40 backdrop-blur-sm">
       <div className="flex items-center gap-3">
         {showHome && (
           <button
             onClick={() => router.push('/home')}
-            className="font-space font-black text-sm tracking-[0.22em] gradient-wordmark"
+            className="font-space font-black text-xs sm:text-sm tracking-[0.22em] gradient-wordmark"
             aria-label="Go to home"
           >
             ASTROLI
@@ -76,14 +76,17 @@ export default function TopBar({ left, center, showUser = true, showHome = true,
             {t('backToMap', lang)}
           </button>
         ) : left ? (
-          <span className="text-[10px] font-semibold tracking-[0.22em] text-white/55 font-space uppercase">
+          // Hidden on the smallest phones (store pill + avatar need the room),
+          // one truncated line on regular phones, full label from md up.
+          <span className="hidden min-[400px]:inline text-[10px] font-semibold tracking-[0.22em] text-white/55 font-space uppercase truncate max-w-[30vw] md:max-w-none">
             {left}
           </span>
         ) : null}
       </div>
 
+      {/* Center badge collides with the side controls on phones — md+ only */}
       {center && (
-        <div className="absolute left-1/2 -translate-x-1/2">
+        <div className="absolute left-1/2 -translate-x-1/2 hidden md:block">
           {center}
         </div>
       )}
@@ -93,12 +96,17 @@ export default function TopBar({ left, center, showUser = true, showHome = true,
           {showStore && <StoreButton />}
           {showUser && (
             <>
+              {/* 44px hit area (negative margin keeps the bar's visual rhythm);
+                  the visible circle stays 24px. */}
               <button
                 onClick={() => setMenuOpen(prev => !prev)}
-                className="w-6 h-6 rounded-full border border-[#00C4CC]/50 flex items-center justify-center bg-[#001820] cursor-pointer hover:border-[#00C4CC] transition-colors"
+                aria-label="Account menu"
+                className="w-11 h-11 -m-2.5 flex items-center justify-center cursor-pointer group"
               >
-                <span className="text-[9px] text-[#00C4CC] font-space font-bold">
-                  {avatarInitials}
+                <span className="w-6 h-6 rounded-full border border-[#00C4CC]/50 flex items-center justify-center bg-[#001820] group-hover:border-[#00C4CC] transition-colors">
+                  <span className="text-[9px] text-[#00C4CC] font-space font-bold">
+                    {avatarInitials}
+                  </span>
                 </span>
               </button>
 

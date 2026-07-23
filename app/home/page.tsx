@@ -114,7 +114,7 @@ export default function HomePage() {
 
       <TopBar showStore left="" initials={firstName[0]?.toUpperCase() ?? 'A'} lang={lang} />
 
-      <div className="relative z-10 mt-11 px-7 py-8 max-w-4xl mx-auto">
+      <div className="relative z-10 mt-11 px-5 sm:px-7 py-8 max-w-4xl mx-auto">
         <p className="font-caveat text-3xl text-white/80 mb-1">{t('welcomeBack', lang).replace('{name}', firstName)}</p>
         <p className="text-[10px] tracking-[0.28em] font-space uppercase text-white/30 mb-8">
           {!journeys ? t('syncingJourneys', lang) : journeys.length === 0 ? t('journeyAwaits', lang) : journeys.length === 1 ? t('journeysCountOne', lang) : t('journeysCountMany', lang).replace('{n}', String(journeys.length))}

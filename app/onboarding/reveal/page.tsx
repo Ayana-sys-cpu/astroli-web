@@ -90,7 +90,7 @@ export default function RevealPage() {
 
       {/* Avatar — floats freely, no clip. No z-index here: it would create a
           stacking context and break the video's screen-blend with the page. */}
-      <div className="relative flex items-center justify-center" style={{ width: 320, height: 320, marginTop: 8 }}>
+      <div className="relative flex items-center justify-center" style={{ width: 'min(320px, 85vw)', height: 'min(320px, 85vw)', marginTop: 8 }}>
         {/* Expanding stardust rings */}
         <AnimatePresence>
           {!displayUrl && [0, 1, 2].map((i) => (
@@ -122,7 +122,7 @@ export default function RevealPage() {
               muted
               playsInline
               className="absolute"
-              style={{ width: 300, height: 300, objectFit: 'contain', mixBlendMode: 'screen' }}
+              style={{ width: 'min(300px, 80vw)', height: 'min(300px, 80vw)', objectFit: 'contain', mixBlendMode: 'screen' }}
               initial={{ scale: 0.7, opacity: 0, filter: 'blur(16px)' }}
               animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
               transition={{ duration: 0.8, ease: 'easeOut' }}
@@ -132,7 +132,7 @@ export default function RevealPage() {
       </div>
 
       {/* Text content */}
-      <div className="flex flex-col items-center gap-4 px-10 z-10" style={{ maxWidth: 480 }}>
+      <div className="flex flex-col items-center gap-4 px-6 sm:px-10 z-10" style={{ maxWidth: 480 }}>
 
         {/* Alien intro — matches mobile exactly */}
         <AnimatePresence>

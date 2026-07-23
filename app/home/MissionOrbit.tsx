@@ -135,7 +135,7 @@ function OrbitPlanet({ mission, orbitState: state, index, classId, language, red
       } : undefined}
       style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-        width: 116, position: 'relative',
+        width: 'clamp(84px, 26vw, 116px)', flexShrink: 0, position: 'relative',
         cursor: isInteractive ? 'pointer' : 'default',
       }}
       onMouseEnter={() => isInteractive && setHovered(true)}
@@ -182,7 +182,7 @@ function OrbitPlanet({ mission, orbitState: state, index, classId, language, red
             backdropFilter: 'blur(10px)',
             boxShadow:      '0 8px 32px rgba(0,0,0,0.5)',
             minWidth:       160,
-            maxWidth:       268,
+            maxWidth:       'min(268px, calc(100vw - 32px))',
             textAlign:      'center',
             direction:      language === 'he' ? 'rtl' : 'ltr',
           }}
@@ -399,6 +399,9 @@ export default function MissionOrbit({ missions, classId, isFamilyClass, hasActi
       </div>
 
     <div
+      // Below md many missions pan horizontally rather than squeeze; md+ stays
+      // overflow-visible so the hover tooltip isn't clipped on desktop.
+      className="overflow-x-auto md:overflow-visible"
       style={{
         position: 'relative',
         display:  'flex',

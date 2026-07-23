@@ -410,6 +410,10 @@ const strings = {
     en: 'Click to explore this planet',
     he: 'לחצו כדי לחקור את הכוכב הזה',
   },
+  tapAgainToExplore: {
+    en: 'Tap again to explore →',
+    he: '← הקישו שוב כדי לחקור',
+  },
 
   // ── Planet Completion Celebration overlay ───────────────────────────────────
   claimReward: {

@@ -64,7 +64,7 @@ function ConfirmModal({
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          width: '320px', borderRadius: '18px',
+          width: '100%', maxWidth: 'min(320px, calc(100vw - 32px))', borderRadius: '18px',
           background: '#1a0a3a',
           border: '1px solid rgba(124,58,237,0.35)',
           overflow: 'hidden',
@@ -274,7 +274,7 @@ function ItemCard({
 
 function Skeleton() {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+    <div className="grid grid-cols-2 sm:grid-cols-3" style={{ gap: '16px' }}>
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} style={{
           borderRadius: '14px', height: '258px',
@@ -383,22 +383,25 @@ export default function Store() {
         />
       )}
 
-      <div style={{ display: 'flex', width: '100%', flex: 1, minHeight: 0 }}>
+      {/* Categories run across the top on phones, down the left from md */}
+      <div className="flex-col md:flex-row" style={{ display: 'flex', width: '100%', flex: 1, minHeight: 0 }}>
 
-        {/* ── Sidebar ──────────────────────────────────────── */}
-        <div style={{
-          width: '160px', flexShrink: 0,
-          borderRight: '1px solid rgba(124,58,237,0.15)',
-          background: 'rgba(0,0,0,0.2)', paddingTop: '20px', paddingBottom: '20px',
-        }}>
+        {/* ── Category rail ────────────────────────────────── */}
+        <div
+          className="flex flex-row md:flex-col w-full md:w-40 shrink-0 border-b md:border-b-0 md:border-r py-0 md:py-5"
+          style={{
+            borderColor: 'rgba(124,58,237,0.15)',
+            background: 'rgba(0,0,0,0.2)',
+          }}>
           {CATEGORIES.map(cat => {
             const isActive = cat === activeCategory;
             return (
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
+                className="flex-1 md:flex-none md:w-full"
                 style={{
-                  width: '100%', display: 'flex', flexDirection: 'column',
+                  display: 'flex', flexDirection: 'column',
                   alignItems: 'center', gap: '6px', padding: '16px 0',
                   background: isActive ? 'rgba(124,58,237,0.12)' : 'transparent',
                   border: 'none', borderLeft: `3px solid ${isActive ? '#7c3aed' : 'transparent'}`,
@@ -518,7 +521,7 @@ export default function Store() {
                 </button>
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+              <div className="grid grid-cols-2 sm:grid-cols-3" style={{ gap: '16px' }}>
                 {categoryItems.map(item => (
                   <div
                     key={item.id}

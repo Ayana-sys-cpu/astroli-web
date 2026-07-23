@@ -128,7 +128,7 @@ export default function FamilyMissionsContent() {
         </button>
       </header>
 
-      <div className="relative z-10 flex flex-col items-center px-6 pt-10 pb-16 min-h-[calc(100vh-57px)]">
+      <div className="relative z-10 flex flex-col items-center px-6 pt-10 pb-16 min-h-[calc(100dvh-57px)]">
         {/* Heading */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}

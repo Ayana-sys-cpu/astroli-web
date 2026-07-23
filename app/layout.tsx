@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import CoinRewardProvider from '@/components/CoinRewardProvider';
 import IconFontActivator from '@/components/IconFontActivator';
 import ActivityPing from '@/components/analytics/ActivityPing';
@@ -7,6 +7,14 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Astroli — Enter the Mission',
   description: 'Your learning constellation',
+};
+
+// viewportFit 'cover' is required for env(safe-area-inset-*) to be non-zero on
+// notched iPhones. Zoom is intentionally left enabled for accessibility.
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
