@@ -62,6 +62,9 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
   const [savedInsights, setSavedInsights]         = useState<SummaryInsight[]>([]);
   const [savedIntroducedTerms, setSavedIntroducedTerms] = useState<MissionTerm[]>([]);
   const [showSummaryReview, setShowSummaryReview] = useState(false);
+  // Mobile-only: the figure is a floating bubble over the full-height chat;
+  // tapping it toggles a larger view. Desktop keeps the side-by-side panel.
+  const [videoExpanded, setVideoExpanded] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [celebrationAward, setCelebrationAward] = useState<{ amount: number; newBalance: number } | null>(null);
   const [celebrationNextPlanet, setCelebrationNextPlanet] = useState<NextPlanetInfo | null>(null);
@@ -359,8 +362,8 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
       {/* Main content — figure over chat on phones, side-by-side from lg */}
       <div className="flex flex-col lg:flex-row flex-1 pt-11 overflow-hidden min-h-0">
 
-        {/* ── Cinematic figure panel — top on phones, left from lg ── */}
-        <div className="h-[36%] flex-shrink-0 lg:h-auto lg:flex-1 relative overflow-hidden bg-black">
+        {/* ── Cinematic figure panel — desktop only (mobile uses the floating bubble below) ── */}
+        <div className="hidden lg:block lg:h-auto lg:flex-1 relative overflow-hidden bg-black">
 
           {/* SPEAKING WITH badge — top left overlay */}
           {figureDisplayName && (
@@ -462,8 +465,8 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
           </div>
         </div>
 
-        {/* ── Chat + Notebook panel — bottom on phones, right from lg ── */}
-        <aside ref={chatPanelRef} className="panel w-full flex-1 min-h-0 border-t border-white/10 lg:w-[380px] lg:flex-none lg:border-t-0 flex-shrink-0 flex flex-col overflow-hidden" style={{ position: 'relative' }}>
+        {/* ── Chat panel — full-height on phones, right column from lg ── */}
+        <aside ref={chatPanelRef} className="panel w-full flex-1 min-h-0 lg:w-[380px] lg:flex-none flex-shrink-0 flex flex-col overflow-hidden" style={{ position: 'relative' }}>
           {/* Atmospheric depth — nebula tint + animated left-edge strip */}
           <div className="absolute inset-0 pointer-events-none z-0" style={{
             background: 'radial-gradient(ellipse 100% 60% at 50% 0%, rgba(155,92,255,0.04) 0%, transparent 60%)',
@@ -473,10 +476,21 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
             animation: 'edgeFlow 5s ease-in-out infinite alternate',
           }} />
 
-          {/* Mission context — always pinned */}
-          <div className="px-4 py-3 border-b border-white/5 flex-shrink-0" style={{ borderLeft: '2px solid rgba(155,143,212,0.35)' }}>
-            <p className="text-[9px] tracking-[0.18em] text-[#9b8fd4]/50 font-space uppercase mb-1.5">{t('exploring', missionLang)}</p>
-            <p className="text-[15px] font-semibold text-white/80 font-inter leading-snug">{planet.planetQuestion ?? planet.title}</p>
+          {/* Mission context — always pinned. On mobile it also hosts the
+              "what I've discovered" shortcut (moved out of the bottom dock). */}
+          <div className="px-4 py-3 border-b border-white/5 flex-shrink-0 flex items-start justify-between gap-3" style={{ borderLeft: '2px solid rgba(155,143,212,0.35)' }}>
+            <div className="min-w-0">
+              <p className="text-[9px] tracking-[0.18em] text-[#9b8fd4]/50 font-space uppercase mb-1.5">{t('exploring', missionLang)}</p>
+              <p className="text-[15px] font-semibold text-white/80 font-inter leading-snug">{planet.planetQuestion ?? planet.title}</p>
+            </div>
+            <button
+              onClick={handleViewDiscovery}
+              aria-label={t('whatIDiscoveredHere', missionLang)}
+              className="lg:hidden shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
+              style={{ background: 'rgba(155,92,255,0.12)', border: '1px solid rgba(155,92,255,0.4)', color: 'rgba(200,160,255,0.95)' }}
+            >
+              <i className="ti ti-notebook" style={{ fontSize: 18 }} />
+            </button>
           </div>
 
           {/* Chat panel — fills remaining space */}
@@ -515,6 +529,41 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
             )}
 
           </div>
+
+          {/* ── Mobile floating figure bubble (Option B) — visible over the chat,
+              tap to enlarge, tap again to shrink. Desktop uses the side panel. ── */}
+          {figureDisplayName && (
+            <button
+              onClick={() => setVideoExpanded(v => !v)}
+              aria-label={videoExpanded ? 'Shrink video' : 'Enlarge video'}
+              className={`lg:hidden absolute z-40 overflow-hidden bg-black transition-all duration-300 ${
+                videoExpanded
+                  ? 'bottom-20 right-3 w-[64vw] max-w-[240px] aspect-[3/4] rounded-2xl'
+                  : 'bottom-20 right-3 w-16 h-16 rounded-full'
+              }`}
+              style={{ border: '1px solid rgba(155,92,255,0.5)', boxShadow: '0 6px 24px rgba(0,0,0,0.5)' }}
+            >
+              {character?.listening_video_url ? (
+                <video src={character.listening_video_url} className="absolute inset-0 w-full h-full object-cover object-top" autoPlay loop muted playsInline />
+              ) : character?.portrait_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={character.portrait_url} alt={character.name} className="absolute inset-0 w-full h-full object-cover object-top" />
+              ) : (
+                <span className="absolute inset-0 flex items-center justify-center text-white/40 font-space font-bold" style={{ fontSize: videoExpanded ? 48 : 20 }}>
+                  {figureDisplayName.split(' ').map((w: string) => w[0]).join('')}
+                </span>
+              )}
+              {/* Name + expand/collapse affordance shown only when enlarged */}
+              {videoExpanded && (
+                <>
+                  <span className="absolute inset-x-0 bottom-0 px-2.5 py-1.5 text-left text-[11px] font-space font-bold text-white truncate" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85), transparent)' }}>
+                    {figureDisplayName}
+                  </span>
+                  <span className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center bg-black/60 text-white/80"><i className="ti ti-arrows-diagonal-minimize-2" style={{ fontSize: 13 }} /></span>
+                </>
+              )}
+            </button>
+          )}
 
         </aside>
       </div>

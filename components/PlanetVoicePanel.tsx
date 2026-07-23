@@ -158,9 +158,10 @@ export default function PlanetVoicePanel({
         </div>
       )}
 
-      {/* Discovery review button — always visible */}
+      {/* Discovery review button — desktop dock only; on mobile it lives as an
+          icon in the chat header (Option B) to free up the bottom dock. */}
       {onViewDiscovery && (
-        <div style={{ padding: '0 12px 8px' }}>
+        <div className="hidden lg:block" style={{ padding: '0 12px 8px' }}>
           <button
             onClick={onViewDiscovery}
             style={{
