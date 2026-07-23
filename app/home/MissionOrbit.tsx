@@ -138,7 +138,13 @@ function OrbitPlanet({ mission, orbitState: state, index, classId, language, red
         width: 'clamp(84px, 26vw, 116px)', flexShrink: 0, position: 'relative',
         cursor: isInteractive ? 'pointer' : 'default',
       }}
-      onMouseEnter={() => isInteractive && setHovered(true)}
+      // On touch devices a tap fires a transient mouseenter — guarding on a
+      // fine pointer stops the question tooltip from flashing before navigation.
+      onMouseEnter={() => {
+        if (!isInteractive) return;
+        if (typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches) return;
+        setHovered(true);
+      }}
       onMouseLeave={() => setHovered(false)}
     >
       {/* Hyperdrive Streak launch overlay — fires when a choosable planet is initiated */}

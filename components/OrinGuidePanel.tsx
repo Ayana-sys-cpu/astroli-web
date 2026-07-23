@@ -538,6 +538,14 @@ export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, o
   // Keep onOrinMessage ref current so push() doesn't need it as a dep
   useEffect(() => { onOrinMessageRef.current = onOrinMessage; }, [onOrinMessage]);
 
+  // Guards the one-time opening sequence: the landscape page revalidates its
+  // data in the background (SWR), which hands new mission/state objects to this
+  // panel and re-fires the opening effect — without this ref the opening
+  // message gets pushed again on every refresh (seen as 2–3 duplicates).
+  const openingStartedRef = useRef(false);
+  const openingTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => () => { openingTimersRef.current.forEach(clearTimeout); }, []);
+
   // Check on mount whether the student has any saved discoveries.
   // Scoped to this mission so the panel agrees with the mission map — without
   // the filter, goals discovered on past missions leak into "What I've discovered".
@@ -631,23 +639,27 @@ export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, o
   // Gates on hasConfirmed !== null so we never fire before mission-state resolves.
   useEffect(() => {
     if (!mission || hasConfirmed === null || hasOrinHistory) return;
+    // Run the opening sequence exactly once — see openingStartedRef note above.
+    if (openingStartedRef.current) return;
+    openingStartedRef.current = true;
+    const timers = openingTimersRef.current;
 
     if (hasConfirmed) {
       // Return visitor — show context-aware return message; skip the how-to (they already know)
       const html = returnTrigger ? formatReturnMessage(returnTrigger, lang) : t('returnNoActivity', lang);
       const triggerType = returnTrigger ? `return-${returnTrigger.type}` : 'return-no-activity';
-      const t1 = setTimeout(() => showTyping(), 300);
-      const t2 = setTimeout(() => {
+      timers.push(setTimeout(() => showTyping(), 300));
+      timers.push(setTimeout(() => {
         push({ id: uid(), role: 'orin', type: 'text', html });
         saveOrinMessage(html, triggerType);
         setDock('done');
-      }, 1400);
-      return () => { clearTimeout(t1); clearTimeout(t2); };
+      }, 1400));
+      return;
     }
 
     // First-time visitor — opening message, then how-to card appears automatically
-    const t1 = setTimeout(() => showTyping(), 300);
-    const t2 = setTimeout(() => {
+    timers.push(setTimeout(() => showTyping(), 300));
+    timers.push(setTimeout(() => {
       const rawFirst = getFirstName();
       const firstName = rawFirst && !rawFirst.includes(' ') && rawFirst.includes('.')
         ? rawFirst.split('.')[0].replace(/^./, (c: string) => c.toUpperCase())
@@ -659,13 +671,12 @@ export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, o
         .replace(/\n/g, '<br>');
       push({ id: uid(), role: 'orin', type: 'text', html });
       saveOrinMessage(html, 'opening');
-    }, 1600);
-    const t3 = setTimeout(() => showTyping(), 2000);
-    const t4 = setTimeout(() => {
+    }, 1600));
+    timers.push(setTimeout(() => showTyping(), 2000));
+    timers.push(setTimeout(() => {
       push({ id: uid(), role: 'orin', type: 'howto', planets: mission.planets });
       setDock('understand');
-    }, 3400);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
+    }, 3400));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mission, hasConfirmed, hasOrinHistory, saveOrinMessage]);
 
