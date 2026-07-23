@@ -7,6 +7,15 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Astroli — Enter the Mission',
   description: 'Your learning constellation',
+  manifest: '/manifest.webmanifest',
+  // iOS reads apple-touch-icon (not the manifest) for the home-screen icon,
+  // and appleWebApp enables the full-screen standalone launch.
+  icons: { apple: '/apple-touch-icon.png' },
+  appleWebApp: {
+    capable: true,
+    title: 'Astroli',
+    statusBarStyle: 'black-translucent',
+  },
 };
 
 // viewportFit 'cover' is required for env(safe-area-inset-*) to be non-zero on
