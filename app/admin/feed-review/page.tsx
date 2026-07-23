@@ -22,6 +22,7 @@ interface FeedEditRow {
   audio_url: string | null;
   audio_status: 'generating' | 'ready' | 'failed' | null;
   music_url: string | null;
+  spotify_url: string | null;
 }
 
 interface MusicTrack {
@@ -67,6 +68,7 @@ export default function FeedReviewPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<string | null>(null);
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
+  const [spotifyUrls, setSpotifyUrls] = useState<Record<string, string>>({});
 
   // Generate-more form state
   const [showGenerateForm, setShowGenerateForm] = useState(false);
@@ -172,6 +174,29 @@ export default function FeedReviewPage() {
     } else {
       alert('Failed to update music.');
     }
+  }
+
+  async function patchSpotifyUrl(editId: string, spotify_url: string | null) {
+    const res = await fetch(`/api/admin/feed-review/${editId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ spotify_url }),
+    });
+    if (res.ok) {
+      setEdits((prev) => prev.map((ed) => ed.id === editId ? { ...ed, spotify_url } : ed));
+    } else {
+      alert('Failed to save Spotify URL.');
+    }
+  }
+
+  function handleSpotifyUrlSave(editId: string) {
+    const raw = spotifyUrls[editId]?.trim() ?? null;
+    patchSpotifyUrl(editId, raw === '' ? null : raw ?? null);
+  }
+
+  function handleSpotifyUrlRemove(editId: string) {
+    setSpotifyUrls((r) => ({ ...r, [editId]: '' }));
+    patchSpotifyUrl(editId, null);
   }
 
   async function handleUpdateStatus(id: string, action: 'approve' | 'reject') {
@@ -525,6 +550,32 @@ export default function FeedReviewPage() {
                           </select>
                           {edit.music_url && (
                             <audio controls src={edit.music_url} className="h-9 max-w-[220px]" />
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Spotify URL (FR-034): paste the episode link to show the Listen button on this card. */}
+                      <div>
+                        <p className="text-[11px] text-white/40 uppercase tracking-widest mb-1">
+                          Spotify episode
+                          {!edit.spotify_url && <span className="ml-2 text-white/30 normal-case">no link — Listen button hidden</span>}
+                        </p>
+                        <div className="flex gap-2 items-center">
+                          <input
+                            className="flex-1 max-w-sm bg-white/5 border border-white/10 rounded px-3 py-1.5 text-sm text-white placeholder-white/20 outline-none focus:border-green-500 font-mono"
+                            placeholder="https://open.spotify.com/episode/…"
+                            value={spotifyUrls[edit.id] ?? edit.spotify_url ?? ''}
+                            onChange={(e) => setSpotifyUrls((r) => ({ ...r, [edit.id]: e.target.value }))}
+                          />
+                          <button
+                            onClick={() => handleSpotifyUrlSave(edit.id)}
+                            className="px-4 py-1.5 bg-green-800 hover:bg-green-700 rounded text-[11px] font-medium uppercase tracking-widest"
+                          >Save</button>
+                          {edit.spotify_url && (
+                            <button
+                              onClick={() => handleSpotifyUrlRemove(edit.id)}
+                              className="px-3 py-1.5 rounded text-[11px] font-medium uppercase tracking-widest text-red-300 border border-red-500/30 hover:bg-red-900/30"
+                            >Remove</button>
                           )}
                         </div>
                       </div>

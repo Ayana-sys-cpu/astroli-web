@@ -29,6 +29,22 @@ export async function PATCH(
     return NextResponse.json({ music_url: data.music_url });
   }
 
+  // Spotify URL update: link a podcast episode (or null = hide Listen button).
+  if (!body.action && 'spotify_url' in body) {
+    if (body.spotify_url !== null && typeof body.spotify_url !== 'string') {
+      return NextResponse.json({ error: 'spotify_url must be a string or null' }, { status: 400 });
+    }
+    const { data, error } = await supabaseAdmin
+      .from('feed_edits')
+      .update({ spotify_url: body.spotify_url })
+      .eq('id', params.id)
+      .select('spotify_url')
+      .maybeSingle();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    return NextResponse.json({ spotify_url: data.spotify_url });
+  }
+
   if (!['approve', 'reject'].includes(body.action)) {
     return NextResponse.json({ error: 'action must be approve or reject' }, { status: 400 });
   }
