@@ -53,8 +53,8 @@ const strings = {
     he: 'פרויקט המשימה',
   },
   askAnythingEra: {
-    en: 'Ask me anything about this era…',
-    he: 'שאל אותי כל דבר על התקופה הזו…',
+    en: 'Ask me anything about the mission…',
+    he: 'שאל אותי כל דבר על המשימה…',
   },
   qaFallbackReply: {
     en: "Great question, explorer! I don't have a ready answer for that one — the planets on your mission map are the best place to investigate it. Pick one and see what you discover!",
