@@ -528,42 +528,41 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
               </div>
             )}
 
-          </div>
-
-          {/* ── Mobile floating figure bubble (Option B) — visible over the chat,
-              tap to enlarge, tap again to shrink. Desktop uses the side panel. ── */}
-          {figureDisplayName && (
-            <button
-              onClick={() => setVideoExpanded(v => !v)}
-              aria-label={videoExpanded ? 'Shrink video' : 'Enlarge video'}
-              className={`lg:hidden absolute z-40 overflow-hidden bg-black transition-all duration-300 ${
-                videoExpanded
-                  ? 'bottom-20 right-3 w-[64vw] max-w-[240px] aspect-[3/4] rounded-2xl'
-                  : 'bottom-20 right-3 w-16 h-16 rounded-full'
-              }`}
-              style={{ border: '1px solid rgba(155,92,255,0.5)', boxShadow: '0 6px 24px rgba(0,0,0,0.5)' }}
-            >
-              {character?.listening_video_url ? (
-                <video src={character.listening_video_url} className="absolute inset-0 w-full h-full object-cover object-top" autoPlay loop muted playsInline />
-              ) : character?.portrait_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={character.portrait_url} alt={character.name} className="absolute inset-0 w-full h-full object-cover object-top" />
-              ) : (
-                <span className="absolute inset-0 flex items-center justify-center text-white/40 font-space font-bold" style={{ fontSize: videoExpanded ? 48 : 20 }}>
-                  {figureDisplayName.split(' ').map((w: string) => w[0]).join('')}
-                </span>
-              )}
-              {/* Name + expand/collapse affordance shown only when enlarged */}
-              {videoExpanded && (
-                <>
-                  <span className="absolute inset-x-0 bottom-0 px-2.5 py-1.5 text-left text-[11px] font-space font-bold text-white truncate" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85), transparent)' }}>
-                    {figureDisplayName}
+            {/* ── Mobile floating figure bubble (Option B) — top-right over the
+                chat, tap to enlarge/shrink. Desktop uses the side panel. ── */}
+            {figureDisplayName && (
+              <button
+                onClick={() => setVideoExpanded(v => !v)}
+                aria-label={videoExpanded ? 'Shrink video' : 'Enlarge video'}
+                className={`lg:hidden absolute top-3 right-3 z-40 overflow-hidden bg-black transition-all duration-300 ${
+                  videoExpanded
+                    ? 'w-[52vw] max-w-[200px] aspect-[3/4] rounded-2xl'
+                    : 'w-16 h-16 rounded-full'
+                }`}
+                style={{ border: '1px solid rgba(155,92,255,0.5)', boxShadow: '0 6px 24px rgba(0,0,0,0.5)' }}
+              >
+                {character?.listening_video_url ? (
+                  <video src={character.listening_video_url} className="absolute inset-0 w-full h-full object-cover object-top" autoPlay loop muted playsInline />
+                ) : character?.portrait_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={character.portrait_url} alt={character.name} className="absolute inset-0 w-full h-full object-cover object-top" />
+                ) : (
+                  <span className="absolute inset-0 flex items-center justify-center text-white/40 font-space font-bold" style={{ fontSize: videoExpanded ? 44 : 20 }}>
+                    {figureDisplayName.split(' ').map((w: string) => w[0]).join('')}
                   </span>
-                  <span className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center bg-black/60 text-white/80"><i className="ti ti-arrows-diagonal-minimize-2" style={{ fontSize: 13 }} /></span>
-                </>
-              )}
-            </button>
-          )}
+                )}
+                {videoExpanded && (
+                  <>
+                    <span className="absolute inset-x-0 bottom-0 px-2.5 py-1.5 text-left text-[11px] font-space font-bold text-white truncate" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85), transparent)' }}>
+                      {figureDisplayName}
+                    </span>
+                    <span className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center bg-black/60 text-white/80"><i className="ti ti-arrows-diagonal-minimize-2" style={{ fontSize: 13 }} /></span>
+                  </>
+                )}
+              </button>
+            )}
+
+          </div>
 
         </aside>
       </div>
