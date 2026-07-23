@@ -51,7 +51,11 @@ function LandscapeContent() {
   const reviewMissionId = searchParams.get('reviewMissionId');
   const isReview        = Boolean(reviewMissionId);
 
-  const [orinOpen, setOrinOpen] = useState(true);
+  // Desktop opens the guide as a side panel; mobile starts minimized (a tappable
+  // bubble) so the map is fully visible, and opens Orin full-screen when tapped.
+  // Both start false to keep server/client markup identical, then the effect
+  // below opens it on desktop only.
+  const [orinOpen, setOrinOpen] = useState(false);
   const [botName, setBotName]   = useState('');
   const [mission, setMission]   = useState<Mission | null>(null);
   const [showOverlay, setShowOverlay] = useState(false);
@@ -88,6 +92,8 @@ function LandscapeContent() {
   useEffect(() => {
     setBotName(getBotName());
     setBaseAvatarUrl(loadStudent()?.baseAvatarUrl ?? null);
+    // Open the guide by default only on desktop (lg+); mobile stays minimized.
+    if (window.matchMedia('(min-width: 1024px)').matches) setOrinOpen(true);
     try {
       if (sessionStorage.getItem(WARP_ENTRY_FLAG)) {
         sessionStorage.removeItem(WARP_ENTRY_FLAG);
@@ -521,10 +527,10 @@ function LandscapeContent() {
                     animate={{ x: 0, opacity: 1 }}
                     exit={{ x: 300, opacity: 0 }}
                     transition={{ delay: 0.4, type: 'spring', damping: 24, stiffness: 180 }}
-                    className="panel w-full h-[46%] border-t border-white/10 lg:w-[290px] lg:h-auto lg:border-t-0 flex-shrink-0 flex flex-col overflow-hidden min-h-0"
+                    className="panel fixed inset-0 z-[70] w-full h-[100dvh] border-t border-white/10 lg:static lg:z-auto lg:inset-auto lg:w-[290px] lg:h-auto lg:border-t-0 flex-shrink-0 flex flex-col overflow-hidden min-h-0"
                   >
-                    {/* Panel header */}
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 flex-shrink-0">
+                    {/* Panel header (safe-top clears the notch when full-screen on mobile) */}
+                    <div className="safe-top flex items-center justify-between px-4 py-3 border-b border-white/5 flex-shrink-0">
                       <div className="flex items-center gap-2.5">
                         {videoUrl
                           ? <video
