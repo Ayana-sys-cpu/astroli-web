@@ -25,6 +25,16 @@
   --color-panel-border-bright: rgba(255, 255, 255, 0.14);
   /* Legacy compat */
   --color-teal-legacy: #00C4CC;
+  /* Master — Celestial Futurism ground and tiles (specs/student/web-app/master/design.md) */
+  --master-ink: #0A0A0F;
+  --master-surface: #111116;
+  --master-hairline: #232327;
+  --master-text-secondary: #B6B6B7;
+  --master-text-muted: #6C6C6F;
+  --master-purple-orin: #A855F7;
+  --master-magenta-text: #FF3D9A;
+  --master-tile-radius: 6px;
+  --master-tile-gap: 4px;
 }
 
 * { box-sizing: border-box; }
