@@ -37,6 +37,14 @@
   --master-tile-gap: 4px;
 }
 
+/* Master shelf tile label: never more than two lines, never a clipped third. */
+.master-tile-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 * { box-sizing: border-box; }
 
 html, body {
