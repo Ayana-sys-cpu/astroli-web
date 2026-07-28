@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /** Real questions, not "search…" — students see what a good ask looks like. */
 const EXAMPLES = [
@@ -14,11 +14,20 @@ const ROTATE_MS = 4000;
 interface SearchBarProps {
   onSubmit: (topic: string) => void;
   busy?: boolean;
+  /** Set only when the student arrived here to type — never on a plain visit. */
+  autoFocus?: boolean;
 }
 
-export default function SearchBar({ onSubmit, busy = false }: SearchBarProps) {
+export default function SearchBar({ onSubmit, busy = false, autoFocus = false }: SearchBarProps) {
   const [value, setValue] = useState('');
   const [exampleIndex, setExampleIndex] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Focused imperatively rather than via the autoFocus attribute, which React
+  // skips when the document isn't focused at mount.
+  useEffect(() => {
+    if (autoFocus) inputRef.current?.focus();
+  }, [autoFocus]);
 
   useEffect(() => {
     if (value) return;
@@ -43,6 +52,7 @@ export default function SearchBar({ onSubmit, busy = false }: SearchBarProps) {
       }}
     >
       <input
+        ref={inputRef}
         type="text"
         value={value}
         onChange={(e) => setValue(e.target.value)}

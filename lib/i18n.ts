@@ -658,6 +658,28 @@ const strings = {
     en: 'SYNCING…',
     he: 'מסנכרן…',
   },
+
+  // ── Home curiosity panel ────────────────────────────────────────────────────
+  whileYoureHere: {
+    en: "WHILE YOU'RE HERE",
+    he: 'בזמן שאתה כאן',
+  },
+  exploreThis: {
+    en: 'Explore this →',
+    he: '← לחקור את זה',
+  },
+  exploreAnything: {
+    en: 'or explore anything →',
+    he: '← או לחקור כל דבר',
+  },
+  orinRecharging: {
+    en: 'Orin is recharging. Try again in a moment.',
+    he: 'אורין נטען מחדש. נסה שוב בעוד רגע.',
+  },
+  diveFailed: {
+    en: "That didn't start. Try again.",
+    he: 'זה לא התחיל. נסה שוב.',
+  },
   mapLoadError: {
     en: 'This part of the galaxy slipped out of range.',
     he: 'החלק הזה של הגלקסיה יצא מהטווח.',

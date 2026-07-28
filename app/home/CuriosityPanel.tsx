@@ -1,0 +1,99 @@
+'use client';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { t, type Lang } from '@/lib/i18n';
+import CuriosityEditCard, { type CuriosityEdit } from './CuriosityEditCard';
+
+/**
+ * The doorway into Master, sitting beside the student's journeys.
+ *
+ * Loading, empty and failed all render the same thing — the invitation alone.
+ * A student with no live content still gets a complete screen, and there is no
+ * skeleton flash or layout jump when an edit does arrive.
+ */
+export default function CuriosityPanel({ lang }: { lang: Lang }) {
+  const router = useRouter();
+  const [edit, setEdit] = useState<CuriosityEdit | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [diveError, setDiveError] = useState<string | null>(null);
+
+  // Once per page load — the edit never rotates while the student is here.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/master/spotlight');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setEdit(data.edit ?? null);
+      } catch {
+        // The invitation alone is already a correct panel.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const exploreThis = async () => {
+    if (!edit || starting) return;
+    setStarting(true);
+    setDiveError(null);
+    try {
+      const res = await fetch('/api/master/dive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ origin: 'edit', edit_id: edit.id }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.session?.id) {
+        // Stay busy — we are leaving, and a second tap must not fire another dive.
+        router.push(`/master/dive/${data.session.id}`);
+        return;
+      }
+      setDiveError(data?.error === 'orin_recharging' ? t('orinRecharging', lang) : t('diveFailed', lang));
+      setStarting(false);
+    } catch {
+      setDiveError(t('diveFailed', lang));
+      setStarting(false);
+    }
+  };
+
+  return (
+    <section>
+      <div className="flex items-center gap-3 mb-4">
+        <p className="text-[10px] tracking-[0.3em] font-space uppercase text-white/35">
+          {t('whileYoureHere', lang)}
+        </p>
+        <div className="flex-1 h-px bg-white/8" />
+      </div>
+
+      <div
+        className="rounded-[12px] p-2.5"
+        style={{
+          background: 'linear-gradient(180deg, #150e2e 0%, #0b0818 100%)',
+          border: '1px solid rgba(139,0,255,0.28)',
+        }}
+      >
+        {edit && (
+          <CuriosityEditCard
+            edit={edit}
+            ctaLabel={t('exploreThis', lang)}
+            busy={starting}
+            onExplore={exploreThis}
+          />
+        )}
+
+        {diveError && (
+          <p className="mt-2.5 text-center text-[12px] leading-relaxed text-white/55">{diveError}</p>
+        )}
+
+        <a
+          href="/master?focus=search"
+          className="block py-2.5 text-center text-[12.5px] font-space transition-opacity hover:opacity-80"
+          style={{ color: '#00F5D4' }}
+        >
+          {t('exploreAnything', lang)}
+        </a>
+      </div>
+    </section>
+  );
+}

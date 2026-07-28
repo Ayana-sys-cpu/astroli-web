@@ -9,6 +9,7 @@ import { getFirstName } from '@/lib/student-store';
 import { t, type Lang } from '@/lib/i18n';
 import type { HomeJourney } from '@/lib/student-home';
 import { readHomeCache, writeHomeCache } from '@/lib/home-cache';
+import CuriosityPanel from './CuriosityPanel';
 
 const HOME_CACHE_TTL = 10_000; // 10 s — fresh enough after /syncing navigation
 
@@ -114,44 +115,52 @@ export default function HomePage() {
 
       <TopBar showStore left="" initials={firstName[0]?.toUpperCase() ?? 'A'} lang={lang} />
 
-      <div className="relative z-10 mt-11 px-5 sm:px-7 py-8 max-w-4xl mx-auto">
+      <div className="relative z-10 mt-11 px-5 sm:px-7 py-8 max-w-6xl mx-auto">
         <p className="font-caveat text-3xl text-white/80 mb-1">{t('welcomeBack', lang).replace('{name}', firstName)}</p>
         <p className="text-[10px] tracking-[0.28em] font-space uppercase text-white/30 mb-8">
           {!journeys ? t('syncingJourneys', lang) : journeys.length === 0 ? t('journeyAwaits', lang) : journeys.length === 1 ? t('journeysCountOne', lang) : t('journeysCountMany', lang).replace('{n}', String(journeys.length))}
         </p>
 
-        <div className="flex items-center gap-3 mb-4">
-          <p className="text-[10px] tracking-[0.3em] font-space uppercase text-white/35">{t('yourJourneys', lang)}</p>
-          <div className="flex-1 h-px bg-white/8" />
-        </div>
+        {/* Journeys and the curiosity panel are peers: side by side on a laptop,
+            stacked on a phone. The panel loads on its own — journeys never wait. */}
+        <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[1.5fr_1fr] lg:gap-10">
+          <section>
+            <div className="flex items-center gap-3 mb-4">
+              <p className="text-[10px] tracking-[0.3em] font-space uppercase text-white/35">{t('yourJourneys', lang)}</p>
+              <div className="flex-1 h-px bg-white/8" />
+            </div>
 
-        {!journeys ? (
-          <motion.div
-            animate={{ opacity: [0.3, 0.7, 0.3] }}
-            transition={{ duration: 1.6, repeat: Infinity }}
-            className="text-[10px] tracking-[0.3em] font-space uppercase text-white/40"
-          >
-            {t('syncingShort', lang)}
-          </motion.div>
-        ) : journeys.length === 0 ? (
-          <EmptyJourneys hasParent={hasParent} />
-        ) : (
-          <div className="flex flex-wrap gap-5">
-            <AnimatePresence>
-              {journeys.map((journey, i) => (
-                <motion.div
-                  key={journey.classId}
-                  className="w-full sm:w-3/4"
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.08 }}
-                >
-                  <JourneyCard journey={journey} onClick={() => handleCardClick(journey)} />
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
-        )}
+            {!journeys ? (
+              <motion.div
+                animate={{ opacity: [0.3, 0.7, 0.3] }}
+                transition={{ duration: 1.6, repeat: Infinity }}
+                className="text-[10px] tracking-[0.3em] font-space uppercase text-white/40"
+              >
+                {t('syncingShort', lang)}
+              </motion.div>
+            ) : journeys.length === 0 ? (
+              <EmptyJourneys hasParent={hasParent} />
+            ) : (
+              <div className="flex flex-wrap gap-5">
+                <AnimatePresence>
+                  {journeys.map((journey, i) => (
+                    <motion.div
+                      key={journey.classId}
+                      className="w-full sm:w-3/4 lg:w-full"
+                      initial={{ opacity: 0, y: 16 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.08 }}
+                    >
+                      <JourneyCard journey={journey} onClick={() => handleCardClick(journey)} />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            )}
+          </section>
+
+          <CuriosityPanel lang={lang} />
+        </div>
       </div>
     </motion.div>
   );

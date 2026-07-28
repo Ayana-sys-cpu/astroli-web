@@ -1,12 +1,15 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import StarField from '@/components/StarField';
 import SavedShelf, { type SavedTile } from './SavedShelf';
 import SearchBar from './SearchBar';
 
-export default function MasterPage() {
+function MasterHub() {
   const router = useRouter();
+  // Set only when the student arrived from the home panel to ask something —
+  // a plain visit to /master behaves exactly as before.
+  const focusSearch = useSearchParams().get('focus') === 'search';
   const [saves, setSaves] = useState<SavedTile[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [chips, setChips] = useState<string[]>([]);
@@ -96,7 +99,11 @@ export default function MasterPage() {
           </nav>
         </header>
 
-        <SearchBar onSubmit={(topic) => startDive({ origin: 'search', topic })} busy={starting} />
+        <SearchBar
+          onSubmit={(topic) => startDive({ origin: 'search', topic })}
+          busy={starting}
+          autoFocus={focusSearch}
+        />
 
         {chips.length > 0 && (
           <div className="mb-6 flex flex-wrap justify-center gap-2">
@@ -176,5 +183,13 @@ export default function MasterPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+export default function MasterPage() {
+  return (
+    <Suspense>
+      <MasterHub />
+    </Suspense>
   );
 }
