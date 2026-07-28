@@ -65,11 +65,16 @@ describe('parent onboarding — email → consent → journey', () => {
     const user = userEvent.setup();
     render(<ParentOnboardingContent />);
 
-    // Step 1 of 3 — email only, no name field, nothing sent.
+    // Step 1 of 3 — name + email, nothing sent yet. The name is required: it is
+    // the only source of the child's real name, since magic-link signup never
+    // sees a Google profile and would otherwise fall back to the email prefix.
     expect(await screen.findByText("Set up your child's account")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Child's name")).not.toBeInTheDocument();
+    const continueButton = screen.getByRole('button', { name: /Continue to consent/ });
     await user.type(screen.getByLabelText("Child's Gmail"), 'child@gmail.com');
-    await user.click(screen.getByRole('button', { name: /Continue to consent/ }));
+    expect(continueButton).toBeDisabled();
+    await user.type(screen.getByLabelText("Child's first name"), 'Amir');
+    expect(continueButton).toBeEnabled();
+    await user.click(continueButton);
 
     // Step 2 of 3 — consent shows the email as text, button disabled until ticked.
     expect(await screen.findByText('Almost there')).toBeInTheDocument();
@@ -80,10 +85,14 @@ describe('parent onboarding — email → consent → journey', () => {
     expect(consentButton).toBeEnabled();
     await user.click(consentButton);
 
-    // The consent click records consent AND dispatches the invite — no name sent.
+    // The consent click records consent AND dispatches the invite, carrying the
+    // name the parent typed so the child's account is created with it.
     const inviteCall = fetchMock.mock.calls.find(c => String(c[0]) === '/api/parent/child-invite');
     expect(inviteCall).toBeTruthy();
-    expect(JSON.parse((inviteCall![1] as RequestInit).body as string)).toEqual({ childEmail: 'child@gmail.com' });
+    expect(JSON.parse((inviteCall![1] as RequestInit).body as string)).toEqual({
+      childEmail: 'child@gmail.com',
+      childName:  'Amir',
+    });
 
     // Step 3 of 3 — picker with the invite-sent banner; journeys actually load.
     expect(await screen.findByText('Choose a learning journey')).toBeInTheDocument();

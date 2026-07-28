@@ -22,6 +22,7 @@ import {
 } from '@/lib/family-class';
 import { deriveJourneyStatus } from '@/lib/journey-status';
 import { z, parseBody } from '@/lib/validate';
+import { ensureJourneyTranslated } from '@/lib/translate-mission';
 
 const COVER_GRADIENTS = [
   { from: '#0d2137', mid: '#1e4d7a', accent: '#204060' },
@@ -139,10 +140,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No linked child — invite must be accepted first' }, { status: 403 });
   }
 
-  // Verify journey template exists
+  // Verify journey template exists. title_he is fetched so a Hebrew class gets
+  // a Hebrew name on the student's journey card — the card renders classes.title.
   const { data: journey } = await supabaseAdmin
     .from('journeys')
-    .select('id, title')
+    .select('id, title, title_he')
     .eq('id', journeyId)
     .maybeSingle();
 
@@ -162,7 +164,7 @@ export async function POST(req: NextRequest) {
     .insert({
       journey_id: journeyId,
       teacher_id: parentId,
-      title:      journey.title,
+      title:      (language === 'he' && journey.title_he) || journey.title,
       type:       'family',
       language,
     })
@@ -200,6 +202,15 @@ export async function POST(req: NextRequest) {
         missions.map((m: { id: string }) => ({ class_id: newClass.id, mission_id: m.id, state: 'locked' })),
         { onConflict: 'class_id,mission_id', ignoreDuplicates: true },
       );
+  }
+
+  // Generate Hebrew copy for the template if it doesn't exist yet. The teacher
+  // flow has always done this; the parent flow never did, which is how a Hebrew
+  // family class ended up serving an entirely English journey.
+  if (language === 'he') {
+    ensureJourneyTranslated(journeyId).catch(err =>
+      console.error('[parent/journeys POST] translation failed', journeyId, err),
+    );
   }
 
   return NextResponse.json({ ok: true, classId: newClass.id });

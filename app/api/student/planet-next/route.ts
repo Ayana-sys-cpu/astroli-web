@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { resolveStudentIdFromRequest } from '@/lib/auth';
+import { resolveStudentLanguage } from '@/lib/student-language';
 
 // GET /api/student/planet-next?planetId=<uuid>[&classId=<uuid>]
 // Returns the next unvisited planet in the same mission + mission progress counts.
@@ -37,12 +38,16 @@ export async function GET(req: NextRequest) {
   if (langParam === 'he') missionLang = 'he';
   else if (langParam === 'en') missionLang = 'en';
   else {
+    // No caller preference — resolve through the student's own enrollment.
+    // Never the mission's stored language: that column is shared by every class
+    // on the template. See lib/student-language.ts.
     const { data: missionRow } = await supabaseAdmin
       .from('missions')
-      .select('language')
+      .select('journey_id')
       .eq('id', missionId)
       .single();
-    missionLang = (missionRow as { language?: string } | null)?.language === 'he' ? 'he' : 'en';
+    const journeyId = (missionRow as { journey_id?: string } | null)?.journey_id;
+    missionLang = journeyId ? await resolveStudentLanguage(studentId, journeyId) : 'en';
   }
 
   // 3. Load all sibling planets (same mission) ordered by creation date.

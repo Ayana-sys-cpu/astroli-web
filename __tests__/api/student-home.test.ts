@@ -11,7 +11,9 @@ vi.mock('@/lib/student-enrollment', () => ({
 
 const TABLES: Record<string, any[]> = {
   classes:              [{ id: 'class-1', title: 'World History', journey_id: 'journey-1', teacher_id: 'teacher-1' }],
-  users:                [{ id: 'teacher-1', name: 'Mr. Lee' }],
+  // maybeSingle() returns rows[0], which is how the route's own first_name
+  // lookup resolves here; the teacher-name lookup reads the array instead.
+  users:                [{ id: 'student-1', name: 'Amir', first_name: 'Amir' }, { id: 'teacher-1', name: 'Mr. Lee' }],
   missions:             [{ id: 'mission-1', journey_id: 'journey-1', question: 'Q', project_title: 'The Schism Mission', order: 1, planets: [{ id: 'planet-1' }, { id: 'planet-2' }] }],
   class_mission_state:  [{ class_id: 'class-1', mission_id: 'mission-1', state: 'active' }],
   vote_sessions:        [],
@@ -65,6 +67,6 @@ describe('GET /api/student/home', () => {
     const res = await GET();
     const body = await res.json();
 
-    expect(body).toEqual({ journeys: [], hasParent: false });
+    expect(body).toEqual({ journeys: [], hasParent: false, firstName: 'Amir' });
   });
 });

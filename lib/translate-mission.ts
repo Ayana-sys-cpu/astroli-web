@@ -241,6 +241,46 @@ ${JSON.stringify(
   );
 }
 
+/**
+ * Ensures every mission on a journey template has Hebrew copy on file.
+ *
+ * Call this whenever a class is created or switched into Hebrew — from the
+ * parent flow as well as the teacher flow. A Hebrew class whose template was
+ * never translated is how a family ended up with a fully English journey
+ * inside a Hebrew interface.
+ *
+ * Skips missions that already carry a `translations.he` payload, so it is cheap
+ * to call repeatedly (each untranslated mission costs one OpenAI request).
+ * Fire-and-forget by design: translation runs for a while and must never block
+ * class creation, so failures are logged rather than surfaced.
+ */
+export async function ensureJourneyTranslated(journeyId: string): Promise<void> {
+  const { data: missions, error } = await supabaseAdmin
+    .from('missions')
+    .select('id, translations')
+    .eq('journey_id', journeyId);
+
+  if (error) {
+    console.error('[ensureJourneyTranslated] mission lookup failed', journeyId, error);
+    return;
+  }
+
+  const pending = (missions ?? []).filter(
+    m => Object.keys(((m.translations as Record<string, unknown>) ?? {}).he ?? {}).length === 0,
+  );
+
+  if (pending.length === 0) return;
+
+  console.log(`[ensureJourneyTranslated] translating ${pending.length} mission(s) on ${journeyId}`);
+  for (const m of pending) {
+    try {
+      await translateMission(m.id);
+    } catch (err) {
+      console.error('[ensureJourneyTranslated] mission failed', m.id, err);
+    }
+  }
+}
+
 // Translates a mission and all its planets, storing results in the DB.
 // Safe to call multiple times — will overwrite existing translations.he data.
 export async function translateMission(missionId: string): Promise<void> {
@@ -300,12 +340,15 @@ export async function translateMission(missionId: string): Promise<void> {
 
   const translated = await translatePayload(payload);
 
-  // Store mission translation and flip the mission's display language to 'he' —
-  // student API routes gate translation lookup on missions.language, so without
-  // this the translations sit unused and students keep seeing English.
+  // Store the mission translation only. `missions.language` is deliberately NOT
+  // touched: missions belong to a shared template, so flipping it to 'he' for
+  // one Hebrew family also flipped every English class built on the same
+  // journey — including teachers' school classes. Student routes now resolve
+  // language from the student's own class instead (lib/student-language.ts),
+  // which is what makes these translations reachable.
   const { error: mUpdateErr } = await supabaseAdmin
     .from('missions')
-    .update({ translations: { he: translated.mission }, language: 'he' })
+    .update({ translations: { he: translated.mission } })
     .eq('id', missionId);
 
   if (mUpdateErr) throw new Error(`Mission translation save failed: ${mUpdateErr.message}`);

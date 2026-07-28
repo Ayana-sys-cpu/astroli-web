@@ -19,14 +19,19 @@ export async function GET() {
     return NextResponse.json({ error: 'Forbidden: student session required' }, { status: 403 });
   }
 
-  const [classIds, { data: parentLink }] = await Promise.all([
+  // firstName is returned so the greeting reads from the database rather than
+  // whatever was cached in localStorage at signup. Without it, a name corrected
+  // after the student first logged in would never reach their device.
+  const [classIds, { data: parentLink }, { data: me }] = await Promise.all([
     resolveEnrolledClassIds(studentId),
     supabaseAdmin.from('parent_child_link').select('parent_id').eq('child_id', studentId).maybeSingle(),
+    supabaseAdmin.from('users').select('first_name').eq('id', studentId).maybeSingle(),
   ]);
   const hasParent = !!parentLink;
+  const firstName = (me?.first_name as string | null) ?? null;
 
   if (classIds.length === 0) {
-    return NextResponse.json({ journeys: [], hasParent });
+    return NextResponse.json({ journeys: [], hasParent, firstName });
   }
 
   const { data: classes } = await supabaseAdmin
@@ -35,7 +40,7 @@ export async function GET() {
     .in('id', classIds);
 
   if (!classes || classes.length === 0) {
-    return NextResponse.json({ journeys: [], hasParent });
+    return NextResponse.json({ journeys: [], hasParent, firstName });
   }
 
   const journeyIds = Array.from(new Set(classes.map((c: any) => c.journey_id)));
@@ -147,5 +152,5 @@ export async function GET() {
     });
   });
 
-  return NextResponse.json({ journeys, hasParent });
+  return NextResponse.json({ journeys, hasParent, firstName });
 }

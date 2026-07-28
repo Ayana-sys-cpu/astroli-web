@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { resolveStudentIdFromRequest } from '@/lib/auth';
+import { resolveStudentLanguage } from '@/lib/student-language';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -164,12 +165,14 @@ async function computeReturnTrigger(
   missionId: string,
   lastSnapshot: VisitSnapshot,
 ): Promise<{ trigger: ReturnTrigger; currentSnapshot: VisitSnapshot }> {
-  // 1. Get all planets for this mission, in parallel with the mission's language
-  //    (so planet titles are only translated when the mission is actually in Hebrew)
+  // 1. Get all planets for this mission, in parallel with the mission's journey
+  //    (used to resolve the student's own class language — never the mission's
+  //    stored language, which is shared across every class on the template.
+  //    See lib/student-language.ts.)
   const [{ data: missionRow }, { data: planets }] = await Promise.all([
     supabaseAdmin
       .from('missions')
-      .select('language')
+      .select('journey_id')
       .eq('id', missionId)
       .maybeSingle(),
     supabaseAdmin
@@ -177,7 +180,8 @@ async function computeReturnTrigger(
       .select('id, title, translations')
       .eq('mission_id', missionId),
   ]);
-  const missionLang = (missionRow as { language?: string } | null)?.language ?? 'en';
+  const journeyId = (missionRow as { journey_id?: string } | null)?.journey_id;
+  const missionLang = journeyId ? await resolveStudentLanguage(studentId, journeyId) : 'en';
 
   const planetIds = (planets ?? []).map((p: { id: string }) => p.id);
 

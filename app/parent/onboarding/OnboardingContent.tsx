@@ -65,6 +65,10 @@ export default function ParentOnboardingContent() {
 
   // Child + invite state
   const [childEmail, setChildEmail]       = useState('');
+  // Typed by the parent at Step 1. Magic-link signup never sees a Google
+  // profile, so this is the only place the child's real name enters the system —
+  // without it their account is named after their email address.
+  const [childFirstName, setChildFirstName] = useState('');
   const [childName, setChildName]         = useState<string | null>(null);
   const [childAccepted, setChildAccepted] = useState(false);
   const [inviteSent, setInviteSent]       = useState(false);
@@ -188,7 +192,7 @@ export default function ParentOnboardingContent() {
     const inviteRes  = await fetch('/api/parent/child-invite', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ childEmail }),
+      body:    JSON.stringify({ childEmail, childName: childFirstName.trim() || undefined }),
     });
     const inviteData = await inviteRes.json();
 
@@ -334,12 +338,34 @@ export default function ParentOnboardingContent() {
                 Set up your child&apos;s account
               </h1>
               <p className="font-inter text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                Enter your child&apos;s Gmail address. You&apos;ll review your consent next —
-                nothing is sent until you approve it.
+                Enter your child&apos;s first name and Gmail address. You&apos;ll review your
+                consent next — nothing is sent until you approve it.
               </p>
             </div>
 
             <form onSubmit={handleContinueToConsent} className="space-y-4">
+              <div className="space-y-1.5">
+                <label
+                  className="font-space text-[10px] font-bold uppercase"
+                  style={{ color: 'rgba(255,255,255,0.4)', letterSpacing: '0.14em' }}
+                  htmlFor="childFirstName"
+                >
+                  Child&apos;s first name
+                </label>
+                <input
+                  id="childFirstName"
+                  type="text"
+                  required
+                  value={childFirstName}
+                  onChange={e => setChildFirstName(e.target.value)}
+                  placeholder="Amir"
+                  className="input-dark"
+                />
+                <p className="font-inter text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                  This is how we&apos;ll greet them in the app.
+                </p>
+              </div>
+
               <div className="space-y-1.5">
                 <label
                   className="font-space text-[10px] font-bold uppercase"
@@ -365,9 +391,9 @@ export default function ParentOnboardingContent() {
 
               <button
                 type="submit"
-                disabled={!childEmail}
+                disabled={!childEmail || !childFirstName.trim()}
                 className="btn-teal"
-                style={{ marginTop: '8px', opacity: !childEmail ? 0.4 : 1 }}
+                style={{ marginTop: '8px', opacity: (!childEmail || !childFirstName.trim()) ? 0.4 : 1 }}
               >
                 Continue to consent →
               </button>

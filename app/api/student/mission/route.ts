@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { resolveStudentIdFromRequest } from '@/lib/auth';
+import { asLanguage, findEnrolledClassId, resolveClassLanguage } from '@/lib/student-language';
 
 // GET /api/student/mission?missionId=<uuid>  — mission + all planets (for landscape hub)
 // GET /api/student/mission?planetId=<uuid>   — single planet (for planet detail page)
@@ -61,14 +62,13 @@ export async function GET(req: NextRequest) {
       classLanguage = classRes.data?.language === 'he' ? 'he' : 'en';
     }
 
-    const missionBaseLang: 'en' | 'he' = (data as any).language === 'he' ? 'he' : 'en';
     const translations = ((data as any).translations as Record<string, any>) ?? {};
-    const heTranslations = translations['he'] ?? {};
-    const hasHeTranslations = Object.keys(heTranslations).length > 0;
-    // Class language wins. Only use Hebrew when the class is explicitly Hebrew
-    // AND the mission has Hebrew translations. Default to English in all other
-    // cases (including when enrollment lookup returned no class → classLanguage null).
-    const language: 'en' | 'he' = classLanguage === 'he' && hasHeTranslations ? 'he' : 'en';
+    // The class language IS the answer — see lib/student-language.ts. This used
+    // to also require the mission to have Hebrew translations on file, which
+    // meant one untranslated journey silently flipped the whole interface (and
+    // both bots) back to English for a Hebrew family. Individual untranslated
+    // strings now fall back to English on their own, field by field, below.
+    const language: 'en' | 'he' = classLanguage ?? 'en';
     const missionTx = translations[language] ?? {};
 
     return NextResponse.json({
@@ -120,25 +120,15 @@ export async function GET(req: NextRequest) {
 
     // When classId wasn't provided (e.g. AvatarBot floating panel), resolve the
     // class language from the student's enrollment — same as the missionId path.
-    if (!classLang) {
-      const journeyId = missionData?.journey_id;
-      if (journeyId) {
-        const enrolledClassId = await findEnrolledClassId(studentId, journeyId);
-        if (enrolledClassId) {
-          const { data: classRow } = await supabaseAdmin
-            .from('classes')
-            .select('language')
-            .eq('id', enrolledClassId)
-            .maybeSingle();
-          classLang = classRow?.language ?? undefined;
-        }
-      }
+    if (!classLang && missionData?.journey_id) {
+      const enrolledClassId = await findEnrolledClassId(studentId, missionData.journey_id);
+      if (enrolledClassId) classLang = await resolveClassLanguage(enrolledClassId);
     }
 
-    // Class language wins. Default to English when no class is resolvable (same
-    // policy as the missionId path — Hebrew-tagged missions must not leak Hebrew
-    // to English-class students or unenrolled contexts such as the AvatarBot panel).
-    const missionLanguage: 'en' | 'he' = classLang === 'he' ? 'he' : 'en';
+    // Class language wins. Default to English when no class is resolvable —
+    // unenrolled contexts such as the AvatarBot panel must not inherit another
+    // class's language.
+    const missionLanguage: 'en' | 'he' = asLanguage(classLang);
 
     const ptx = (((data as any).translations as Record<string, any>) ?? {})[missionLanguage] ?? {};
 
@@ -166,27 +156,4 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({ error: 'missionId or planetId required' }, { status: 400 });
-}
-
-// A student can hold more than one enrollment on the same template journey
-// (e.g. a school class and a family class) — data predating the
-// one-per-template unique index still allows it. maybeSingle() without a
-// limit errors on multiple rows and silently drops the class context, so
-// pick the most recent enrollment deterministically instead.
-async function findEnrolledClassId(
-  studentId: string,
-  templateJourneyId: string,
-): Promise<string | null> {
-  const { data, error } = await supabaseAdmin
-    .from('student_classes')
-    .select('class_id')
-    .eq('student_id', studentId)
-    .eq('template_journey_id', templateJourneyId)
-    .order('enrolled_at', { ascending: false })
-    .order('id', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) console.error('[student/mission] enrollment lookup error:', error);
-  return data?.class_id ?? null;
 }

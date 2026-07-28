@@ -67,6 +67,13 @@ export function getFirstName(): string {
   return toDisplayFirstName(ls()?.getItem(K.FIRST_NAME) ?? 'Traveler');
 }
 
+// Replaces the cached name with the one the server holds. The cache is written
+// once at signup, so a name corrected later (by a parent, or by support) only
+// reaches the student's device through this.
+export function saveFirstName(firstName: string): void {
+  ls()?.setItem(K.FIRST_NAME, firstName);
+}
+
 export function saveBaseAvatarUrl(url: string): void {
   ls()?.setItem(K.BASE_AVATAR, url);
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { toDisplayFirstName } from '@/lib/display-name';
+import { toDisplayFirstName, greetingLanguageForName } from '@/lib/display-name';
 
 describe('toDisplayFirstName', () => {
   it('passes a genuine first name through unchanged', () => {
@@ -32,5 +32,26 @@ describe('toDisplayFirstName', () => {
 
   it('returns the trimmed input when nothing presentable can be extracted', () => {
     expect(toDisplayFirstName('12345')).toBe('12345');
+  });
+});
+
+describe('greetingLanguageForName', () => {
+  it('greets a Latin-script name in English', () => {
+    expect(greetingLanguageForName('Amir')).toBe('en');
+  });
+
+  it('greets a Hebrew-script name in Hebrew', () => {
+    expect(greetingLanguageForName('נילי')).toBe('he');
+  });
+
+  // The greeting follows the name, not the journey — a Hebrew journey with a
+  // Latin-script name must not produce "ברוך שובך, Amir".
+  it('ignores the journey language and follows the name', () => {
+    expect(greetingLanguageForName('Eran')).toBe('en');
+  });
+
+  it('treats a missing name as English rather than throwing', () => {
+    expect(greetingLanguageForName('')).toBe('en');
+    expect(greetingLanguageForName(undefined as unknown as string)).toBe('en');
   });
 });

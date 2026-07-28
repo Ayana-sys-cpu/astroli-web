@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
 import JourneyCard from '@/components/student/JourneyCard';
 import TopBar from '@/components/TopBar';
-import { getFirstName } from '@/lib/student-store';
+import { getFirstName, saveFirstName } from '@/lib/student-store';
+import { greetingLanguageForName } from '@/lib/display-name';
 import { t, type Lang } from '@/lib/i18n';
 import type { HomeJourney } from '@/lib/student-home';
 import { readHomeCache, writeHomeCache } from '@/lib/home-cache';
@@ -40,6 +41,12 @@ export default function HomePage() {
       const data = await res.json();
       const list: HomeJourney[] = data.journeys ?? [];
       const parent = !!data.hasParent;
+      // The server is authoritative for the name — a correction made after this
+      // student first signed in would otherwise never replace the cached copy.
+      if (data.firstName) {
+        setFirstName(data.firstName);
+        saveFirstName(data.firstName);
+      }
       setJourneys(list);
       setHasParent(parent);
       // Persist for instant paint on the next return to /home (SWR).
@@ -83,6 +90,11 @@ export default function HomePage() {
   // (per-card copy already localizes via journey.language inside JourneyCard).
   const lang: Lang = journeys?.[0]?.language === 'he' ? 'he' : 'en';
 
+  // The greeting is the exception: it sits directly against the student's name,
+  // so it follows the name's script instead of the journey. Keeps "Welcome back,
+  // Amir" and "ברוך שובך, נילי" whole rather than mixing scripts in one line.
+  const greetingLang: Lang = greetingLanguageForName(firstName);
+
   const handleCardClick = (journey: HomeJourney) => {
     if (journey.status === 'idle') {
       if (journey.isFamilyClass) {
@@ -116,7 +128,7 @@ export default function HomePage() {
       <TopBar showStore left="" initials={firstName[0]?.toUpperCase() ?? 'A'} lang={lang} />
 
       <div className="relative z-10 mt-11 px-5 sm:px-7 py-8 max-w-6xl mx-auto">
-        <p className="font-caveat text-3xl text-white/80 mb-1">{t('welcomeBack', lang).replace('{name}', firstName)}</p>
+        <p className="font-caveat text-3xl text-white/80 mb-1" dir={greetingLang === 'he' ? 'rtl' : 'ltr'}>{t('welcomeBack', greetingLang).replace('{name}', firstName)}</p>
         <p className="text-[10px] tracking-[0.28em] font-space uppercase text-white/30 mb-8">
           {!journeys ? t('syncingJourneys', lang) : journeys.length === 0 ? t('journeyAwaits', lang) : journeys.length === 1 ? t('journeysCountOne', lang) : t('journeysCountMany', lang).replace('{n}', String(journeys.length))}
         </p>

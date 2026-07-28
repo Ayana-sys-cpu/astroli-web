@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { resolveStudentIdFromRequest } from '@/lib/auth';
 import { resolveEnrolledClassIds } from '@/lib/student-enrollment';
+import { resolveClassLanguage } from '@/lib/student-language';
 
 // GET /api/student/journey
 //
@@ -116,8 +117,12 @@ export async function GET(req: NextRequest) {
         .in('id', missionIds)
         .order('"order"');
 
+      // Language comes from the class being voted in, never from the shared
+      // mission template — see lib/student-language.ts.
+      const voteLanguage = await resolveClassLanguage((session as any).class_id);
+
       const voteMissions = (missionData ?? []).map((m: any) => {
-        const tx = m.language === 'he' ? (m.translations?.he ?? {}) : {};
+        const tx = voteLanguage === 'he' ? (m.translations?.he ?? {}) : {};
         return {
           id:                 m.id,
           question:           tx.question ?? m.question,
@@ -131,7 +136,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         hasActiveJourney: false,
         hasActiveVote:    true,
-        language:         ((missionData?.[0] as any)?.language === 'he' ? 'he' : 'en') as 'en' | 'he',
+        language:         voteLanguage,
         voteSessionId:    (session as any).id,
         voteJourneyId:    (session as any).class_id,
         voteEndsAt:       (session as any).ends_at,
@@ -175,8 +180,11 @@ export async function GET(req: NextRequest) {
         .limit(1)
         .maybeSingle();
 
+      // Language comes from the class, never from the shared mission template.
+      const pendingLanguage = await resolveClassLanguage(pendingClassId);
+
       const voteMissions = (allMissionData ?? []).map((m: any) => {
-        const tx = m.language === 'he' ? (m.translations?.he ?? {}) : {};
+        const tx = pendingLanguage === 'he' ? (m.translations?.he ?? {}) : {};
         return {
           id:                 m.id,
           question:           tx.question ?? m.question,
@@ -191,7 +199,7 @@ export async function GET(req: NextRequest) {
         hasActiveJourney:   false,
         hasActiveVote:      true,
         awaitingActivation: true,
-        language:           ((allMissionData?.[0] as any)?.language === 'he' ? 'he' : 'en') as 'en' | 'he',
+        language:           pendingLanguage,
         voteSessionId:      (concludedSession as any)?.id ?? null,
         voteJourneyId:      pendingClassId,
         voteEndsAt:         null,

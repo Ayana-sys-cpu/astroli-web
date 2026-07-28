@@ -13,6 +13,7 @@ import { supabaseAdmin } from '@/lib/supabase-server';
 import { requireAuth } from '@/lib/auth';
 import { resolveParentId } from '@/lib/parent-auth';
 import { sendInviteEmail } from '@/lib/email';
+import { toDisplayFirstName } from '@/lib/display-name';
 
 export async function POST() {
   const auth = await requireAuth();
@@ -32,7 +33,7 @@ export async function POST() {
   // resend until the child is genuinely registered — the check below.
   const { data: lastInvite } = await supabaseAdmin
     .from('child_invites')
-    .select('id, child_email, token, created_at')
+    .select('id, child_email, child_name, token, created_at')
     .eq('parent_id', parentId)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -66,7 +67,7 @@ export async function POST() {
   // Insert a new invite row (fresh token + new 48h expiry)
   const { data: newInvite, error: insertError } = await supabaseAdmin
     .from('child_invites')
-    .insert({ parent_id: parentId, child_email: lastInvite.child_email })
+    .insert({ parent_id: parentId, child_email: lastInvite.child_email, child_name: lastInvite.child_name ?? null })
     .select('token')
     .single();
 
@@ -76,7 +77,10 @@ export async function POST() {
   }
 
   try {
-    await sendInviteEmail(lastInvite.child_email, lastInvite.child_email.split('@')[0], newInvite.token);
+    // Carry the parent's name forward; the email prefix is only a fallback for
+    // invites created before names were collected.
+    const greetingName = lastInvite.child_name?.trim() || toDisplayFirstName(lastInvite.child_email);
+    await sendInviteEmail(lastInvite.child_email, greetingName, newInvite.token);
   } catch (err) {
     console.error('[child-invite/resend] Resend error:', err);
   }

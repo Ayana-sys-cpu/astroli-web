@@ -15,3 +15,19 @@ export function toDisplayFirstName(raw: string): string {
   if (!letters) return name;
   return letters.charAt(0).toUpperCase() + letters.slice(1);
 }
+
+/**
+ * Language to greet a student in, chosen by the script their name is written in.
+ *
+ * The greeting is the one line that sits directly against the student's own
+ * name, so it follows the name rather than the journey: a Latin-script name
+ * gets an English greeting ("Welcome back, Amir") and a Hebrew-script name gets
+ * a Hebrew one ("ברוך שובך, נילי"). Mixing the two reads as a bug — which is
+ * exactly how "ברוך שובך, Amir" looked to the family that hit it.
+ *
+ * This is deliberately independent of the journey language: a student's name
+ * doesn't change when they switch journeys, so their greeting shouldn't either.
+ */
+export function greetingLanguageForName(name: string): 'en' | 'he' {
+  return /[֐-׿]/.test(name ?? '') ? 'he' : 'en';
+}

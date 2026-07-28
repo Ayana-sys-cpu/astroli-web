@@ -60,17 +60,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No email in session.' }, { status: 401 });
   }
 
-  // Name from invite metadata (set by inviteUserByEmail) or email prefix as
-  // fallback — toDisplayFirstName keeps the fallback humane ("ayana.student.test" → "Ayana").
-  const childName = (user.user_metadata?.childName as string | undefined)
-    ?? email.split('@')[0];
-  const nameParts = childName.split(' ');
-  const firstName = toDisplayFirstName(nameParts[0] ?? '');
-
   // 2. Fetch and validate invite
   const { data: invite } = await supabaseAdmin
     .from('child_invites')
-    .select('id, parent_id, child_email, expires_at, accepted_at')
+    .select('id, parent_id, child_email, child_name, expires_at, accepted_at')
     .eq('token', token)
     .maybeSingle();
 
@@ -89,6 +82,12 @@ export async function POST(req: NextRequest) {
       { status: 422 },
     );
   }
+
+  // The name the parent typed when inviting. The email prefix is only a
+  // last-resort fallback for invites created before the name was collected —
+  // it is what produced greetings like "Welcome back, Amirmakmal".
+  const childName = invite.child_name?.trim() || email.split('@')[0];
+  const firstName = toDisplayFirstName(childName.split(' ')[0] ?? '');
 
   // 3. Create/upsert child users row
   const { data: existing } = await supabaseAdmin

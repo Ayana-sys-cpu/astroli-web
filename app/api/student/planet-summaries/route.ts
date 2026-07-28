@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { resolveStudentIdFromRequest } from '@/lib/auth';
+import { resolveLanguageByMission } from '@/lib/student-language';
 
 // GET /api/student/planet-summaries — all discovered goals per planet for the authenticated student.
 //
@@ -72,7 +73,7 @@ export async function GET(req: NextRequest) {
 
     const [missionsResult, goalsResult, summariesResult] = await Promise.all([
       missionIds.length
-        ? supabaseAdmin.from('missions').select('id, language').in('id', missionIds)
+        ? supabaseAdmin.from('missions').select('id, journey_id').in('id', missionIds)
         : Promise.resolve({ data: [], error: null }),
       supabaseAdmin
         .from('planet_teaching_goals')
@@ -88,11 +89,14 @@ export async function GET(req: NextRequest) {
 
     if (goalsResult.error) console.error('[planet-summaries] goals query error:', goalsResult.error);
 
-    // Build language lookup: missionId → language
-    const missionLanguage: Record<string, string> = {};
-    for (const m of missionsResult.data ?? []) {
-      missionLanguage[m.id] = (m as any).language ?? 'en';
-    }
+    // Build language lookup: missionId → language, resolved through the
+    // student's own enrollment rather than the shared mission template — the
+    // template flag is global and would leak one class's language into every
+    // other class on the same journey. See lib/student-language.ts.
+    const missionLanguage = await resolveLanguageByMission(
+      studentId,
+      (missionsResult.data ?? []) as Array<{ id: string; journey_id: string }>,
+    );
 
     // Build planet metadata lookup — planet title uses UI language (langFilter), not
     // the planet's own mission language, so titles stay consistent across contexts.

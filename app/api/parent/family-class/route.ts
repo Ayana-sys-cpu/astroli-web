@@ -22,6 +22,7 @@ import {
   enrollmentConflictResponse,
 } from '@/lib/family-class';
 import { z, parseBody } from '@/lib/validate';
+import { ensureJourneyTranslated } from '@/lib/translate-mission';
 
 const Schema = z.object({
   journeyId: z.string().min(1, 'journeyId required'),
@@ -41,10 +42,11 @@ export async function POST(req: NextRequest) {
   if (!parsed.ok) return parsed.response;
   const { journeyId, language } = parsed.data;
 
-  // Verify journey template exists
+  // Verify journey template exists. title_he is fetched so a Hebrew class gets
+  // a Hebrew name on the student's journey card — the card renders classes.title.
   const { data: journey } = await supabaseAdmin
     .from('journeys')
-    .select('id, title')
+    .select('id, title, title_he')
     .eq('id', journeyId)
     .maybeSingle();
 
@@ -91,7 +93,7 @@ export async function POST(req: NextRequest) {
     .insert({
       journey_id: journeyId,
       teacher_id: parentId,
-      title:      journey.title,
+      title:      (language === 'he' && journey.title_he) || journey.title,
       type:       'family',
       language,
       // google_course_id deliberately omitted (NULL) for family classes
@@ -131,6 +133,15 @@ export async function POST(req: NextRequest) {
         missions.map((m: { id: string }) => ({ class_id: newClass.id, mission_id: m.id, state: 'locked' })),
         { onConflict: 'class_id,mission_id', ignoreDuplicates: true },
       );
+  }
+
+  // Generate Hebrew copy for the template if it doesn't exist yet. The teacher
+  // flow has always done this; the parent flow never did, which is how a Hebrew
+  // family class ended up serving an entirely English journey.
+  if (language === 'he') {
+    ensureJourneyTranslated(journeyId).catch(err =>
+      console.error('[parent/family-class] translation failed', journeyId, err),
+    );
   }
 
   return NextResponse.json({ ok: true, classId: newClass.id });

@@ -77,10 +77,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Insert invite row — generates a fresh UUID token automatically
+  // Insert invite row — generates a fresh UUID token automatically.
+  // child_name is carried here because it is the only record of the child's real
+  // name until they accept: magic-link signup never yields a Google profile, so
+  // without it accept-invite falls back to the email prefix.
   const { data: invite, error: inviteError } = await supabaseAdmin
     .from('child_invites')
-    .insert({ parent_id: parentId, child_email: childEmail })
+    .insert({ parent_id: parentId, child_email: childEmail, child_name: childName ?? null })
     .select('id, token')
     .single();
 
