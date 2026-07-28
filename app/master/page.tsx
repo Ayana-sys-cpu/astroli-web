@@ -3,11 +3,15 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import StarField from '@/components/StarField';
 import SavedShelf, { type SavedTile } from './SavedShelf';
+import SearchBar from './SearchBar';
 
 export default function MasterPage() {
   const router = useRouter();
   const [saves, setSaves] = useState<SavedTile[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [chips, setChips] = useState<string[]>([]);
+  const [starting, setStarting] = useState(false);
+  const [diveError, setDiveError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -23,6 +27,46 @@ export default function MasterPage() {
   }, [router]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/master/trending');
+        if (!res.ok) return;
+        const data = await res.json();
+        setChips(data.chips ?? []);
+      } catch {
+        // Chips are a nicety — the search bar carries the screen without them.
+      }
+    })();
+  }, []);
+
+  const startDive = useCallback(async (body: Record<string, string>) => {
+    if (starting) return;
+    setStarting(true);
+    setDiveError(null);
+    try {
+      const res = await fetch('/api/master/dive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.session?.id) {
+        router.push(`/master/dive/${data.session.id}`);
+        return;
+      }
+      setDiveError(
+        data?.error === 'orin_recharging'
+          ? 'Orin is recharging. Try again in a moment.'
+          : "That didn't start. Try again.",
+      );
+    } catch {
+      setDiveError('Check your connection and try again.');
+    } finally {
+      setStarting(false);
+    }
+  }, [router, starting]);
 
   const removeSave = useCallback(async (save: SavedTile) => {
     setSaves((prev) => prev?.filter((s) => s.id !== save.id) ?? prev);
@@ -52,6 +96,31 @@ export default function MasterPage() {
           </nav>
         </header>
 
+        <SearchBar onSubmit={(topic) => startDive({ origin: 'search', topic })} busy={starting} />
+
+        {chips.length > 0 && (
+          <div className="mb-6 flex flex-wrap justify-center gap-2">
+            {chips.map((chip) => (
+              <button
+                key={chip}
+                type="button"
+                onClick={() => startDive({ origin: 'chip', topic: chip })}
+                disabled={starting}
+                className="rounded-full px-3 py-1 text-[11px] transition-colors hover:bg-white/5 disabled:opacity-40"
+                style={{ background: 'var(--master-surface)', color: 'var(--master-text-secondary)' }}
+              >
+                #{chip}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {diveError && (
+          <p className="mb-6 text-center text-[13px]" style={{ color: 'var(--master-text-secondary)' }}>
+            {diveError}
+          </p>
+        )}
+
         <section>
           {saves !== null && saves.length > 0 && (
             <h2
@@ -73,7 +142,17 @@ export default function MasterPage() {
               ))}
             </div>
           ) : saves.length > 0 ? (
-            <SavedShelf saves={saves} onRemove={removeSave} />
+            <SavedShelf
+              saves={saves}
+              onRemove={removeSave}
+              onOpen={(save) =>
+                save.kind === 'dive' && save.dive_session_id
+                  ? router.push(`/master/dive/${save.dive_session_id}`)
+                  : save.edit_id
+                    ? startDive({ origin: 'edit', edit_id: save.edit_id })
+                    : undefined
+              }
+            />
           ) : (
             <div className="py-10">
               <p className="text-[17px] text-white" style={{ fontFamily: 'var(--font-space)', fontWeight: 500 }}>

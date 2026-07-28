@@ -47,6 +47,10 @@ export default function SavedShelf({ saves, onOpen, onRemove }: SavedShelfProps)
             width: 132,
             height: 220,
             borderRadius: 'var(--master-tile-radius)',
+            // A kept dive has no cover photo — Orin's purple marks it as a conversation.
+            ...(save.kind === 'dive'
+              ? { background: 'linear-gradient(170deg, #2a1250, #0A0A0F 80%)' }
+              : null),
           }}
         >
           <button

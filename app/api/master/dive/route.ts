@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
         .select('segments')
         .eq('session_id', existing.id)
         .eq('role', 'orin')
-        .order('created_at', { ascending: true })
+        .order('seq', { ascending: true })
         .limit(1)
         .maybeSingle();
       return NextResponse.json({
