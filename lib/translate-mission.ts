@@ -12,6 +12,16 @@ function getOpenAI(): OpenAI {
   return _openai;
 }
 
+// Shared instruction block for every translation pass.
+//
+// The terminology rule exists because the model transliterated "element" to
+// "אלמנט" — a real Hebrew word, but the general "component" sense, not the
+// chemistry term. Israeli students learn "יסוד". It even mixed the two inside a
+// single journey. Loanwords look plausible to a non-Hebrew reader and to the
+// model, so the rule has to be explicit: prefer the term the curriculum uses.
+const TRANSLATION_RULES = `Transliterate every person's name into Hebrew (e.g. "Antoine Lavoisier" → "אנטואן לבואזייה", "James Joule" → "ג'יימס ג'אול"). Never leave a name in Latin script.
+Use the standard Israeli curriculum term for every scientific concept — never a transliterated English loanword. For example a chemical element is "יסוד" (never "אלמנט"), a compound is "תרכובת", a molecule is "מולקולה", a cell is "תא", energy is "אנרגיה", force is "כוח". If a subject term has an accepted Hebrew form taught in Israeli schools, use that form consistently throughout.`;
+
 interface MissionRow {
   id: string;
   question: string;
@@ -73,7 +83,7 @@ interface TranslationPayload {
 async function translatePayload(payload: TranslationPayload): Promise<TranslationPayload> {
   const prompt = `You are a professional Hebrew translator for an educational platform for Israeli students aged 13–15.
 Translate the following JSON from English to Hebrew. Keep JSON keys in English — only translate the values.
-Transliterate every person's name into Hebrew (e.g. "Antoine Lavoisier" → "אנטואן לבואזייה", "James Joule" → "ג'יימס ג'אול"). Never leave a name in Latin script.
+${TRANSLATION_RULES}
 Preserve all formatting, line breaks (\\n), and HTML tags exactly.
 Return ONLY valid JSON with no explanation.
 
@@ -132,7 +142,7 @@ export async function translateTeachingGoals(planetIds: string[]): Promise<void>
   const prompt = `You are a professional Hebrew translator for an educational platform for Israeli students aged 13–15.
 Translate the following teaching goals from English to Hebrew. Keep the JSON keys (ids and field names) exactly as given — only translate the values.
 For each goal, "slug_label" is the short term/concept name shown to students and "description" is its explanation — translate both. Keep slug_label short (a term, not a sentence).
-Transliterate every person's name into Hebrew (e.g. "Antoine Lavoisier" → "אנטואן לבואזייה", "James Joule" → "ג'יימס ג'אול"). Never leave a name in Latin script.
+${TRANSLATION_RULES}
 Return ONLY valid JSON with no explanation: an object mapping each id to { "slug_label": ..., "description": ... } in Hebrew.
 
 ${JSON.stringify(
@@ -200,7 +210,7 @@ export async function translatePlanetCharacters(planetIds: string[]): Promise<vo
 
   const prompt = `You are a professional Hebrew translator for an educational platform for Israeli students aged 13–15.
 Translate the following historical character profiles from English to Hebrew. Keep the JSON keys (ids and field names) exactly as given — only translate the values.
-Transliterate every person's name into Hebrew (e.g. "Antoine Lavoisier" → "אנטואן לבואזייה"). Never leave a name in Latin script.
+${TRANSLATION_RULES}
 "voice_profile" and "teaching_goal" describe how the character speaks and what they teach — translate them faithfully.
 Return ONLY valid JSON with no explanation: an object mapping each id to { "name": ..., "bio": ..., "era": ..., "location": ..., "voice_profile": ..., "teaching_goal": ... } in Hebrew.
 
