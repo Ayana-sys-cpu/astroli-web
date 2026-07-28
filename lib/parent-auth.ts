@@ -96,7 +96,9 @@ export async function getParentContext(parentId: string) {
       .maybeSingle(),
     supabaseAdmin
       .from('classes')
-      .select('id, journey_id, title')
+      // language travels with the class so parent-facing routes can show the
+      // same Hebrew copy the child sees, rather than the English source columns.
+      .select('id, journey_id, title, language')
       .eq('teacher_id', parentId)
       .eq('type', 'family')
       .order('created_at', { ascending: true })

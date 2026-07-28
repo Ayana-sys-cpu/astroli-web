@@ -86,14 +86,23 @@ export async function GET() {
       const completed = (missionStates ?? []).filter((s: any) => s.state === 'completed').length;
       const active    = (missionStates ?? []).find((s: any) => s.state === 'active');
 
+      // The parent sees the mission by the same name their child does — a Hebrew
+      // class was showing its parent the English source columns, so a mother who
+      // chose Hebrew was told her son was working on "The Element Dossier".
+      const classLanguage: 'en' | 'he' = familyClass.language === 'he' ? 'he' : 'en';
+
       let activeMissionTitle: string | null = null;
       if (active) {
         const { data: mission } = await supabaseAdmin
           .from('missions')
-          .select('question, project_title')
+          .select('question, project_title, translations')
           .eq('id', active.mission_id)
           .maybeSingle();
-        activeMissionTitle = mission?.question ?? mission?.project_title ?? null;
+        const tx = classLanguage === 'he'
+          ? (((mission?.translations as Record<string, any>) ?? {}).he ?? {})
+          : {};
+        activeMissionTitle =
+          tx.question ?? tx.project_title ?? mission?.question ?? mission?.project_title ?? null;
       }
 
       missionProgress = {
