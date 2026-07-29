@@ -15,6 +15,9 @@ export interface SpotlightEdit {
   media_credit: string;
 }
 
+interface PlanetRow { id: string; created_at: string }
+interface ClassRow { id: string; journeys: { missions: { id: string; planets: PlanetRow[] }[] } | null }
+
 /**
  * Comma-separated emails allowed to see the panel while it is behind the flag.
  * Unset = nobody sees it. Remove the gate to launch it to every student.
@@ -37,6 +40,10 @@ function isAllowed(email: string | null): boolean {
  * of them, then other journeys entirely), then their declared interest, then
  * recency.
  *
+ * The student sits waiting on this, so it costs two round trips: everything
+ * that can be asked at once is, and only the journey shape has to wait on
+ * which classes they are in.
+ *
  * Read-only by design — no impression is recorded, so the panel never silently
  * consumes feed content and collects nothing about the student.
  */
@@ -45,13 +52,27 @@ export async function GET(req: NextRequest) {
   if (!studentId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    if (!isAllowed(await loadEmail(studentId))) {
+    const [email, classRows, completedRows, studentRow, seenRows, editRows] = await Promise.all([
+      supabaseAdmin.from('users').select('email').eq('id', studentId).maybeSingle(),
+      supabaseAdmin.from('student_classes').select('class_id').eq('student_id', studentId),
+      supabaseAdmin.from('planet_session_state').select('planet_id').eq('student_id', studentId).eq('completed', true),
+      supabaseAdmin.from('students').select('interests').eq('id', studentId).maybeSingle(),
+      supabaseAdmin.from('feed_events').select('edit_id').eq('student_id', studentId).eq('action', 'impression'),
+      supabaseAdmin.from('feed_edits').select(EDIT_FIELDS).eq('status', 'live'),
+    ]);
+
+    if (!isAllowed((email.data as { email?: string | null } | null)?.email ?? null)) {
       return NextResponse.json({ enabled: false, edit: null });
     }
 
-    const [place, candidates] = await Promise.all([loadStudentPlace(studentId), loadLiveEdits()]);
+    const place = await buildPlace({
+      classIds: (classRows.data ?? []).map((c: { class_id: string }) => c.class_id),
+      completedPlanetIds: new Set((completedRows.data ?? []).map((r: { planet_id: string }) => r.planet_id)),
+      interests: (studentRow.data as { interests?: unknown } | null)?.interests,
+      seenEditIds: new Set((seenRows.data ?? []).map((e: { edit_id: string }) => e.edit_id)),
+    });
 
-    const top = pickEdit(candidates, place);
+    const top = pickEdit((editRows.data ?? []) as SpotlightCandidate[], place);
     if (!top) return NextResponse.json({ enabled: true, edit: null });
 
     const edit: SpotlightEdit = {
@@ -69,112 +90,55 @@ export async function GET(req: NextRequest) {
   }
 }
 
-async function loadLiveEdits(): Promise<SpotlightCandidate[]> {
-  const { data } = await supabaseAdmin.from('feed_edits').select(EDIT_FIELDS).eq('status', 'live');
-  return (data ?? []) as SpotlightCandidate[];
+interface PlaceInput {
+  classIds: string[];
+  completedPlanetIds: Set<string>;
+  interests: unknown;
+  seenEditIds: Set<string>;
 }
 
 /** Where this student is: the planet they are on, the ones behind, the ones ahead. */
-async function loadStudentPlace(studentId: string): Promise<StudentPlace> {
-  const [classRows, completedRows, interestTheme] = await Promise.all([
-    supabaseAdmin.from('student_classes').select('class_id').eq('student_id', studentId),
-    supabaseAdmin
-      .from('planet_session_state')
-      .select('planet_id')
-      .eq('student_id', studentId)
-      .eq('completed', true),
-    loadInterestTheme(studentId),
-  ]);
-
-  const completedPlanetIds = new Set(
-    (completedRows.data ?? []).map((r: { planet_id: string }) => r.planet_id),
-  );
-  const classIds = (classRows.data ?? []).map((c: { class_id: string }) => c.class_id);
+async function buildPlace(input: PlaceInput): Promise<StudentPlace> {
+  const first = Array.isArray(input.interests) ? input.interests[0] : null;
 
   const place: StudentPlace = {
     activePlanetId: null,
-    completedPlanetIds,
+    completedPlanetIds: input.completedPlanetIds,
     journeyPlanetIds: new Set<string>(),
-    interestTheme,
-    seenEditIds: await loadSeenEditIds(studentId),
+    interestTheme: typeof first === 'string' && first.trim() ? first : null,
+    seenEditIds: input.seenEditIds,
   };
-  if (classIds.length === 0) return place;
+  if (input.classIds.length === 0) return place;
 
-  const [journeyRows, activeStateRows] = await Promise.all([
-    supabaseAdmin.from('classes').select('journey_id').in('id', classIds),
+  const [classes, activeState] = await Promise.all([
+    supabaseAdmin
+      .from('classes')
+      .select('id, journeys(missions(id, planets(id, created_at)))')
+      .in('id', input.classIds),
     supabaseAdmin
       .from('class_mission_state')
       .select('mission_id')
-      .in('class_id', classIds)
+      .in('class_id', input.classIds)
       .eq('state', 'active'),
   ]);
 
-  const journeyIds = (journeyRows.data ?? [])
-    .map((c: { journey_id: string | null }) => c.journey_id)
-    .filter((id: string | null): id is string => !!id);
+  const activeMissionId = activeState.data?.[0]?.mission_id ?? null;
 
-  if (journeyIds.length > 0) {
-    const { data: missions } = await supabaseAdmin
-      .from('missions')
-      .select('id')
-      .in('journey_id', journeyIds);
+  for (const row of (classes.data ?? []) as unknown as ClassRow[]) {
+    for (const mission of row.journeys?.missions ?? []) {
+      for (const planet of mission.planets ?? []) place.journeyPlanetIds.add(planet.id);
 
-    const missionIds = (missions ?? []).map((m: { id: string }) => m.id);
-    if (missionIds.length > 0) {
-      const { data: planets } = await supabaseAdmin
-        .from('planets')
-        .select('id')
-        .in('mission_id', missionIds);
-      for (const p of planets ?? []) place.journeyPlanetIds.add(p.id);
+      if (mission.id === activeMissionId) {
+        // Planets carry no explicit order column and bulk inserts share a
+        // created_at, so id breaks the tie — same rule the rest of the app uses.
+        const ordered = [...(mission.planets ?? [])].sort(
+          (a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id),
+        );
+        const current = ordered.find((p) => !input.completedPlanetIds.has(p.id));
+        place.activePlanetId = current?.id ?? ordered[0]?.id ?? null;
+      }
     }
   }
 
-  const activeMissionId = activeStateRows.data?.[0]?.mission_id;
-  if (activeMissionId) {
-    const { data: activePlanets } = await supabaseAdmin
-      .from('planets')
-      .select('id')
-      .eq('mission_id', activeMissionId)
-      .order('order', { ascending: true })
-      .order('id', { ascending: true });
-
-    const ids = (activePlanets ?? []).map((p: { id: string }) => p.id);
-    for (const id of ids) place.journeyPlanetIds.add(id);
-    // The planet they are on = the first one they have not finished.
-    place.activePlanetId = ids.find((id: string) => !completedPlanetIds.has(id)) ?? ids[0] ?? null;
-  }
-
   return place;
-}
-
-async function loadEmail(studentId: string): Promise<string | null> {
-  const { data } = await supabaseAdmin
-    .from('users')
-    .select('email')
-    .eq('id', studentId)
-    .maybeSingle();
-
-  return (data as { email?: string | null } | null)?.email ?? null;
-}
-
-async function loadInterestTheme(studentId: string): Promise<string | null> {
-  const { data } = await supabaseAdmin
-    .from('students')
-    .select('interests')
-    .eq('id', studentId)
-    .maybeSingle();
-
-  const interests = (data as { interests?: unknown } | null)?.interests;
-  const first = Array.isArray(interests) ? interests[0] : null;
-  return typeof first === 'string' && first.trim() ? first : null;
-}
-
-async function loadSeenEditIds(studentId: string): Promise<Set<string>> {
-  const { data } = await supabaseAdmin
-    .from('feed_events')
-    .select('edit_id')
-    .eq('student_id', studentId)
-    .eq('action', 'impression');
-
-  return new Set((data ?? []).map((e: { edit_id: string }) => e.edit_id));
 }

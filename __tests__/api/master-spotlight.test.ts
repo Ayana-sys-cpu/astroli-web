@@ -35,13 +35,27 @@ function edit(over: Partial<EditRow> & { id: string }): EditRow {
   };
 }
 
+/** One class → one journey → one mission → two planets, as the nested select returns it. */
+const CLASS_WITH_PLANETS = {
+  id: 'class-1',
+  journeys: {
+    missions: [
+      {
+        id: 'mission-1',
+        planets: [
+          { id: 'planet-1', created_at: '2026-06-01T00:00:00Z' },
+          { id: 'planet-2', created_at: '2026-06-02T00:00:00Z' },
+        ],
+      },
+    ],
+  },
+};
+
 const state = {
   email: ALLOWED as string | null,
   classes: [{ class_id: 'class-1' }] as any[],
-  journeys: [{ journey_id: 'journey-1' }] as any[],
-  missions: [{ id: 'mission-1' }] as any[],
+  classRows: [CLASS_WITH_PLANETS] as any[],
   activeState: [{ mission_id: 'mission-1' }] as any[],
-  planets: [{ id: 'planet-1' }, { id: 'planet-2' }] as any[],
   completed: [] as any[],
   interests: { interests: ['space'] } as any,
   seen: [] as any[],
@@ -62,10 +76,8 @@ vi.mock('@/lib/supabase-server', () => ({
         switch (table) {
           case 'users': return state.email ? [{ email: state.email }] : [];
           case 'student_classes': return state.classes;
-          case 'classes': return state.journeys;
-          case 'missions': return state.missions;
+          case 'classes': return state.classRows;
           case 'class_mission_state': return state.activeState;
-          case 'planets': return state.planets;
           case 'planet_session_state': return state.completed;
           case 'students': return [state.interests];
           case 'feed_events': return state.seen;
@@ -108,10 +120,8 @@ beforeEach(() => {
   process.env.CURIOSITY_PANEL_EMAILS = ALLOWED;
   state.email = ALLOWED;
   state.classes = [{ class_id: 'class-1' }];
-  state.journeys = [{ journey_id: 'journey-1' }];
-  state.missions = [{ id: 'mission-1' }];
+  state.classRows = [CLASS_WITH_PLANETS];
   state.activeState = [{ mission_id: 'mission-1' }];
-  state.planets = [{ id: 'planet-1' }, { id: 'planet-2' }];
   state.completed = [];
   state.interests = { interests: ['space'] };
   state.seen = [];

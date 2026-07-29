@@ -33,8 +33,47 @@ function mockFetch(handlers: { spotlight?: unknown; dive?: { status: number; bod
   return fetchMock;
 }
 
-beforeEach(() => { push.mockClear(); });
+beforeEach(() => { push.mockClear(); localStorage.clear(); });
 afterEach(() => { vi.unstubAllGlobals(); });
+
+const CACHE_KEY = 'astroli_curiosity_panel';
+
+describe('CuriosityPanel — waiting for an answer', () => {
+  it('shows the card’s own shape while loading, once the panel is known to be theirs', async () => {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ enabled: true, edit: null }));
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {}))); // never settles
+
+    render(<CuriosityPanel lang="en" />);
+
+    expect(await screen.findByText("WHILE YOU'RE HERE")).toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('shows nothing at all while loading for a student who has never had the panel', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
+
+    const { container } = render(<CuriosityPanel lang="en" />);
+
+    await waitFor(() => expect(container).toBeEmptyDOMElement());
+  });
+
+  it('paints the last edit immediately, before the network answers', async () => {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ enabled: true, edit: EDIT }));
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
+
+    render(<CuriosityPanel lang="en" />);
+
+    expect(screen.getByText('Octopuses have three hearts.')).toBeInTheDocument();
+  });
+
+  it('remembers the answer for the next visit', async () => {
+    mockFetch({ spotlight: { enabled: true, edit: EDIT } });
+    render(<CuriosityPanel lang="en" />);
+
+    await screen.findByText('Octopuses have three hearts.');
+    expect(JSON.parse(localStorage.getItem(CACHE_KEY)!)).toEqual({ enabled: true, edit: EDIT });
+  });
+});
 
 describe('CuriosityPanel — behind the flag', () => {
   it('renders nothing at all for a student it is not enabled for', async () => {
