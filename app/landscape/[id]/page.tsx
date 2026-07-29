@@ -9,7 +9,7 @@ import { PLANET_EXPERIENCE } from '@/lib/planet-experience';
 import { useOrinChat } from '@/hooks/useOrinChat';
 import { getFirstName, loadStudent } from '@/lib/student-store';
 import { getSessionToken } from '@/lib/session';
-import TopBar from '@/components/TopBar';
+import StudentHeader from '@/components/StudentHeader';
 import { usePlanetVoice } from '@/hooks/usePlanetVoice';
 import { useCoinReward } from '@/hooks/useCoinReward';
 import dynamic from 'next/dynamic';
@@ -346,21 +346,21 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
     >
       <StarField count={60} seed={params.id.length * 7} />
 
-      <TopBar
-        backToMap={classId ? `/landscape?classId=${classId}` : '/landscape'}
+      <StudentHeader
+        back={{ label: 'backMissionMap', href: classId ? `/landscape?classId=${classId}` : '/landscape' }}
+        storeOriginLabel="backPlanet"
         center={figureDisplayName ? (
           <span className="text-[10px] tracking-wide text-[#a855f7]/60 font-space flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#a855f7] inline-block" />
             {figureDisplayName} {t('isPresenting', missionLang)}
           </span>
         ) : undefined}
-        showStore
         initials={firstName[0]?.toUpperCase() ?? 'A'}
         lang={missionLang}
       />
 
       {/* Main content — figure over chat on phones, side-by-side from lg */}
-      <div className="flex flex-col lg:flex-row flex-1 pt-11 overflow-hidden min-h-0">
+      <div className="flex flex-col lg:flex-row flex-1 overflow-hidden min-h-0">
 
         {/* ── Cinematic figure panel — desktop only (mobile uses the floating bubble below) ── */}
         <div className="hidden lg:block lg:h-auto lg:flex-1 relative overflow-hidden bg-black">
@@ -451,17 +451,11 @@ function PlanetPageContent({ params }: { params: { id: string } }) {
             </div>
           )}
 
-          {/* Bottom nav bar — inside left panel */}
-          <div className="absolute bottom-0 left-0 right-0 z-40 h-11 border-t border-white/6 bg-black/75 backdrop-blur-sm flex items-center justify-between gap-3 px-5">
+          {/* Era caption — the way back now lives in the header, on every width */}
+          <div className="absolute bottom-0 left-0 right-0 z-40 h-11 border-t border-white/6 bg-black/75 backdrop-blur-sm flex items-center px-5">
             <span className="text-[9px] tracking-[0.18em] text-white/30 font-space uppercase truncate min-w-0">
               {figureEra ? `${t('temporalLink', missionLang)} · ${figureEra}` : `${t('planetLabel', missionLang)} · ${label.toUpperCase()}`}
             </span>
-            <button
-              onClick={() => router.push(classId ? `/landscape?classId=${classId}` : '/landscape')}
-              className="flex items-center gap-1.5 text-[9px] tracking-[0.15em] font-space text-white/30 hover:text-white/60 transition-colors uppercase whitespace-nowrap shrink-0"
-            >
-              {t('backToLandscape', missionLang)}
-            </button>
           </div>
         </div>
 

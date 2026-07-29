@@ -3,7 +3,7 @@ import { Suspense, useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
-import TopBar from '@/components/TopBar';
+import StudentHeader from '@/components/StudentHeader';
 import OrinOrb from '@/components/OrinOrb';
 import { t } from '@/lib/i18n';
 import Planet from '@/components/Planet';
@@ -443,7 +443,14 @@ function LandscapeContent() {
               ))}
             </svg>
 
-            <TopBar left={`${missionLabel} · ${bigIdea.toUpperCase()}`} showHome={!isPreview} showStore={!isPreview} lang={uiLang} />
+            <StudentHeader
+              back={isPreview ? undefined : { label: 'backHome', href: '/home' }}
+              context={`${missionLabel} · ${bigIdea.toUpperCase()}`}
+              store={isPreview ? 'hidden' : 'compact'}
+              storeOriginLabel="backMissionMap"
+              wordmarkLinksHome={!isPreview}
+              lang={uiLang}
+            />
 
             {/* Review-mode indicator */}
             {isReview && (
@@ -504,7 +511,7 @@ function LandscapeContent() {
             )}
 
             {/* ── Main layout — stacked on phones, side-by-side from lg ───── */}
-            <div className="flex flex-col lg:flex-row flex-1 pt-14 min-h-0 overflow-hidden">
+            <div className="flex flex-col lg:flex-row flex-1 min-h-0 overflow-hidden">
 
               {/* ── Planet field ──────────────────────────────────────────── */}
               <div className="flex-1 relative">

@@ -1,10 +1,22 @@
 'use client';
+import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import StarField from '@/components/StarField';
-import TopBar from '@/components/TopBar';
+import StudentHeader from '@/components/StudentHeader';
 import Store from '@/components/Store';
+import { resolveStoreOrigin } from '@/lib/store-origin';
+import { t } from '@/lib/i18n';
 
-export default function StorePage() {
+function StorePageContent() {
+  const params = useSearchParams();
+  // Where the student came from, carried in the URL so a refresh keeps it.
+  const origin = resolveStoreOrigin({
+    from: params.get('from'),
+    label: params.get('label'),
+    lang: params.get('lang'),
+  });
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -13,11 +25,25 @@ export default function StorePage() {
       className="relative h-[100dvh] bg-black overflow-hidden flex flex-col"
     >
       <StarField count={80} seed={42} />
-      <TopBar left="✦ STORE" />
 
-      <div className="flex flex-1 flex-col pt-14 overflow-hidden">
+      <StudentHeader
+        back={{ label: origin.label, href: origin.href }}
+        context={t('storeLabel', origin.lang)}
+        store="readonly"
+        lang={origin.lang}
+      />
+
+      <div className="flex flex-1 flex-col overflow-hidden">
         <Store />
       </div>
     </motion.div>
+  );
+}
+
+export default function StorePage() {
+  return (
+    <Suspense fallback={null}>
+      <StorePageContent />
+    </Suspense>
   );
 }

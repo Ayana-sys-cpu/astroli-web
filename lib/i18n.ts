@@ -786,10 +786,76 @@ const strings = {
     en: 'MISSION SELECTION IN PROGRESS',
     he: 'בחירת המשימה בעיצומה',
   },
+
+  // ── Student header ──────────────────────────────────────────────────────────
+  navHome: {
+    en: 'Home',
+    he: 'בית',
+  },
+  navMaster: {
+    en: 'Master',
+    he: 'מאסטר',
+  },
+  backHome: {
+    en: '← Home',
+    he: '← בית',
+  },
+  backMaster: {
+    en: '← Master',
+    he: '← מאסטר',
+  },
+  backMissionMap: {
+    en: '← Mission map',
+    he: '← מפת המשימה',
+  },
+  backPlanet: {
+    en: '← Planet',
+    he: '← כוכב',
+  },
+  backMissionSelection: {
+    en: '← Mission selection',
+    he: '← בחירת משימה',
+  },
+  backMissions: {
+    en: '← Missions',
+    he: '← משימות',
+  },
+  storeLabel: {
+    en: 'Store',
+    he: 'חנות',
+  },
+  storeAriaLabel: {
+    en: 'Open store',
+    he: 'פתח חנות',
+  },
+  coinBalanceAriaLabel: {
+    en: 'Coin balance',
+    he: 'יתרת מטבעות',
+  },
 } as const;
 
 type StringKey = keyof typeof strings;
 
 export function t(key: StringKey, lang: Lang): string {
   return strings[key][lang];
+}
+
+/** The six back-label keys the student header accepts. */
+export const BACK_LABEL_KEYS = [
+  'backHome',
+  'backMaster',
+  'backMissionMap',
+  'backPlanet',
+  'backMissionSelection',
+  'backMissions',
+] as const;
+
+export type BackLabelKey = (typeof BACK_LABEL_KEYS)[number];
+
+export function isBackLabelKey(value: unknown): value is BackLabelKey {
+  return typeof value === 'string' && (BACK_LABEL_KEYS as readonly string[]).includes(value);
+}
+
+export function isLang(value: unknown): value is Lang {
+  return value === 'en' || value === 'he';
 }

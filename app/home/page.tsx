@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
 import JourneyCard from '@/components/student/JourneyCard';
-import TopBar from '@/components/TopBar';
+import StudentHeader from '@/components/StudentHeader';
 import { getFirstName, saveFirstName } from '@/lib/student-store';
 import { greetingLanguageForName } from '@/lib/display-name';
 import { t, type Lang } from '@/lib/i18n';
@@ -114,20 +114,23 @@ export default function HomePage() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6 }}
-      className="relative min-h-screen bg-black overflow-hidden"
+      className="relative min-h-screen bg-black"
     >
-      <StarField count={130} seed={33} />
+      {/* Decoration is clipped here, not on the root — any overflow on an
+          ancestor of the header cancels its sticky positioning. */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <StarField count={130} seed={33} />
+        <div
+          className="absolute inset-0"
+          style={{
+            background: 'radial-gradient(ellipse at 15% -10%, rgba(123,47,190,0.12) 0%, transparent 55%), radial-gradient(ellipse at 90% 100%, rgba(0,245,212,0.07) 0%, transparent 55%)',
+          }}
+        />
+      </div>
 
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: 'radial-gradient(ellipse at 15% -10%, rgba(123,47,190,0.12) 0%, transparent 55%), radial-gradient(ellipse at 90% 100%, rgba(0,245,212,0.07) 0%, transparent 55%)',
-        }}
-      />
+      <StudentHeader nav="home" store="full" storeOriginLabel="backHome" initials={firstName[0]?.toUpperCase() ?? 'A'} lang={lang} />
 
-      <TopBar showStore left="" initials={firstName[0]?.toUpperCase() ?? 'A'} lang={lang} />
-
-      <div className="relative z-10 mt-11 px-5 sm:px-7 py-8 max-w-6xl mx-auto">
+      <div className="relative z-10 px-5 sm:px-7 py-8 max-w-6xl mx-auto">
         <p className="font-caveat text-3xl text-white/80 mb-1" dir={greetingLang === 'he' ? 'rtl' : 'ltr'}>{t('welcomeBack', greetingLang).replace('{name}', firstName)}</p>
         <p className="text-[10px] tracking-[0.28em] font-space uppercase text-white/30 mb-8">
           {!journeys ? t('syncingJourneys', lang) : journeys.length === 0 ? t('journeyAwaits', lang) : journeys.length === 1 ? t('journeysCountOne', lang) : t('journeysCountMany', lang).replace('{n}', String(journeys.length))}

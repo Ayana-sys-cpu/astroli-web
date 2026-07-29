@@ -4,7 +4,7 @@ import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
-import TopBar from '@/components/TopBar';
+import StudentHeader from '@/components/StudentHeader';
 import OrinOrb from '@/components/OrinOrb';
 import { getFirstName } from '@/lib/student-store';
 import { useCoinReward } from '@/hooks/useCoinReward';
@@ -220,29 +220,37 @@ function VotePageContent() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6 }}
-      className="relative min-h-screen bg-black overflow-hidden flex flex-col"
+      className="relative min-h-screen bg-black flex flex-col"
     >
-      <StarField count={120} seed={77} />
-
-      {/* Nebula background */}
-      <motion.div
-        className="absolute pointer-events-none"
-        style={{
-          inset: '-25%',
-          background: 'radial-gradient(ellipse at 60% 40%, rgba(124,58,237,0.10) 0%, rgba(255,0,128,0.05) 40%, transparent 65%)',
-        }}
-        animate={{ x: ['-4%', '4%', '-4%'], y: ['-3%', '3%', '-3%'] }}
-        transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
-      />
-
-      {/* Scan line */}
+      {/* Decoration is clipped here, not on the root — overflow on an ancestor
+          of the header cancels its sticky positioning. */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-[1]">
+        <StarField count={120} seed={77} />
+
+        {/* Nebula background */}
+        <motion.div
+          className="absolute"
+          style={{
+            inset: '-25%',
+            background: 'radial-gradient(ellipse at 60% 40%, rgba(124,58,237,0.10) 0%, rgba(255,0,128,0.05) 40%, transparent 65%)',
+          }}
+          animate={{ x: ['-4%', '4%', '-4%'], y: ['-3%', '3%', '-3%'] }}
+          transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
+        />
+
+        {/* Scan line */}
         <div className="scan-line" />
       </div>
 
-      <TopBar left={t('voteTopBar', lang)} lang={lang} />
+      <StudentHeader
+        back={{ label: 'backHome', href: '/home' }}
+        context={t('voteTopBar', lang)}
+        storeOriginLabel="backMissionSelection"
+        initials={firstName[0]?.toUpperCase() ?? 'A'}
+        lang={lang}
+      />
 
-      <div className="relative z-10 flex-1 flex flex-col items-center pt-20 pb-10 px-5 gap-6 max-w-2xl mx-auto w-full">
+      <div className="relative z-10 flex-1 flex flex-col items-center pt-6 pb-10 px-5 gap-6 max-w-2xl mx-auto w-full">
 
         {/* Header */}
         <motion.div

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import StarField from '@/components/StarField';
-import TopBar from '@/components/TopBar';
+import StudentHeader from '@/components/StudentHeader';
 import { loadStudent } from '@/lib/student-store';
 import { GUIDE_NAME } from '@/lib/guide';
 
@@ -158,14 +158,14 @@ export default function PendingJourneyPage() {
         <div className="scan-line" />
       </div>
 
-      <TopBar left="" />
+      <StudentHeader back={{ label: 'backHome', href: '/home' }} storeOriginLabel="backHome" />
 
       {/* ── Main staggered content ─────────────────────────────────────── */}
       <motion.div
         variants={container}
         initial="hidden"
         animate="visible"
-        className="relative z-10 flex-1 flex flex-col items-center justify-center gap-7 pt-14 px-6"
+        className="relative z-10 flex-1 flex flex-col items-center justify-center gap-7 px-6"
       >
         {/* ── BIG HEADLINE ──────────────────────────────────────────────── */}
         <motion.div variants={item} className="text-center leading-[0.92] select-none">

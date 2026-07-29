@@ -2,6 +2,7 @@
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import StarField from '@/components/StarField';
+import StudentHeader from '@/components/StudentHeader';
 import SavedShelf, { type SavedTile } from './SavedShelf';
 import SearchBar from './SearchBar';
 
@@ -84,21 +85,9 @@ function MasterHub() {
     <main className="relative min-h-screen" style={{ background: 'var(--master-ink)' }}>
       <StarField count={90} seed={7} />
 
-      <div className="relative mx-auto max-w-5xl px-6 py-6">
-        <header className="mb-10 flex items-center justify-between">
-          <span
-            className="text-[15px] tracking-[0.14em] text-white"
-            style={{ fontFamily: 'var(--font-space)', fontWeight: 700 }}
-          >
-            ASTROLI
-          </span>
-          <nav className="flex gap-5 text-[13px]" style={{ fontFamily: 'var(--font-space)' }}>
-            <a href="/home" style={{ color: 'var(--master-text-muted)' }}>Home</a>
-            <span style={{ color: 'var(--color-teal)', fontWeight: 700 }}>Master</span>
-            <a href="/store" style={{ color: 'var(--master-text-muted)' }}>Store</a>
-          </nav>
-        </header>
+      <StudentHeader nav="master" store="full" storeOriginLabel="backMaster" />
 
+      <div className="relative mx-auto max-w-5xl px-6 pt-10 pb-6">
         <SearchBar
           onSubmit={(topic) => startDive({ origin: 'search', topic })}
           busy={starting}

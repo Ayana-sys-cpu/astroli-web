@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import StarField from '@/components/StarField';
+import StudentHeader from '@/components/StudentHeader';
 import type { DiveTurn, Segment } from '@/lib/orin-dive';
 import ChatPane from './ChatPane';
 import MediaCanvas from './MediaCanvas';
@@ -96,19 +97,13 @@ export default function DivePage() {
   );
 
   return (
-    <main className="relative h-screen overflow-hidden" style={{ background: 'var(--master-ink)' }}>
+    <main className="relative flex h-screen flex-col overflow-hidden" style={{ background: 'var(--master-ink)' }}>
       <StarField count={60} seed={11} />
 
-      <div className="relative mx-auto flex h-full max-w-6xl flex-col px-6 py-5">
-        <div className="mb-3 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => router.push('/master')}
-            className="text-[12px]"
-            style={{ color: 'var(--master-text-muted)', fontFamily: 'var(--font-space)' }}
-          >
-            ← Master
-          </button>
+      <StudentHeader back={{ label: 'backMaster', href: '/master' }} storeOriginLabel="backMaster" />
+
+      <div className="relative mx-auto flex min-h-0 flex-1 w-full max-w-6xl flex-col px-6 pb-5 pt-4">
+        <div className="mb-3 flex items-center justify-end">
           <button
             type="button"
             onClick={keepDive}

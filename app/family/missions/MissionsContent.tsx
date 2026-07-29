@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, useReducedMotion } from 'framer-motion';
 import StarField from '@/components/StarField';
+import StudentHeader from '@/components/StudentHeader';
 import MissionPlanet from './MissionPlanet';
 import WarpOverlay from './WarpOverlay';
 
@@ -118,17 +119,13 @@ export default function FamilyMissionsContent() {
       {/* Warp animation — covers everything */}
       <WarpOverlay active={warping} onComplete={() => {}} />
 
-      <header className="relative z-10 flex items-center px-7 py-4 border-b border-white/8">
-        <button
-          onClick={() => router.push('/home')}
-          className="font-space font-black text-sm tracking-[0.22em] gradient-wordmark"
-          aria-label="Go to home"
-        >
-          ASTROLI
-        </button>
-      </header>
+      <StudentHeader
+        back={{ label: 'backHome', href: '/home' }}
+        storeOriginLabel="backMissions"
+        lang={language}
+      />
 
-      <div className="relative z-10 flex flex-col items-center px-6 pt-10 pb-16 min-h-[calc(100dvh-57px)]">
+      <div className="relative z-10 flex flex-col items-center px-6 pt-10 pb-16 min-h-0">
         {/* Heading */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}

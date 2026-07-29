@@ -52,7 +52,10 @@ html, body {
   padding: 0;
   background: #000;
   color: #fff;
-  overflow-x: hidden;
+  /* clip, not hidden: `hidden` makes html a scroll container, which silently
+     cancels `position: sticky` on the student header. `clip` blocks sideways
+     overflow the same way without creating a scrollport. */
+  overflow-x: clip;
 }
 
 /* ─── Mobile / touch foundations ─────────────────────────────────────────
