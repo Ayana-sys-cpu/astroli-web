@@ -16,6 +16,9 @@ export async function POST(req: NextRequest) {
   const origin = body?.origin as string | undefined;
   const editId = body?.edit_id as string | undefined;
   const rawTopic = typeof body?.topic === 'string' ? body.topic.trim() : '';
+  // Web clients open the dive screen straight away and let it ask for Orin's
+  // opening there, so nobody waits on a button. Mobile still wants it inline.
+  const defer = body?.defer === true;
 
   if (!origin || !VALID_ORIGINS.has(origin)) {
     return NextResponse.json({ error: 'origin must be edit, search or chip' }, { status: 400 });
@@ -60,6 +63,8 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (existing) {
+      if (defer) return NextResponse.json({ session: existing });
+
       const { data: opening } = await supabaseAdmin
         .from('master_dive_messages')
         .select('segments')
@@ -84,6 +89,8 @@ export async function POST(req: NextRequest) {
   if (sessionError || !session) {
     return NextResponse.json({ error: 'Could not start that exploration' }, { status: 500 });
   }
+
+  if (defer) return NextResponse.json({ session }, { status: 201 });
 
   const segments = await askOrin({ topic, history: [], editMedia });
   if (!segments) {

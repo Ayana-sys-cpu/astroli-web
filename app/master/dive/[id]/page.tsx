@@ -24,12 +24,35 @@ export default function DivePage() {
         if (!res.ok) { setTurns([]); return; }
         const data = await res.json();
         setTopic(data.session?.topic ?? '');
-        setTurns(data.messages ?? []);
+        const messages: DiveTurn[] = data.messages ?? [];
+        setTurns(messages);
+        // The dive was opened the moment it was created, so Orin may not have
+        // written yet — ask for his opening here, where the student can watch
+        // it arrive instead of waiting on the button they pressed.
+        if (messages.length === 0) await fetchOpening();
       } catch {
         setTurns([]);
       }
     })();
-  }, [id, router]);
+  }, [id, router]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fetchOpening = useCallback(async () => {
+    setSending(true);
+    setRecharging(false);
+    try {
+      const res = await fetch(`/api/master/dive/${id}/opening`, { method: 'POST' });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.segments) {
+        setTurns([{ role: 'orin', segments: data.segments }]);
+      } else {
+        setRecharging(true);
+      }
+    } catch {
+      setRecharging(true);
+    } finally {
+      setSending(false);
+    }
+  }, [id]);
 
   const send = useCallback(async (text: string) => {
     setSending(true);

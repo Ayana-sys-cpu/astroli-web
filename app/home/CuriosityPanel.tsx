@@ -72,7 +72,7 @@ export default function CuriosityPanel({ lang }: { lang: Lang }) {
       const res = await fetch('/api/master/dive', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ origin: 'edit', edit_id: edit.id }),
+        body: JSON.stringify({ origin: 'edit', edit_id: edit.id, defer: true }),
       });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.session?.id) {

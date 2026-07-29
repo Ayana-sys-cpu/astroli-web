@@ -52,7 +52,7 @@ function MasterHub() {
       const res = await fetch('/api/master/dive', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ ...body, defer: true }),
       });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.session?.id) {

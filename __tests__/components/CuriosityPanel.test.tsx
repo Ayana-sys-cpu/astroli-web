@@ -98,7 +98,8 @@ describe('CuriosityPanel — an edit to explore', () => {
 
     const [url, init] = fetchMock.mock.calls.find(([u]) => String(u).includes('/api/master/dive'))!;
     expect(url).toBe('/api/master/dive');
-    expect(JSON.parse((init as RequestInit).body as string)).toEqual({ origin: 'edit', edit_id: 'edit-1' });
+    // defer: the dive screen opens straight away and asks Orin for the opening there.
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({ origin: 'edit', edit_id: 'edit-1', defer: true });
     await waitFor(() => expect(push).toHaveBeenCalledWith('/master/dive/session-9'));
   });
 
