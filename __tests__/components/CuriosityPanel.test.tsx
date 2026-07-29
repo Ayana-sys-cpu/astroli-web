@@ -50,6 +50,21 @@ describe('CuriosityPanel — behind the flag', () => {
 
     await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
+
+  it('appears once a retry succeeds — a first unauthorized answer is not final', async () => {
+    // Straight after sign-in the session cookie can lag the first request.
+    let call = 0;
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      call += 1;
+      return call === 1
+        ? ({ ok: false, status: 401, json: async () => ({ error: 'Unauthorized' }) } as Response)
+        : ({ ok: true, json: async () => ({ enabled: true, edit: EDIT }) } as Response);
+    }));
+
+    render(<CuriosityPanel lang="en" />);
+
+    expect(await screen.findByText('Octopuses have three hearts.', {}, { timeout: 4000 })).toBeInTheDocument();
+  });
 });
 
 describe('CuriosityPanel — nothing to show', () => {

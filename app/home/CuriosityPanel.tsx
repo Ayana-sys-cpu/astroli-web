@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation';
 import { t, type Lang } from '@/lib/i18n';
 import CuriosityEditCard, { type CuriosityEdit } from './CuriosityEditCard';
 
+const RETRY_MS = 1200;
+
 /**
  * The doorway into Master, sitting beside the student's journeys.
  *
@@ -19,21 +21,47 @@ export default function CuriosityPanel({ lang }: { lang: Lang }) {
   const [diveError, setDiveError] = useState<string | null>(null);
 
   // Once per page load — the edit never rotates while the student is here.
+  //
+  // Straight after sign-in the session cookie can lag the first render, so this
+  // request comes back unauthorized and the panel would be hidden for the whole
+  // visit. Retry a couple of times, and again when the student comes back to
+  // the tab, until one attempt actually answers.
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    let timer: ReturnType<typeof setTimeout>;
+    let settled = false;
+
+    const attempt = async (): Promise<boolean> => {
       try {
         const res = await fetch('/api/master/spotlight');
-        if (!res.ok) return;
+        if (!res.ok || cancelled) return false;
         const data = await res.json();
-        if (cancelled) return;
+        if (cancelled) return false;
         setEnabled(!!data.enabled);
         setEdit(data.edit ?? null);
+        return true;
       } catch {
-        // The invitation alone is already a correct panel.
+        return false;
       }
-    })();
-    return () => { cancelled = true; };
+    };
+
+    const run = async (retriesLeft: number) => {
+      if (cancelled || settled) return;
+      settled = await attempt();
+      if (!settled && retriesLeft > 0 && !cancelled) {
+        timer = setTimeout(() => run(retriesLeft - 1), RETRY_MS);
+      }
+    };
+
+    const onFocus = () => { if (!settled) run(1); };
+
+    run(2);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      window.removeEventListener('focus', onFocus);
+    };
   }, []);
 
   const exploreThis = async () => {
