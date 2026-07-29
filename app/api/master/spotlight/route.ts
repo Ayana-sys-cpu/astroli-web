@@ -7,6 +7,19 @@ import type { EditType, FeedEdit } from '@/lib/feed-scoring';
 const EDIT_FIELDS =
   'id, edit_type, planet_id, interest_theme, hook, body, bridge, media_url, media_type, media_credit';
 
+/**
+ * Comma-separated emails allowed to see the panel while it is behind the flag.
+ * Unset = nobody sees it. Remove the gate to launch it to every student.
+ */
+function isAllowed(email: string | null): boolean {
+  if (!email) return false;
+  const allowlist = (process.env.CURIOSITY_PANEL_EMAILS ?? '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  return allowlist.includes(email.toLowerCase());
+}
+
 export interface SpotlightEdit {
   id: string;
   edit_type: EditType;
@@ -26,22 +39,31 @@ export interface SpotlightEdit {
  *
  * Read-only by design — no impression is recorded, so the panel never silently
  * consumes feed content and collects nothing about the student.
+ *
+ * Behind an allowlist flag while it is being tried out: everyone else gets
+ * `enabled: false` and no panel at all. Allowlisted previewers also see edits
+ * still awaiting publication, so the panel is never empty while the library is
+ * unpublished — students never do.
  */
 export async function GET(req: NextRequest) {
   const studentId = await resolveStudentIdFromRequest(req);
   if (!studentId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
+    const preview = isAllowed(await loadEmail(studentId));
+    if (!preview) return NextResponse.json({ enabled: false, edit: null });
+
     const [journeyPlanetIds, interestTheme, seenEditIds] = await Promise.all([
       loadJourneyPlanetIds(studentId),
       loadInterestTheme(studentId),
       loadSeenEditIds(studentId),
     ]);
 
-    let candidates = await loadLiveEdits(journeyPlanetIds);
-    if (candidates.length === 0 && journeyPlanetIds.length > 0) {
-      candidates = await loadLiveEdits([]);
-    }
+    // Widen the net until something is found: this student's journey, then the
+    // whole published library, then — for previewers only — unpublished edits.
+    let candidates = await loadEdits(journeyPlanetIds, false);
+    if (candidates.length === 0) candidates = await loadEdits([], false);
+    if (candidates.length === 0 && preview) candidates = await loadEdits([], true);
 
     const scored = scoreCandidates(candidates, {
       activePlanetId: journeyPlanetIds[0] ?? null,
@@ -50,8 +72,9 @@ export async function GET(req: NextRequest) {
       engagementCounts: { did_you_know: 0, inspiring_human: 0, real_world_connection: 0 },
     });
 
-    const top = scored[0];
-    if (!top) return NextResponse.json({ edit: null });
+    // Everything already seen is better than an empty panel — show it again.
+    const top = scored[0] ?? candidates[0];
+    if (!top) return NextResponse.json({ enabled: true, edit: null });
 
     const edit: SpotlightEdit = {
       id: top.id,
@@ -61,20 +84,27 @@ export async function GET(req: NextRequest) {
       media_type: top.media_type,
       media_credit: top.media_credit,
     };
-    return NextResponse.json({ edit });
+    return NextResponse.json({ enabled: true, edit });
   } catch {
     // The panel's empty state is always a correct screen — never fail the home page.
-    return NextResponse.json({ edit: null });
+    return NextResponse.json({ enabled: true, edit: null });
   }
 }
 
-/** Newest first, so recency breaks ties once the scorer has ranked by relevance. */
-async function loadLiveEdits(planetIds: string[]): Promise<FeedEdit[]> {
-  const query = supabaseAdmin
+/**
+ * Newest first, so recency breaks ties once the scorer has ranked by relevance.
+ * `unpublished` widens to draft edits — preview only, and only ones that have
+ * passed the safety check, since this content is read by minors.
+ */
+async function loadEdits(planetIds: string[], unpublished: boolean): Promise<FeedEdit[]> {
+  let query = supabaseAdmin
     .from('feed_edits')
     .select(EDIT_FIELDS)
-    .eq('status', 'live')
     .order('created_at', { ascending: false });
+
+  query = unpublished
+    ? query.eq('status', 'draft').eq('safety_pass', true)
+    : query.eq('status', 'live');
 
   const { data } = planetIds.length > 0 ? await query.in('planet_id', planetIds) : await query;
   return (data ?? []) as FeedEdit[];
@@ -105,6 +135,16 @@ async function loadJourneyPlanetIds(studentId: string): Promise<string[]> {
     .order('order', { ascending: true });
 
   return (planets ?? []).map((p: { id: string }) => p.id);
+}
+
+async function loadEmail(studentId: string): Promise<string | null> {
+  const { data } = await supabaseAdmin
+    .from('users')
+    .select('email')
+    .eq('id', studentId)
+    .maybeSingle();
+
+  return (data as { email?: string | null } | null)?.email ?? null;
 }
 
 async function loadInterestTheme(studentId: string): Promise<string | null> {

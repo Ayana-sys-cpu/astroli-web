@@ -27,11 +27,17 @@ export default function CuriosityEditCard({ edit, ctaLabel, busy, onExplore }: P
   const pill = PILLS[edit.edit_type];
 
   return (
-    <div className="relative w-full overflow-hidden rounded-[9px]" style={{ aspectRatio: '9 / 16' }}>
+    // Portrait like the feed, but capped so it never runs past the fold beside the journeys.
+    <div
+      className="relative w-full overflow-hidden rounded-[9px]"
+      style={{ aspectRatio: '9 / 16', maxHeight: '68vh' }}
+    >
       {edit.media_type === 'video' ? (
         <video
           src={edit.media_url}
+          autoPlay
           muted
+          loop
           playsInline
           preload="metadata"
           aria-label={edit.hook}

@@ -14,6 +14,7 @@ import CuriosityEditCard, { type CuriosityEdit } from './CuriosityEditCard';
 export default function CuriosityPanel({ lang }: { lang: Lang }) {
   const router = useRouter();
   const [edit, setEdit] = useState<CuriosityEdit | null>(null);
+  const [enabled, setEnabled] = useState(false);
   const [starting, setStarting] = useState(false);
   const [diveError, setDiveError] = useState<string | null>(null);
 
@@ -25,7 +26,9 @@ export default function CuriosityPanel({ lang }: { lang: Lang }) {
         const res = await fetch('/api/master/spotlight');
         if (!res.ok) return;
         const data = await res.json();
-        if (!cancelled) setEdit(data.edit ?? null);
+        if (cancelled) return;
+        setEnabled(!!data.enabled);
+        setEdit(data.edit ?? null);
       } catch {
         // The invitation alone is already a correct panel.
       }
@@ -56,6 +59,9 @@ export default function CuriosityPanel({ lang }: { lang: Lang }) {
       setStarting(false);
     }
   };
+
+  // Behind the flag the panel does not exist for this student — no label, no gap.
+  if (!enabled) return null;
 
   return (
     <section>

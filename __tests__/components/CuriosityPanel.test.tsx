@@ -20,7 +20,7 @@ function mockFetch(handlers: { spotlight?: unknown; dive?: { status: number; bod
   const fetchMock = vi.fn(async (url: string) => {
     if (String(url).includes('/api/master/spotlight')) {
       if (handlers.spotlight === 'reject') throw new Error('offline');
-      return { ok: true, json: async () => handlers.spotlight ?? { edit: null } } as Response;
+      return { ok: true, json: async () => handlers.spotlight ?? { enabled: true, edit: null } } as Response;
     }
     const dive = handlers.dive ?? { status: 201, body: { session: { id: 'session-9' } } };
     return {
@@ -36,31 +36,37 @@ function mockFetch(handlers: { spotlight?: unknown; dive?: { status: number; bod
 beforeEach(() => { push.mockClear(); });
 afterEach(() => { vi.unstubAllGlobals(); });
 
-describe('CuriosityPanel — nothing to show', () => {
-  it('renders the label and the invitation, with no card and no skeleton', async () => {
-    mockFetch({ spotlight: { edit: null } });
-    render(<CuriosityPanel lang="en" />);
+describe('CuriosityPanel — behind the flag', () => {
+  it('renders nothing at all for a student it is not enabled for', async () => {
+    mockFetch({ spotlight: { enabled: false, edit: null } });
+    const { container } = render(<CuriosityPanel lang="en" />);
 
-    expect(screen.getByText("WHILE YOU'RE HERE")).toBeInTheDocument();
-    const invitation = screen.getByText('or explore anything →');
-    expect(invitation).toHaveAttribute('href', '/master?focus=search');
-
-    await waitFor(() => expect(screen.queryByRole('img')).not.toBeInTheDocument());
-    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
 
-  it('still renders the invitation when the request fails', async () => {
+  it('renders nothing when the request fails — it fails closed', async () => {
     mockFetch({ spotlight: 'reject' });
+    const { container } = render(<CuriosityPanel lang="en" />);
+
+    await waitFor(() => expect(container).toBeEmptyDOMElement());
+  });
+});
+
+describe('CuriosityPanel — nothing to show', () => {
+  it('renders the label and the invitation, with no card and no skeleton', async () => {
+    mockFetch({ spotlight: { enabled: true, edit: null } });
     render(<CuriosityPanel lang="en" />);
 
-    await waitFor(() => expect(screen.getByText('or explore anything →')).toBeInTheDocument());
+    expect(await screen.findByText("WHILE YOU'RE HERE")).toBeInTheDocument();
+    expect(screen.getByText('or explore anything →')).toHaveAttribute('href', '/master?focus=search');
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 });
 
 describe('CuriosityPanel — an edit to explore', () => {
   it('renders the edit with its type pill and hook', async () => {
-    mockFetch({ spotlight: { edit: EDIT } });
+    mockFetch({ spotlight: { enabled: true, edit: EDIT } });
     render(<CuriosityPanel lang="en" />);
 
     expect(await screen.findByText('Octopuses have three hearts.')).toBeInTheDocument();
@@ -70,7 +76,7 @@ describe('CuriosityPanel — an edit to explore', () => {
   });
 
   it('starts a dive on that edit and opens it, skipping the hub', async () => {
-    const fetchMock = mockFetch({ spotlight: { edit: EDIT } });
+    const fetchMock = mockFetch({ spotlight: { enabled: true, edit: EDIT } });
     render(<CuriosityPanel lang="en" />);
 
     await userEvent.click(await screen.findByRole('button', { name: 'Explore this →' }));
@@ -82,7 +88,7 @@ describe('CuriosityPanel — an edit to explore', () => {
   });
 
   it('starts only one dive when the button is pressed twice', async () => {
-    const fetchMock = mockFetch({ spotlight: { edit: EDIT } });
+    const fetchMock = mockFetch({ spotlight: { enabled: true, edit: EDIT } });
     render(<CuriosityPanel lang="en" />);
 
     const cta = await screen.findByRole('button', { name: 'Explore this →' });
@@ -94,7 +100,7 @@ describe('CuriosityPanel — an edit to explore', () => {
   });
 
   it('says Orin is recharging instead of navigating when he is unavailable', async () => {
-    mockFetch({ spotlight: { edit: EDIT }, dive: { status: 503, body: { error: 'orin_recharging' } } });
+    mockFetch({ spotlight: { enabled: true, edit: EDIT }, dive: { status: 503, body: { error: 'orin_recharging' } } });
     render(<CuriosityPanel lang="en" />);
 
     await userEvent.click(await screen.findByRole('button', { name: 'Explore this →' }));
@@ -105,7 +111,7 @@ describe('CuriosityPanel — an edit to explore', () => {
   });
 
   it('offers a retry when the dive fails for any other reason', async () => {
-    mockFetch({ spotlight: { edit: EDIT }, dive: { status: 500, body: { error: 'nope' } } });
+    mockFetch({ spotlight: { enabled: true, edit: EDIT }, dive: { status: 500, body: { error: 'nope' } } });
     render(<CuriosityPanel lang="en" />);
 
     await userEvent.click(await screen.findByRole('button', { name: 'Explore this →' }));
@@ -115,7 +121,7 @@ describe('CuriosityPanel — an edit to explore', () => {
   });
 
   it('never refetches while the student stays on the page', async () => {
-    const fetchMock = mockFetch({ spotlight: { edit: EDIT } });
+    const fetchMock = mockFetch({ spotlight: { enabled: true, edit: EDIT } });
     render(<CuriosityPanel lang="en" />);
 
     await screen.findByText('Octopuses have three hearts.');
