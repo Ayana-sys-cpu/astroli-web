@@ -433,19 +433,10 @@ export default function Store() {
             background: 'linear-gradient(90deg, #1a0a3a 0%, #0d0d1a 100%)',
             borderBottom: '1px solid rgba(124,58,237,0.18)', flexShrink: 0,
           }}>
+            {/* The balance lives in the header pill only — one counter per screen. */}
             <span style={{ fontSize: '16px', fontWeight: 500, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
               {CATEGORY_LABELS[activeCategory]}
             </span>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '5px',
-              background: 'rgba(212,160,23,0.14)', border: '1px solid rgba(212,160,23,0.36)',
-              borderRadius: '20px', padding: '4px 12px',
-            }}>
-              <i className="ti ti-star-filled" style={{ fontSize: '13px', color: '#D4A017' }} />
-              <span style={{ fontSize: '14px', fontWeight: 500, color: '#fde68a' }}>
-                {loadFailed && sharedBalance === null && !storeState ? '—' : displayBalance}
-              </span>
-            </div>
           </div>
 
           {/* Equipped strip */}

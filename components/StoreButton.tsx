@@ -51,10 +51,12 @@ export default function StoreButton({ mode = 'full', lang = 'en', originLabel = 
   const content = (
     <>
       {mode === 'full' && <span style={{ color: TEAL }}>{t('storeLabel', lang)}</span>}
-      {pillBalance !== null && (
+      {/* On /store this is the only balance on screen, so an unknown balance
+          shows a dash rather than vanishing. */}
+      {(pillBalance !== null || mode === 'readonly') && (
         <span className="flex items-center gap-1" style={{ color: '#FFFFFF', fontWeight: 500 }}>
           <i className="ti ti-coins" style={{ fontSize: '14px', color: TEAL }} aria-hidden="true" />
-          {pillBalance}
+          {pillBalance ?? '—'}
         </span>
       )}
     </>
