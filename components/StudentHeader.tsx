@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { getFirstName, clearSession } from '@/lib/student-store';
 import { supabaseSignOut } from '@/lib/session';
 import StoreButton, { type StoreButtonMode } from '@/components/StoreButton';
+import AstroliMark from '@/components/AstroliMark';
 import { t, type BackLabelKey, type Lang } from '@/lib/i18n';
 import type { ReactNode } from 'react';
 
@@ -35,7 +36,9 @@ interface StudentHeaderProps {
 
 const TEAL = '#00F5D4';
 const MAGENTA = '#FF3D9A';
-const WORDMARK_CLASS = 'font-space font-black text-xs sm:text-sm tracking-[0.22em] gradient-wordmark shrink-0';
+// Flat white, not the gradient: in persistent chrome the logo must be quieter
+// than the active-tab indicator. The gradient stays on marketing surfaces.
+const WORDMARK_CLASS = 'flex items-center gap-[7px] font-space font-black text-xs sm:text-sm tracking-[0.22em] text-white shrink-0';
 
 function initialFromLocalName(): string {
   return getFirstName().trim()[0]?.toUpperCase() ?? 'A';
@@ -111,10 +114,14 @@ export default function StudentHeader({
             className={WORDMARK_CLASS}
             aria-label="Go to home"
           >
+            <AstroliMark />
             ASTROLI
           </button>
         ) : (
-          <span className={WORDMARK_CLASS}>ASTROLI</span>
+          <span className={WORDMARK_CLASS}>
+            <AstroliMark />
+            ASTROLI
+          </span>
         )}
 
         {/* The outer button carries a full-bar-height tap area; the inner span
