@@ -130,3 +130,67 @@ describe('CoinRewardProvider — pill balance updates without requiring a claim 
     expect(screen.getByTestId('pill-balance').textContent).toBe('15');
   });
 });
+
+describe('CoinRewardProvider — the burst finds the pill', () => {
+  // claim() aims the burst at #coin-balance-pill via a raw DOM lookup. If that
+  // id ever moves or disappears, the animation silently degrades to an instant
+  // dismiss with no error — so assert the aim, not just that claiming works.
+  function rewardOf(overrides: Partial<CoinRewardResult> = {}): CoinRewardResult {
+    return { awarded: true, amount: 5, newBalance: 15, eventType: 'goal_completion', ...overrides };
+  }
+
+  it('animates toward the pill instead of dismissing instantly when the pill is on screen', async () => {
+    const onDismiss = vi.fn();
+    let trigger: ((r: CoinRewardResult) => void) | null = null;
+
+    render(
+      <CoinRewardProvider>
+        <StoreButton />
+        <TestConsumer onReady={fn => { trigger = fn; }} />
+      </CoinRewardProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId('pill-balance').textContent).toBe('10'));
+
+    act(() => { trigger!(rewardOf({ onDismiss })); });
+
+    expect(document.getElementById('coin-balance-pill')).not.toBeNull();
+
+    const claim = await screen.findByText('Claim Reward');
+    act(() => { claim.click(); });
+
+    // The burst is now flying. Dismissal only happens once it lands, so an
+    // immediate onDismiss would mean claim() failed to find its target.
+    expect(onDismiss).not.toHaveBeenCalled();
+  });
+
+  it('falls back to an instant dismiss on a screen with no pill', async () => {
+    const onDismiss = vi.fn();
+    let trigger: ((r: CoinRewardResult) => void) | null = null;
+
+    render(
+      <CoinRewardProvider>
+        <TestConsumer onReady={fn => { trigger = fn; }} />
+      </CoinRewardProvider>,
+    );
+
+    act(() => { trigger!(rewardOf({ onDismiss })); });
+    expect(document.getElementById('coin-balance-pill')).toBeNull();
+
+    const claim = await screen.findByText('Claim Reward');
+    act(() => { claim.click(); });
+
+    await waitFor(() => expect(onDismiss).toHaveBeenCalledTimes(1));
+  });
+
+  it('keeps the id on the pill in every visible store mode', async () => {
+    for (const mode of ['full', 'compact', 'readonly'] as const) {
+      const { unmount } = render(
+        <CoinRewardProvider>
+          <StoreButton mode={mode} />
+        </CoinRewardProvider>,
+      );
+      await waitFor(() => expect(document.getElementById('coin-balance-pill')).not.toBeNull());
+      unmount();
+    }
+  });
+});
