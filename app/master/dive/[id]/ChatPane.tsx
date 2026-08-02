@@ -1,16 +1,19 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import type { DiveTurn } from '@/lib/orin-dive';
+import type { DiveTurn, SourceEdit } from '@/lib/orin-dive';
+import SourceCard from './SourceCard';
 
 interface ChatPaneProps {
   topic: string;
+  /** The edit this dive came from, shown in full above the conversation. */
+  source?: SourceEdit | null;
   turns: DiveTurn[];
   sending: boolean;
   recharging: boolean;
   onSend: (text: string) => void;
 }
 
-export default function ChatPane({ topic, turns, sending, recharging, onSend }: ChatPaneProps) {
+export default function ChatPane({ topic, source = null, turns, sending, recharging, onSend }: ChatPaneProps) {
   const [draft, setDraft] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -39,6 +42,8 @@ export default function ChatPane({ topic, turns, sending, recharging, onSend }: 
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
+        {source && <SourceCard source={source} />}
+
         {turns.map((turn, i) =>
           turn.segments
             .filter((s) => s.type === 'text')

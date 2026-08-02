@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import StarField from '@/components/StarField';
 import StudentHeader from '@/components/StudentHeader';
-import type { DiveTurn, Segment } from '@/lib/orin-dive';
+import type { DiveTurn, Segment, SourceEdit } from '@/lib/orin-dive';
 import ChatPane from './ChatPane';
 import MediaCanvas from './MediaCanvas';
 
@@ -12,6 +12,7 @@ export default function DivePage() {
   const { id } = useParams<{ id: string }>();
 
   const [topic, setTopic] = useState('');
+  const [source, setSource] = useState<SourceEdit | null>(null);
   const [turns, setTurns] = useState<DiveTurn[] | null>(null);
   const [sending, setSending] = useState(false);
   const [recharging, setRecharging] = useState(false);
@@ -25,6 +26,7 @@ export default function DivePage() {
         if (!res.ok) { setTurns([]); return; }
         const data = await res.json();
         setTopic(data.session?.topic ?? '');
+        setSource(data.source ?? null);
         const messages: DiveTurn[] = data.messages ?? [];
         setTurns(messages);
         // The dive was opened the moment it was created, so Orin may not have
@@ -123,6 +125,7 @@ export default function DivePage() {
           <div className="grid min-h-0 flex-1 gap-5 md:grid-cols-[1fr_1.15fr]">
             <ChatPane
               topic={topic}
+              source={source}
               turns={turns}
               sending={sending}
               recharging={recharging}

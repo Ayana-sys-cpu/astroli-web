@@ -92,6 +92,29 @@ describe('POST /api/master/dive/[id]/opening', () => {
     expect(orin.mock.calls[0][0].editMedia).toMatchObject({ url: 'https://img/o.jpg', kind: 'image' });
   });
 
+  it('hands Orin the whole story, not just the headline', async () => {
+    state.session.edit_id = 'edit-1';
+    state.edit = {
+      hook: 'He rewrote how we read DNA.',
+      body: 'Har Gobind Khorana grew up in a village with no electricity.',
+      bridge: 'Every genome sequenced today leans on his work.',
+      media_url: null,
+      media_type: 'image',
+      media_credit: 'Someone',
+    };
+    await callRoute();
+    expect(orin.mock.calls[0][0].source).toEqual({
+      hook: 'He rewrote how we read DNA.',
+      body: 'Har Gobind Khorana grew up in a village with no electricity.',
+      bridge: 'Every genome sequenced today leans on his work.',
+    });
+  });
+
+  it('gives Orin no source card for a dive that started from a question', async () => {
+    await callRoute();
+    expect(orin.mock.calls[0][0].source).toBeNull();
+  });
+
   it('says Orin is recharging when he cannot answer', async () => {
     orin.mockResolvedValue(null);
     const { res, body } = await callRoute();

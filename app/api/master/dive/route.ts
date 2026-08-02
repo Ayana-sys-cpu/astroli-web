@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { resolveStudentIdFromRequest } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { askOrin } from '@/lib/orin-dive';
+import { loadDiveSource } from '@/lib/dive-source';
 
 export const maxDuration = 60;
 
@@ -31,25 +32,13 @@ export async function POST(req: NextRequest) {
   }
 
   let topic = rawTopic.slice(0, MAX_TOPIC_LENGTH);
-  let editMedia = null;
+  let source = null;
 
   if (origin === 'edit') {
-    const { data: edit } = await supabaseAdmin
-      .from('feed_edits')
-      .select('id, hook, media_url, media_type, media_credit')
-      .eq('id', editId!)
-      .maybeSingle();
-    if (!edit) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    source = await loadDiveSource(editId);
+    if (!source) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-    topic = edit.hook;
-    if (edit.media_url) {
-      editMedia = {
-        url: edit.media_url,
-        kind: edit.media_type === 'video' ? ('video' as const) : ('image' as const),
-        credit: edit.media_credit ?? 'Astroli',
-        title: edit.hook,
-      };
-    }
+    topic = source.edit.hook;
 
     // One live conversation per saved edit — reopening resumes where they left off.
     const { data: existing } = await supabaseAdmin
@@ -92,7 +81,7 @@ export async function POST(req: NextRequest) {
 
   if (defer) return NextResponse.json({ session }, { status: 201 });
 
-  const segments = await askOrin({ topic, history: [], editMedia });
+  const segments = await askOrin({ topic, history: [], editMedia: source?.media ?? null, source: source?.edit ?? null });
   if (!segments) {
     return NextResponse.json({ error: 'orin_recharging', session }, { status: 503 });
   }

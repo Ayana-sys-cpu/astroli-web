@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveStudentIdFromRequest } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase-server';
+import { loadDiveSource } from '@/lib/dive-source';
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const studentId = await resolveStudentIdFromRequest(req);
@@ -33,5 +34,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ error: 'Could not load that exploration' }, { status: 500 });
   }
 
-  return NextResponse.json({ session, messages: messages ?? [] });
+  // The edit the dive came from, so the screen can show the student the whole
+  // story they only saw a headline of on the card.
+  const source = await loadDiveSource(session.edit_id);
+
+  return NextResponse.json({ session, messages: messages ?? [], source: source?.edit ?? null });
 }

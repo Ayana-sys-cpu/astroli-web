@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { resolveStudentIdFromRequest } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { askOrin, type DiveTurn, type Segment } from '@/lib/orin-dive';
+import { loadDiveSource } from '@/lib/dive-source';
 
 export const maxDuration = 60;
 
@@ -43,7 +44,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     { role: 'student', segments: studentSegments },
   ];
 
-  const reply = await askOrin({ topic: session.topic, history: turns });
+  // Reloaded each turn so Orin keeps the person's name and the facts in front
+  // of him, instead of drifting once the opening scrolls out of the window.
+  const source = await loadDiveSource(session.edit_id);
+  const reply = await askOrin({ topic: session.topic, history: turns, source: source?.edit ?? null });
   if (!reply) {
     return NextResponse.json({ error: 'orin_recharging' }, { status: 503 });
   }

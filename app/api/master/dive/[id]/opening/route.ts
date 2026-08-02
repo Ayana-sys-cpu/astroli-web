@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { resolveStudentIdFromRequest } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { askOrin } from '@/lib/orin-dive';
+import { loadDiveSource } from '@/lib/dive-source';
 
 export const maxDuration = 60;
 
@@ -33,10 +34,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .maybeSingle();
   if (existing) return NextResponse.json({ segments: existing.segments });
 
+  const source = await loadDiveSource(session.edit_id);
   const segments = await askOrin({
     topic: session.topic,
     history: [],
-    editMedia: await loadEditMedia(session.edit_id),
+    editMedia: source?.media ?? null,
+    source: source?.edit ?? null,
   });
   if (!segments) return NextResponse.json({ error: 'orin_recharging' }, { status: 503 });
 
@@ -47,21 +50,3 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({ segments }, { status: 201 });
 }
 
-/** A dive that started from an edit opens on that edit's own picture. */
-async function loadEditMedia(editId: string | null) {
-  if (!editId) return null;
-
-  const { data: edit } = await supabaseAdmin
-    .from('feed_edits')
-    .select('hook, media_url, media_type, media_credit')
-    .eq('id', editId)
-    .maybeSingle();
-
-  if (!edit?.media_url) return null;
-  return {
-    url: edit.media_url,
-    kind: edit.media_type === 'video' ? ('video' as const) : ('image' as const),
-    credit: edit.media_credit ?? 'Astroli',
-    title: edit.hook,
-  };
-}

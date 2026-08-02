@@ -31,45 +31,39 @@ export interface DiveTurn {
   segments: Segment[];
 }
 
-const SEGMENT_SCHEMA = {
+/**
+ * One reply = one message, optionally with one thing attached. Enforced here
+ * rather than asked for in the prompt: a stack of bubbles is the single
+ * complaint students and reviewers make about a chat that talks too much.
+ */
+const REPLY_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['segments'],
+  required: ['text'],
   properties: {
-    segments: {
-      type: 'array',
-      items: {
-        anyOf: [
-          {
-            type: 'object',
-            additionalProperties: false,
-            required: ['type', 'text'],
-            properties: {
-              type: { type: 'string', enum: ['text'] },
-              text: { type: 'string' },
-            },
+    text: { type: 'string', maxLength: 700 },
+    attachment: {
+      anyOf: [
+        {
+          type: 'object',
+          additionalProperties: false,
+          required: ['type', 'title', 'html'],
+          properties: {
+            type: { type: 'string', enum: ['visual'] },
+            title: { type: 'string' },
+            html: { type: 'string' },
           },
-          {
-            type: 'object',
-            additionalProperties: false,
-            required: ['type', 'title', 'html'],
-            properties: {
-              type: { type: 'string', enum: ['visual'] },
-              title: { type: 'string' },
-              html: { type: 'string' },
-            },
+        },
+        {
+          type: 'object',
+          additionalProperties: false,
+          required: ['type', 'search'],
+          properties: {
+            type: { type: 'string', enum: ['media_request'] },
+            search: { type: 'string' },
           },
-          {
-            type: 'object',
-            additionalProperties: false,
-            required: ['type', 'search'],
-            properties: {
-              type: { type: 'string', enum: ['media_request'] },
-              search: { type: 'string' },
-            },
-          },
-        ],
-      },
+        },
+      ],
     },
   },
 } as const;
@@ -80,18 +74,24 @@ Voice: warm, curious, a little awestruck by how the universe works. You talk lik
 
 You are exploring ONE topic with the student. Stay on it. If they ask about something unrelated to learning — personal questions about themselves or others, anything unsafe, anything off-topic — steer warmly back to the topic in one line and keep exploring.
 
-Every reply is a list of segments:
-- "text": one or two short conversational paragraphs. This is you talking. Always include at least one.
-- "visual": a self-contained interactive explainer as a complete HTML document. Use it when seeing the thing beats reading about it — a labelled cross-section, a simple simulation the student can drag, a chart that makes a comparison obvious.
-- "media_request": ask for a real photograph or diagram from Wikimedia Commons by giving a short search phrase (e.g. "erupting volcano lava"). Use when a real image of the actual thing helps.
+Every reply is one short message, optionally with one thing attached:
+- "text": this is you talking. One or two short paragraphs, no more — a student is reading on a phone. Plain words only: no markdown, no asterisks, no bullet lists.
+- "attachment" (optional, at most one):
+  - "visual": a self-contained interactive explainer as a complete HTML document. Use it when seeing the thing beats reading about it — a labelled cross-section, a simple simulation the student can drag, a chart that makes a comparison obvious.
+  - "media_request": ask for a real photograph or diagram from Wikimedia Commons by giving a short search phrase (e.g. "erupting volcano lava"). Use when a real image of the actual thing helps.
 
 Rules for "visual" HTML:
 - One complete <html> document with all CSS and JS inline. No external scripts, stylesheets, fonts, or images — they will not load.
 - Dark background (#0A0A0F), white text, system sans-serif font. Accents: teal #00F5D4, magenta #FF3D9A, purple #A855F7, green #00FF88.
 - Must fit and look right in a box about 600 by 340 pixels. No scrolling.
 - Make it genuinely interactive when the concept allows: sliders, clickable parts, an animation.
+- Every control starts at a sensible value and every number on screen is valid from the first paint. Never let "NaN", "undefined" or an empty readout appear.
 
-Keep replies short — a student is reading on a phone. One visual or one media_request per reply at most, and only when it truly helps. End most replies with a question that pulls them deeper.`;
+Never dump everything you know at once — you are having a conversation, not giving a lecture. Say one interesting thing, then end with a question that pulls them deeper and let them choose where to go.
+
+When you attach something, your text must hand it to them in the same breath — say what it is and what to do with it ("that's a strand of DNA on the right — click each letter"). Never leave something on screen the student has to guess the purpose of.
+
+If a source card is given below, it is the piece the student just read and tapped on. Use its real names, people and facts — never talk around a person whose name you have been given, and never describe them as "this real person". Do not recite the card back to them; start from it and go further.`;
 
 const client = new Anthropic();
 
@@ -160,20 +160,33 @@ function stripHtml(value: string): string {
   return value.replace(/<[^>]*>/g, '').trim().slice(0, 120);
 }
 
+/** The edit a dive started from — the story the student actually read. */
+export interface SourceEdit {
+  hook: string;
+  body: string;
+  bridge: string;
+}
+
 interface AskOrinOptions {
   topic: string;
   history: DiveTurn[];
   /** The edit's own media, offered as the opening visual when a dive starts from a save. */
   editMedia?: { url: string; kind: 'image' | 'video'; credit: string; title: string } | null;
+  /** Present for edit dives — without it Orin only has the headline to work from. */
+  source?: SourceEdit | null;
 }
 
 /** Returns Orin's segments, or null when the AI is unreachable (callers show "recharging"). */
-export async function askOrin({ topic, history, editMedia }: AskOrinOptions): Promise<Segment[] | null> {
+export async function askOrin({ topic, history, editMedia, source }: AskOrinOptions): Promise<Segment[] | null> {
   const exchanges = history.filter((t) => t.role === 'student').length;
   const wrapUp =
     exchanges >= SOFT_EXCHANGE_CAP
       ? '\n\nThis exploration has run long. Bring it to a satisfying close in this reply and invite them to save it or start a new dive.'
       : '';
+
+  const sourceCard = source
+    ? `\n\nSource card the student just read:\nHeadline: ${source.hook}\n${source.body}\n${source.bridge}`
+    : '';
 
   const messages: Anthropic.MessageParam[] = history.length
     ? history.map((turn) => ({
@@ -186,10 +199,10 @@ export async function askOrin({ topic, history, editMedia }: AskOrinOptions): Pr
     const response = await client.messages.create({
       model: MODEL,
       max_tokens: 8000,
-      system: `${SYSTEM}\n\nTopic: ${topic}${wrapUp}`,
+      system: `${SYSTEM}\n\nTopic: ${topic}${sourceCard}${wrapUp}`,
       output_config: {
         effort: 'medium',
-        format: { type: 'json_schema', schema: SEGMENT_SCHEMA },
+        format: { type: 'json_schema', schema: REPLY_SCHEMA },
       },
       messages,
     });
@@ -197,55 +210,49 @@ export async function askOrin({ topic, history, editMedia }: AskOrinOptions): Pr
     const block = response.content.find((b) => b.type === 'text');
     if (!block || block.type !== 'text') return null;
 
-    const parsed = JSON.parse(block.text) as { segments?: unknown };
-    const segments = await resolveSegments(parsed.segments, editMedia);
+    const parsed = JSON.parse(block.text) as { text?: unknown; attachment?: unknown };
+    const segments = await resolveReply(parsed, editMedia);
     return segments.length > 0 ? segments : null;
   } catch {
     return null;
   }
 }
 
-/** Turns the model's raw segment list into stored segments, fetching any requested media. */
-async function resolveSegments(
-  raw: unknown,
+/** Turns one model reply into stored segments, fetching any attached media. */
+async function resolveReply(
+  reply: { text?: unknown; attachment?: unknown },
   editMedia: AskOrinOptions['editMedia'],
 ): Promise<Segment[]> {
-  if (!Array.isArray(raw)) return [];
   const out: Segment[] = [];
 
-  for (const item of raw) {
-    if (!item || typeof item !== 'object') continue;
-    const seg = item as Record<string, unknown>;
+  if (typeof reply.text === 'string' && reply.text.trim()) {
+    out.push({ type: 'text', text: reply.text });
+  }
 
-    if (seg.type === 'text' && typeof seg.text === 'string' && seg.text.trim()) {
-      out.push({ type: 'text', text: seg.text });
-    } else if (seg.type === 'visual' && typeof seg.html === 'string' && typeof seg.title === 'string') {
-      out.push({ type: 'visual', title: seg.title, html: seg.html });
-    } else if (seg.type === 'media_request' && typeof seg.search === 'string') {
-      // The edit's own media is better than any search result, and free.
-      if (editMedia) {
-        out.push({
-          type: 'media',
-          kind: editMedia.kind,
-          url: editMedia.url,
-          title: editMedia.title,
-          credit: editMedia.credit,
-          source: 'feed',
-        });
-        editMedia = null;
-        continue;
-      }
-      const hit = await searchWikimedia(seg.search);
-      if (hit) {
-        out.push({
-          type: 'media',
-          kind: 'image',
-          url: hit.url,
-          title: hit.title,
-          credit: hit.credit,
-          source: 'wikimedia',
-        });
-      }
+  const attachment = reply.attachment as Record<string, unknown> | undefined;
+  if (!attachment || typeof attachment !== 'object') return out;
+
+  if (attachment.type === 'visual' && typeof attachment.html === 'string' && typeof attachment.title === 'string') {
+    out.push({ type: 'visual', title: attachment.title, html: attachment.html });
+    return out;
+  }
+
+  if (attachment.type === 'media_request' && typeof attachment.search === 'string') {
+    // The edit's own picture is better than any search result, and free.
+    if (editMedia) {
+      out.push({
+        type: 'media',
+        kind: editMedia.kind,
+        url: editMedia.url,
+        title: editMedia.title,
+        credit: editMedia.credit,
+        source: 'feed',
+      });
+      return out;
+    }
+    const hit = await searchWikimedia(attachment.search);
+    if (hit) {
+      out.push({ type: 'media', kind: 'image', url: hit.url, title: hit.title, credit: hit.credit, source: 'wikimedia' });
     }
   }
 
