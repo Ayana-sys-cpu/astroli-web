@@ -41,7 +41,9 @@ import { parseBody, z } from '@/lib/validate';
 
 const APPLE_ISSUER = 'https://appleid.apple.com';
 const APPLE_JWKS_URL = 'https://appleid.apple.com/auth/keys';
-const APPLE_AUDIENCE = 'com.ayanar.astroli'; // iOS bundle identifier
+// Both apps sign in here: the main Astroli app and the standalone Astroli
+// Feed app each mint identity tokens with their own bundle id as audience.
+const APPLE_AUDIENCES = ['com.ayanar.astroli', 'com.ayanar.astrolifeed'];
 
 const AppleSignInSchema = z.object({
   identityToken: z.string().min(1),
@@ -142,7 +144,7 @@ async function verifyAppleIdentityToken(token: string): Promise<AppleTokenClaims
 
   if (payload.iss !== APPLE_ISSUER) return null;
   const audiences = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
-  if (!audiences.includes(APPLE_AUDIENCE)) return null;
+  if (!audiences.some((aud) => APPLE_AUDIENCES.includes(aud))) return null;
   if (typeof payload.exp !== 'number' || payload.exp * 1000 <= Date.now()) return null;
   if (!payload.sub) return null;
 
