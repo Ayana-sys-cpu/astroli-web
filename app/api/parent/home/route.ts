@@ -166,7 +166,10 @@ function childName(row: any): string | null {
 function planetTitle(planet: any, language: 'en' | 'he'): string {
   if (!planet) return '';
   const tx = language === 'he' ? ((planet.translations ?? {}).he ?? {}) : {};
-  return tx.short_title ?? tx.label ?? planet.short_title ?? planet.label ?? '';
+  // `label` before `short_title`: the parent has none of the child's context.
+  // "Matter & Atoms" tells them what the topic was; "The Recipe" — the name
+  // their child sees inside the journey — tells them nothing on its own.
+  return tx.label ?? tx.short_title ?? planet.label ?? planet.short_title ?? '';
 }
 
 function toQuestions(raw: unknown): string[] {

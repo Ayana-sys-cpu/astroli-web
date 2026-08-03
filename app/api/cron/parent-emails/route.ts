@@ -44,8 +44,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const dryRun = req.nextUrl.searchParams.get('dry') === '1';
-  const now = new Date();
+  // Outbound email to real parents is off until explicitly switched on. The
+  // route, the schedule, and the rendering all run and report — they simply
+  // don't dispatch. Set PARENT_EMAILS_ENABLED=true in the Vercel project to go
+  // live; there is no code change involved.
+  const sendingEnabled = process.env.PARENT_EMAILS_ENABLED === 'true';
+  const dryRun = req.nextUrl.searchParams.get('dry') === '1' || !sendingEnabled;
+
+  // A dry run may simulate a moment, so the bodies can be reviewed at any hour
+  // rather than only during the morning window. Ignored unless dry=1 — a real
+  // send always uses the true clock.
+  const atParam = dryRun ? req.nextUrl.searchParams.get('at') : null;
+  const now = atParam ? new Date(atParam) : new Date();
+  if (Number.isNaN(now.getTime())) {
+    return NextResponse.json({ error: 'Invalid ?at' }, { status: 400 });
+  }
 
   // Only parents who can actually receive one. Unsubscribed parents are excluded
   // in the query rather than filtered later — an opt-out that depends on a later
@@ -153,6 +166,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ran: now.toISOString(),
     dryRun,
+    sendingEnabled,
     considered: (parents ?? []).length,
     decisions,
     sent,
@@ -226,7 +240,10 @@ async function planetTitles(ids: string[]): Promise<Map<string, string>> {
     .from('planets')
     .select('id, label, short_title')
     .in('id', ids);
-  return new Map((data ?? []).map((p: any) => [p.id, p.short_title ?? p.label ?? '']));
+  // `label` before `short_title`: the parent has none of the child's context.
+  // "Matter & Atoms" tells them what the topic was; "The Recipe" — the name
+  // their child sees inside the journey — tells them nothing on its own.
+  return new Map((data ?? []).map((p: any) => [p.id, p.label ?? p.short_title ?? '']));
 }
 
 function minutesOf(s: { started_at: string; last_ping_at: string }): number {
