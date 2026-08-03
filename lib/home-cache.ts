@@ -7,19 +7,24 @@
 // auto-cleared on tab close) cache lets a return visit paint the journey cards
 // instantly, then /api/student/home revalidates in the background.
 //
-// The bundle is exactly the fetched payload — { journeys, hasParent }.  Home
-// does no on-mount writes, so nothing here needs a background side effect.
+// The bundle is exactly the fetched payload — { journeys, hasParent, language }.
+// Home does no on-mount writes, so nothing here needs a background side effect.
 
 import type { HomeJourney } from '@/lib/student-home';
+import type { Lang } from '@/lib/i18n';
 
 export interface HomeCacheBundle {
   journeys: HomeJourney[];
   hasParent: boolean;
+  /** The PERSON's language — chrome only. Each journey carries its own. */
+  language?: Lang;
 }
 
 // Bump the version suffix if the bundle shape changes so stale-shaped entries
-// from an older deploy are ignored rather than hydrated.
-const KEY = 'home-cache:v1';
+// from an older deploy are ignored rather than hydrated. v2 adds `language`: a
+// v1 entry has none, and hydrating it would paint a Hebrew student's chrome in
+// English until the revalidation landed.
+const KEY = 'home-cache:v2';
 
 export function readHomeCache(): HomeCacheBundle | null {
   try {
@@ -29,7 +34,11 @@ export function readHomeCache(): HomeCacheBundle | null {
     // An empty journeys array is a valid state (student with no active
     // journeys), but a missing/non-array journeys means a broken entry.
     if (!parsed || !Array.isArray(parsed.journeys)) return null;
-    return { journeys: parsed.journeys, hasParent: !!parsed.hasParent };
+    return {
+      journeys: parsed.journeys,
+      hasParent: !!parsed.hasParent,
+      language: parsed.language === 'he' || parsed.language === 'en' ? parsed.language : undefined,
+    };
   } catch {
     return null;
   }

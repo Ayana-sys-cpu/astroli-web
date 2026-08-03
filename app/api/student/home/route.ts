@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-server';
 import { requireAuth, resolveStudentId } from '@/lib/auth';
 import { resolveEnrolledClassIds } from '@/lib/student-enrollment';
 import { buildHomeJourney, isMissionFullyExplored, type HomeJourney, type MissionSummary } from '@/lib/student-home';
+import { resolveUserLanguage } from '@/lib/student-language';
 
 // GET /api/student/home
 //
@@ -152,5 +153,11 @@ export async function GET() {
     });
   });
 
-  return NextResponse.json({ journeys, hasParent, firstName });
+  // Top-level `language` is the PERSON's, distinct from each journey's own —
+  // it drives the chrome (header, curiosity panel, Orin) on a page that spans
+  // every journey. The page used to take `journeys[0].language`, i.e. whichever
+  // journey happened to sort first. See specs/shared/language/spec.md.
+  const language = await resolveUserLanguage(studentId);
+
+  return NextResponse.json({ journeys, hasParent, firstName, language });
 }

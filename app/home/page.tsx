@@ -14,14 +14,18 @@ import CuriosityPanel from './CuriosityPanel';
 
 const HOME_CACHE_TTL = 10_000; // 10 s — fresh enough after /syncing navigation
 
-function consumeHomeCache(): { journeys: HomeJourney[]; hasParent: boolean } | null {
+function consumeHomeCache(): { journeys: HomeJourney[]; hasParent: boolean; language?: Lang } | null {
   try {
     const raw = sessionStorage.getItem('astroli_home_cache');
     if (!raw) return null;
     const { data, ts } = JSON.parse(raw) as { data: any; ts: number };
     sessionStorage.removeItem('astroli_home_cache');
     if (Date.now() - ts > HOME_CACHE_TTL) return null;
-    return { journeys: data.journeys ?? [], hasParent: !!data.hasParent };
+    return {
+      journeys: data.journeys ?? [],
+      hasParent: !!data.hasParent,
+      language: data.language === 'he' ? 'he' : data.language === 'en' ? 'en' : undefined,
+    };
   } catch {
     return null;
   }
@@ -32,6 +36,9 @@ export default function HomePage() {
   const [journeys, setJourneys] = useState<HomeJourney[] | null>(null);
   const [hasParent, setHasParent] = useState(false);
   const [firstName, setFirstName] = useState('');
+  // The person's own language, served by /api/student/home. Not derived from
+  // the journey list — see the note at the `lang` binding below.
+  const [language, setLanguage] = useState<Lang | null>(null);
   useEffect(() => { setFirstName(getFirstName()); }, []);
 
   const load = useCallback(async () => {
@@ -47,10 +54,11 @@ export default function HomePage() {
         setFirstName(data.firstName);
         saveFirstName(data.firstName);
       }
+      if (data.language === 'he' || data.language === 'en') setLanguage(data.language);
       setJourneys(list);
       setHasParent(parent);
       // Persist for instant paint on the next return to /home (SWR).
-      writeHomeCache({ journeys: list, hasParent: parent });
+      writeHomeCache({ journeys: list, hasParent: parent, language: data.language });
     } catch {
       // stay — next focus/poll will retry
     }
@@ -68,12 +76,14 @@ export default function HomePage() {
     if (fresh) {
       setJourneys(fresh.journeys);
       setHasParent(fresh.hasParent);
+      if (fresh.language) setLanguage(fresh.language);
       return;
     }
     const cached = readHomeCache();
     if (cached) {
       setJourneys(cached.journeys);
       setHasParent(cached.hasParent);
+      if (cached.language) setLanguage(cached.language);
     }
     load(); // background revalidation (also the cold-load path)
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -86,9 +96,14 @@ export default function HomePage() {
     return () => window.removeEventListener('focus', onFocus);
   }, [load]);
 
-  // Page-level chrome follows the language of the student's journeys
-  // (per-card copy already localizes via journey.language inside JourneyCard).
-  const lang: Lang = journeys?.[0]?.language === 'he' ? 'he' : 'en';
+  // Page-level chrome follows the PERSON's language, served by the API.
+  //
+  // It used to read `journeys[0].language` — whichever journey happened to sort
+  // first — so a student holding a Hebrew and an English journey got their
+  // chrome decided by ordering, and Orin inherited that guess. Per-card copy
+  // still localizes via journey.language inside JourneyCard, which is correct:
+  // a journey's content is in the journey's own language.
+  const lang: Lang = language ?? 'en';
 
   // The greeting is the exception: it sits directly against the student's name,
   // so it follows the name's script instead of the journey. Keeps "Welcome back,

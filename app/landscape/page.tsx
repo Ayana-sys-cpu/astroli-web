@@ -330,6 +330,11 @@ function LandscapeContent() {
   });
 
   const edges        = PLANET_EDGES[planets.length] ?? [];
+  // NOT missions.language. /api/student/mission overwrites this field with the
+  // language resolved from the student's enrollment before returning it, so what
+  // arrives here is already the right answer. Do not "fix" this into a direct
+  // missions.language read — that column is template-global and shared by every
+  // family on the journey. See lib/student-language.ts.
   const uiLang       = mission?.language === 'he' ? 'he' as const : 'en' as const;
   const missionLabel = mission ? `${t('missionLabel', uiLang)} ${String(mission.order).padStart(2, '0')}` : '…';
   const bigIdea      = mission?.question ?? '';

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import StarField from '@/components/StarField';
 import { getFirstName, saveInterest, isOnboardingComplete } from '@/lib/student-store';
+import { t, type Lang } from '@/lib/i18n';
 
 const INTEREST_TAGS = [
   'Deep Sea', 'Basketball', 'Space', 'Music',
@@ -15,13 +16,24 @@ export default function InterestPage() {
   const [interest, setInterest] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [firstName, setFirstName] = useState('');
+  // Inherited from the parent at invite acceptance — a child is never asked.
+  const [lang, setLang] = useState<Lang>('en');
 
   useEffect(() => {
     // Returning users (already onboarded) should never see this screen
     if (isOnboardingComplete()) { router.replace('/landscape'); return; }
     // Safe to read localStorage on client only
     setFirstName(getFirstName());
+
+    const ctrl = new AbortController();
+    fetch('/api/me/language', { signal: ctrl.signal })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (d?.language === 'he' || d?.language === 'en') setLang(d.language); })
+      .catch(() => { /* keep English rather than blocking the screen */ });
+    return () => ctrl.abort();
   }, [router]);
+
+  const rtl = lang === 'he';
 
   const handleSubmit = () => {
     const trimmed = interest.trim();
@@ -60,21 +72,21 @@ export default function InterestPage() {
       >
         {/* Step label */}
         <p className="text-[10px] tracking-[0.4em] font-space uppercase" style={{ color: '#00F5D4', opacity: 0.7 }}>
-          STEP 1 OF 2
+          {t('studentStep1of2', lang)}
         </p>
 
         {/* Heading */}
-        <div className="text-center">
+        <div className="text-center" dir={rtl ? 'rtl' : 'ltr'}>
           <h1 className="font-space font-bold text-white leading-snug" style={{ fontSize: 'clamp(22px, 3.5vw, 30px)' }}>
-            Hello {firstName},{' '}
+            {t('studentInterestHello', lang).replace('{name}', firstName)}{' '}
           </h1>
           <h1 className="font-space font-bold leading-snug" style={{ fontSize: 'clamp(22px, 3.5vw, 30px)', color: '#FF0080' }}>
-            what makes your brain light up?
+            {t('studentInterestQuestion', lang)}
           </h1>
         </div>
 
-        <p className="text-xs text-white/40 font-inter text-center leading-relaxed">
-          Type anything — your alien avatar{'\n'}will be shaped by it.
+        <p className="text-xs text-white/40 font-inter text-center leading-relaxed" dir={rtl ? 'rtl' : 'ltr'}>
+          {t('studentInterestHint', lang)}
         </p>
 
         {/* Text input */}
@@ -82,7 +94,8 @@ export default function InterestPage() {
           <input
             className="input-dark font-space text-sm text-center w-full"
             style={{ letterSpacing: '0.04em' }}
-            placeholder="e.g. Deep sea creatures..."
+            dir={rtl ? 'rtl' : 'ltr'}
+            placeholder={t('studentInterestPlaceholder', lang)}
             value={interest}
             onChange={(e) => setInterest(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}

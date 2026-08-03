@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, createSSRServerClient } from '@/lib/supabase-server';
 import { z, parseBody } from '@/lib/validate';
 import { toDisplayFirstName } from '@/lib/display-name';
+import { resolveUserLanguage } from '@/lib/student-language';
 
 const Schema = z.object({
   token: z.string().uuid('Invalid invite token'),
@@ -100,10 +101,16 @@ export async function POST(req: NextRequest) {
   // deprecated legacy fallback so pre-deprecation accounts aren't re-onboarded.
   const isNewStudent = !existing || !(existing.base_avatar_url || existing.alien_name);
 
+  // The child inherits their parent's language, so their very first screen is
+  // already in the right one — a child has no signup flow of their own in which
+  // to be asked. One language per parent-child pair; see
+  // specs/shared/language/spec.md.
+  const parentLanguage = await resolveUserLanguage(invite.parent_id);
+
   const { data: child, error: childError } = await supabaseAdmin
     .from('users')
     .upsert(
-      { email, role: 'student', full_name: childName, first_name: firstName },
+      { email, role: 'student', full_name: childName, first_name: firstName, language: parentLanguage },
       { onConflict: 'email' },
     )
     .select('id, first_name, alien_name, base_avatar_url')

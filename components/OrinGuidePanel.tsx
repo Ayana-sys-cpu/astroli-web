@@ -520,6 +520,13 @@ function DoneDock({ lang }: { lang: Lang }) {
 // =============================================================================
 
 export default function OrinGuidePanel({ missionId, missionOrder, firstPlanet, onLaunch, language, avatarUrl, onOrinMessage, orinMission, initialMissionState }: OrinGuidePanelProps) {
+  // Every caller now passes a resolved language — the home screen from the
+  // person, a journey from its enrollment. Reaching this fallback used to be
+  // routine and silent; it now means a caller failed to resolve one, which is a
+  // bug worth seeing rather than a Hebrew student quietly reading English.
+  if (language === undefined && process.env.NODE_ENV !== 'production') {
+    console.error('[OrinGuidePanel] no language passed — falling back to English');
+  }
   const lang: Lang = language ?? 'en';
   const botName = getBotName();
   const onOrinMessageRef = useRef(onOrinMessage);

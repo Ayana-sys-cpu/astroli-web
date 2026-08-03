@@ -892,6 +892,34 @@ const strings = {
     en: 'No journeys are available yet.',
     he: 'אין מסעות זמינים עדיין.',
   },
+
+  // ── Student onboarding ──────────────────────────────────────────────────────
+  // A child never chooses a language — they inherit their parent's, so these
+  // render in it from the first screen. See specs/shared/language/spec.md.
+  studentStep1of2: {
+    en: 'STEP 1 OF 2',
+    he: 'שלב 1 מתוך 2',
+  },
+  studentStep2of2: {
+    en: 'STEP 2 OF 2',
+    he: 'שלב 2 מתוך 2',
+  },
+  studentInterestHello: {
+    en: 'Hello {name},',
+    he: 'היי {name},',
+  },
+  studentInterestQuestion: {
+    en: 'what makes your brain light up?',
+    he: 'מה מדליק לך את המוח?',
+  },
+  studentInterestHint: {
+    en: 'Type anything — your alien avatar will be shaped by it.',
+    he: 'כתוב כל דבר — האווטאר החייזרי שלך ייבנה לפי זה.',
+  },
+  studentInterestPlaceholder: {
+    en: 'e.g. Deep sea creatures...',
+    he: 'למשל: יצורי מעמקי הים...',
+  },
 } as const;
 
 type StringKey = keyof typeof strings;
