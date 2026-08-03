@@ -3,6 +3,7 @@ import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import StarField from '@/components/StarField';
 import StudentHeader from '@/components/StudentHeader';
+import Launchpad from './Launchpad';
 import SavedShelf, { type SavedTile } from './SavedShelf';
 import SearchBar from './SearchBar';
 
@@ -149,25 +150,28 @@ function MasterHub() {
                     : undefined
               }
             />
-          ) : (
+          ) : loadFailed ? (
             <div className="py-10">
               <p className="text-[17px] text-white" style={{ fontFamily: 'var(--font-space)', fontWeight: 500 }}>
-                {loadFailed ? 'Your saves are taking a moment' : 'Start collecting what sparks you'}
+                Your saves are taking a moment
               </p>
               <p className="mt-2 max-w-md text-[14px] leading-relaxed" style={{ color: 'var(--master-text-secondary)' }}>
-                {loadFailed
-                  ? 'Check your connection and try again.'
-                  : 'Tap Save on any edit in your feed and it lands here, ready to explore whenever you want.'}
+                Check your connection and try again.
               </p>
               <button
                 type="button"
-                onClick={() => (loadFailed ? load() : router.push('/home'))}
+                onClick={load}
                 className="mt-5 rounded-full border px-5 py-2 text-[13px] text-white transition-colors hover:bg-white/5"
                 style={{ borderColor: 'var(--master-hairline)', fontFamily: 'var(--font-space)' }}
               >
-                {loadFailed ? 'Try again' : 'Go to your feed'}
+                Try again
               </button>
             </div>
+          ) : (
+            <Launchpad
+              busy={starting}
+              onOpen={(editId) => startDive({ origin: 'edit', edit_id: editId })}
+            />
           )}
         </section>
       </div>

@@ -6,10 +6,19 @@ import KineticText from '@/components/KineticText';
 
 const SIGNAL_CONFIG = {
   breakthrough:    { icon: '🌟', label: 'Breakthrough',    color: '#FFD600', glow: 'rgba(255,214,0,0.3)',    border: 'rgba(255,214,0,0.35)' },
-  grace_completion:{ icon: '🔴', label: 'Grace Completion', color: '#FF0080', glow: 'rgba(255,0,128,0.25)',  border: 'rgba(255,0,128,0.4)'  },
+  grace_completion:{ icon: '◇', label: 'Finished with support', color: '#8B00FF', glow: 'rgba(139,0,255,0.18)',  border: 'rgba(139,0,255,0.3)'  },
   stuck:           { icon: '🔄', label: 'Stuck',           color: '#00F5D4', glow: 'rgba(0,245,212,0.25)',  border: 'rgba(0,245,212,0.35)' },
   non_engagement:  { icon: '⚠️', label: 'Check In',       color: '#7C3AED', glow: 'rgba(124,58,237,0.25)', border: 'rgba(124,58,237,0.4)' },
 } as const;
+
+// The badge tint is the signal colour at 10%. This was a hand-written
+// hex-to-rgb chain with one branch per known colour, so changing any signal's
+// colour silently fell through to the purple default — which is exactly what
+// happened when grace_completion stopped being red.
+function hexToRgba(hex: string, alpha: number): string {
+  const n = parseInt(hex.replace('#', ''), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
 
 function avatarColor(id: string): string {
   const colors = ['#7C3AED', '#FF0080', '#00D4FF', '#00F5D4', '#FFD600', '#8B00FF'];
@@ -88,7 +97,7 @@ export default function SpotlightCard({ student, onDone, onDismiss, onWhatsApp, 
           {/* Signal badge */}
           <div style={{
             position: 'absolute', bottom: -4, left: '50%', transform: 'translateX(-50%)',
-            background: `rgba(${cfg.color === '#FFD600' ? '245,158,11' : cfg.color === '#FF0080' ? '255,0,128' : cfg.color === '#00F5D4' ? '0,245,212' : '139,0,255'}, 0.1)`,
+            background: hexToRgba(cfg.color, 0.1),
             border: `1px solid ${cfg.border}`,
             borderRadius: 20, padding: '2px 8px',
             fontSize: 9, fontFamily: 'var(--font-space)', fontWeight: 700,

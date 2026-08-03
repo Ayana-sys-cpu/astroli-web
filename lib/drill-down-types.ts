@@ -18,6 +18,52 @@ export const PERKINS_LEVEL_NAMES: Record<PerkinsLevel, string> = {
   7: 'Generalization',
 };
 
+// What the level MEANS, in words a parent has. Teachers keep the level itself on
+// the badge; both audiences now read the same row.
+//
+// The concept name alone ("Conservation of mass") told neither audience what the
+// child actually demonstrated. These do. Static strings — no AI, no cost.
+export const PERKINS_PLAIN_TITLES: Record<PerkinsLevel, string> = {
+  1: 'Can explain it in their own words',
+  2: 'Can give their own example',
+  3: 'Can compare it to something else',
+  4: 'Can say when and where it applies',
+  5: 'Can use it to solve something new',
+  6: "Can argue why it's true",
+  7: 'Can carry the idea into another subject',
+};
+
+/** Shown where a topic was finished without reaching this goal's target level. */
+export const PLAIN_TITLE_UNREACHED = 'Still finding their feet here';
+
+// One-line hover explanations. Before these, the only tooltip in the drill-down
+// restated the level name and its ordinal — which explains nothing to anyone who
+// doesn't already know the scale.
+export const PERKINS_TOOLTIPS: Record<PerkinsLevel, string> = {
+  1: 'Can say what it is in their own words',
+  2: 'Can give their own example of it',
+  3: "Can say how it's like or unlike something else",
+  4: 'Can say when and where it applies',
+  5: 'Can use it to solve something new',
+  6: "Can argue why it's true, with evidence",
+  7: 'Can carry the idea into a whole other subject',
+};
+
+export const UNREACHED_TOOLTIP =
+  "Completed the topic, but hasn't shown this one yet — not a failure";
+
+/** The plain-language title for a row, from its performance. */
+export function plainTitle(p: PerformanceInfo | null): string {
+  if (!p || p.isGraceCompletion || !p.level) return PLAIN_TITLE_UNREACHED;
+  return PERKINS_PLAIN_TITLES[p.level];
+}
+
+/** The hover explanation for a badge, from its performance. */
+export function performanceTooltip(p: PerformanceInfo | null): string {
+  if (!p || p.isGraceCompletion || !p.level) return UNREACHED_TOOLTIP;
+  return PERKINS_TOOLTIPS[p.level];
+}
+
 export type PlanetStatus = 'not_started' | 'in_progress' | 'completed' | 'pending_activation';
 
 export function toPerkinsLevel(value: number | null | undefined): PerkinsLevel | null {
@@ -34,7 +80,7 @@ export interface PerformanceInfo {
 
 export function performanceLabel(p: PerformanceInfo | null): string {
   if (!p) return 'Not started';
-  if (p.isGraceCompletion) return 'Grace Completion';
+  if (p.isGraceCompletion) return 'Finished with support';
   if (p.level) return PERKINS_LEVEL_NAMES[p.level];
   return 'Not started';
 }

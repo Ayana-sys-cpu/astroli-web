@@ -6,7 +6,7 @@ import type { SpotlightStudent } from '@/lib/homescreen';
 
 const SIGNAL_LABELS: Record<string, string> = {
   breakthrough: '🌟 Breakthroughs',
-  grace_completion: '🔴 Grace Completions',
+  grace_completion: 'Finished with support',
   stuck: '🔄 Stuck',
   non_engagement: '⚠️ Needs Check-in',
 };

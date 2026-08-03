@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { pickEdit, tierOf, TIER, type SpotlightCandidate, type StudentPlace } from '@/lib/spotlight-ranking';
+import {
+  pickEdit,
+  pickEditPerTier,
+  tierOf,
+  TIER,
+  type SpotlightCandidate,
+  type StudentPlace,
+} from '@/lib/spotlight-ranking';
 
 function candidate(id: string, planetId: string, over: Partial<SpotlightCandidate> = {}): SpotlightCandidate {
   return {
@@ -106,5 +113,81 @@ describe('pickEdit', () => {
 
   it('returns nothing when there is nothing published', () => {
     expect(pickEdit([], place())).toBeNull();
+  });
+});
+
+describe('pickEditPerTier', () => {
+  const everyTier = () => [
+    candidate('elsewhere', 'planet-elsewhere'),
+    candidate('ahead', 'planet-ahead'),
+    candidate('done', 'planet-done'),
+    candidate('active', 'planet-active'),
+  ];
+
+  it('gives one card per tier, in reading order', () => {
+    const picked = pickEditPerTier(everyTier(), place());
+    expect(picked.map((p) => p.tier)).toEqual(['active', 'upcoming', 'completed', 'detour']);
+    expect(picked.map((p) => p.edit.id)).toEqual(['active', 'ahead', 'done', 'elsewhere']);
+  });
+
+  it('picks the best edit within each tier', () => {
+    const picked = pickEditPerTier(
+      [
+        candidate('active-old', 'planet-active', { created_at: '2026-01-01T00:00:00Z' }),
+        candidate('active-new', 'planet-active', { created_at: '2026-07-20T00:00:00Z' }),
+        candidate('elsewhere', 'planet-elsewhere'),
+      ],
+      place(),
+    );
+    expect(picked[0]).toMatchObject({ tier: 'active' });
+    expect(picked[0].edit.id).toBe('active-new');
+  });
+
+  it('fills an empty tier with the next best edit, keeping its own label', () => {
+    const picked = pickEditPerTier(
+      [
+        candidate('active', 'planet-active'),
+        candidate('done', 'planet-done'),
+        candidate('elsewhere-a', 'planet-elsewhere', { created_at: '2026-07-20T00:00:00Z' }),
+        candidate('elsewhere-b', 'planet-elsewhere', { created_at: '2026-01-01T00:00:00Z' }),
+      ],
+      place(),
+    );
+    expect(picked).toHaveLength(4);
+    expect(picked.map((p) => p.tier)).toEqual(['active', 'completed', 'detour', 'detour']);
+  });
+
+  it('labels everything a detour for a student with no journey', () => {
+    const picked = pickEditPerTier(
+      everyTier(),
+      place({ activePlanetId: null, completedPlanetIds: new Set(), journeyPlanetIds: new Set() }),
+    );
+    expect(picked).toHaveLength(4);
+    expect(picked.every((p) => p.tier === 'detour')).toBe(true);
+  });
+
+  it('never repeats an edit across slots', () => {
+    const picked = pickEditPerTier(everyTier(), place());
+    expect(new Set(picked.map((p) => p.edit.id)).size).toBe(picked.length);
+  });
+
+  it('returns however many exist when there are fewer than four', () => {
+    const picked = pickEditPerTier([candidate('active', 'planet-active')], place());
+    expect(picked).toHaveLength(1);
+  });
+
+  it('returns nothing when there is nothing published', () => {
+    expect(pickEditPerTier([], place())).toEqual([]);
+  });
+
+  it('prefers an unseen edit over a closer one they have already met', () => {
+    const picked = pickEditPerTier(
+      [
+        candidate('seen-active', 'planet-active'),
+        candidate('fresh-active', 'planet-active'),
+      ],
+      place({ seenEditIds: new Set(['seen-active']) }),
+    );
+    expect(picked[0].edit.id).toBe('fresh-active');
   });
 });

@@ -385,6 +385,9 @@ model PlanetSummary {
   totalGenuineExchanges            Int?                @map("total_genuine_exchanges")
   additionalInsight                String?             @map("additional_insight")
   termDefinitions                  Json                @default("[]") @map("term_definitions")
+  /// Up to 3 dinner-table questions for the parent, in the student's language.
+  /// Generated once at completion, never regenerated; [] is a normal state.
+  parentQuestions                  Json                @default("[]") @map("parent_questions")
   createdAt                        DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
   goals                            PlanetSummaryGoal[]
   planet                           Planet              @relation(fields: [planetId], references: [id], onDelete: Cascade)

@@ -1,7 +1,7 @@
 'use client';
 import PerformanceBadge from './PerformanceBadge';
 import KineticText from '@/components/KineticText';
-import type { GoalSummary } from '@/lib/drill-down-types';
+import { plainTitle, type GoalSummary } from '@/lib/drill-down-types';
 
 const BotAvatar = () => (
   <div style={{
@@ -22,11 +22,12 @@ const BotAvatar = () => (
 
 interface Props {
   goal: GoalSummary;
-  goalIndex: number;
+  /** Kept for the caller's map; the header no longer numbers goals. */
+  goalIndex?: number;
   studentInitials: string;
 }
 
-export default function GoalCard({ goal, goalIndex, studentInitials }: Props) {
+export default function GoalCard({ goal, studentInitials }: Props) {
   return (
     <div
       style={{
@@ -40,15 +41,19 @@ export default function GoalCard({ goal, goalIndex, studentInitials }: Props) {
         boxShadow: '0 1px 4px rgba(26,26,46,0.06)',
       }}
     >
-      {/* Header: Goal N · title · badge */}
+      {/* Header: what they can DO · the concept · badge
+          Leads with the capability rather than the concept name. "Conservation
+          of mass" told neither a parent nor a teacher what the child actually
+          demonstrated; "Can use it to solve something new" does. The concept
+          stays underneath — teachers still need it. */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flex: 1, minWidth: 0 }}>
-          <span style={{ fontSize: 11, fontWeight: 500, color: 'rgba(26,26,46,0.35)', flexShrink: 0 }}>
-            Goal {goalIndex + 1}
-          </span>
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#1a1a2e', lineHeight: 1.4 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#1a1a2e', lineHeight: 1.4 }}>
+            {plainTitle(goal.performance)}
+          </p>
+          <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(26,26,46,0.45)', lineHeight: 1.4 }}>
             {goal.displayTitle}
-          </span>
+          </p>
         </div>
         <PerformanceBadge performance={goal.performance} size="sm" variant="outlined" />
       </div>

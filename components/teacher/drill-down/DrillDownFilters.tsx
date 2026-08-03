@@ -31,7 +31,7 @@ const PERFORMANCE_OPTIONS = [
   { value: 'representing_in_new_ways', label: 'Representing in New Ways' },
   { value: 'considering_alternatives', label: 'Considering Alternatives' },
   { value: 'actionable_extrapolation', label: 'Actionable Extrapolation' },
-  { value: 'grace_completion', label: 'Grace Completion' },
+  { value: 'grace_completion', label: 'Finished with support' },
   { value: 'not_assessed', label: 'Not assessed' },
 ];
 

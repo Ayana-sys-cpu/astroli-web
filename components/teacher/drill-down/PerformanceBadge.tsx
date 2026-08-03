@@ -1,6 +1,6 @@
 // src/astroli-web/components/teacher/drill-down/PerformanceBadge.tsx
 'use client';
-import { performanceLabel } from '@/lib/drill-down-types';
+import { performanceLabel, performanceTooltip } from '@/lib/drill-down-types';
 import type { PerformanceInfo } from '@/lib/drill-down-types';
 
 interface Props {
@@ -15,6 +15,10 @@ export default function PerformanceBadge({
   variant = 'filled',
 }: Props) {
   const label = performanceLabel(performance);
+  // Every badge explains itself. Before this, the only tooltip in the drill-down
+  // restated the level name and its ordinal — which tells nobody who doesn't
+  // already know the scale anything at all.
+  const tooltip = performanceTooltip(performance);
 
   // Three Perkins depth tiers over the real 1-7 scale: low (1-2) → light purple,
   // mid (3-5) → medium purple, high (6-7) → deep purple.
@@ -47,6 +51,8 @@ export default function PerformanceBadge({
 
   return (
     <span
+      title={tooltip}
+      aria-label={`${label} — ${tooltip}`}
       style={{
         display: 'inline-block',
         background: variant === 'filled' ? filledBg : 'transparent',

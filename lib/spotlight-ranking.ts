@@ -49,7 +49,14 @@ export function pickEdit(
   candidates: SpotlightCandidate[],
   place: StudentPlace,
 ): SpotlightCandidate | null {
-  const ranked = [...candidates].sort((a, b) => {
+  const ranked = [...candidates].sort(compareForPlace(place));
+
+  return ranked[0] ?? null;
+}
+
+/** Unseen first, then closeness, then declared interest, then newest. */
+function compareForPlace(place: StudentPlace) {
+  return (a: SpotlightCandidate, b: SpotlightCandidate): number => {
     const seen = Number(place.seenEditIds.has(a.id)) - Number(place.seenEditIds.has(b.id));
     if (seen !== 0) return seen;
 
@@ -60,11 +67,69 @@ export function pickEdit(
     if (interest !== 0) return interest;
 
     return b.created_at.localeCompare(a.created_at);
-  });
-
-  return ranked[0] ?? null;
+  };
 }
 
 function matchesInterest(edit: SpotlightCandidate, place: StudentPlace): boolean {
   return !!place.interestTheme && edit.interest_theme === place.interestTheme;
+}
+
+/** The tier names the Master launchpad shows on its cards. */
+export type LaunchpadTier = 'active' | 'upcoming' | 'completed' | 'detour';
+
+/** Display order of the launchpad cards — deliberately not the ranking order. */
+const LAUNCHPAD_TIERS: readonly LaunchpadTier[] = ['active', 'upcoming', 'completed', 'detour'];
+
+const TIER_NAME: Record<number, LaunchpadTier> = {
+  [TIER.activePlanet]: 'active',
+  [TIER.completedPlanet]: 'completed',
+  [TIER.upcomingPlanet]: 'upcoming',
+  [TIER.otherJourney]: 'detour',
+};
+
+export function launchpadTierOf(planetId: string, place: StudentPlace): LaunchpadTier {
+  return TIER_NAME[tierOf(planetId, place)];
+}
+
+export interface TieredEdit {
+  edit: SpotlightCandidate;
+  tier: LaunchpadTier;
+}
+
+/**
+ * One edit per tier, for the Master launchpad — four different angles rather
+ * than four variations on the planet the student happens to be sitting on.
+ *
+ * A tier with no candidate does not leave a gap: the slot takes the best
+ * remaining edit from anywhere, still wearing its own true label, so a student
+ * with no journey at all still gets a full set of four.
+ */
+export function pickEditPerTier(
+  candidates: SpotlightCandidate[],
+  place: StudentPlace,
+  limit = LAUNCHPAD_TIERS.length,
+): TieredEdit[] {
+  const ranked = [...candidates]
+    .sort(compareForPlace(place))
+    .map((edit) => ({ edit, tier: launchpadTierOf(edit.planet_id, place) }));
+
+  const used = new Set<string>();
+  const picked: TieredEdit[] = [];
+
+  for (const tier of LAUNCHPAD_TIERS) {
+    const match = ranked.find((r) => r.tier === tier && !used.has(r.edit.id));
+    if (match) {
+      used.add(match.edit.id);
+      picked.push(match);
+    }
+  }
+
+  for (const candidate of ranked) {
+    if (picked.length >= limit) break;
+    if (used.has(candidate.edit.id)) continue;
+    used.add(candidate.edit.id);
+    picked.push(candidate);
+  }
+
+  return picked.slice(0, limit);
 }
