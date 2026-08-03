@@ -23,8 +23,9 @@ export default function DivePage() {
     (async () => {
       try {
         const res = await fetch(`/api/master/dive/${id}`);
-        if (res.status === 401 || res.status === 403) { router.replace('/master'); return; }
-        if (!res.ok) { setTurns([]); return; }
+        // A dive that no longer exists (or was never yours) is a dead end —
+        // bounce home instead of leaving a chat that can only fail.
+        if (!res.ok) { router.replace('/master'); return; }
         const data = await res.json();
         setTopic(data.session?.topic ?? '');
         setSource(data.source ?? null);
