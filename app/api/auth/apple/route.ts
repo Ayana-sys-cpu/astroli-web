@@ -37,18 +37,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { upsertAuthUserAndToken } from '@/lib/auth-token';
 import { enrollStudentInDemoClass } from '@/lib/demo-class';
+import { checkNewStudentAccess, completeInvitedChildSetup, type GateDecision } from '@/lib/mobile-gate';
 import { parseBody, z } from '@/lib/validate';
 
 const APPLE_ISSUER = 'https://appleid.apple.com';
 const APPLE_JWKS_URL = 'https://appleid.apple.com/auth/keys';
 // Both apps sign in here: the main Astroli app and the standalone Astroli
 // Feed app each mint identity tokens with their own bundle id as audience.
-const APPLE_AUDIENCES = ['com.ayanar.astroli', 'com.ayanar.astrolifeed'];
+const STUDENT_APP_AUDIENCE = 'com.ayanar.astroli';
+const APPLE_AUDIENCES = [STUDENT_APP_AUDIENCE, 'com.ayanar.astrolifeed'];
 
 const AppleSignInSchema = z.object({
   identityToken: z.string().min(1),
   fullName: z.string().trim().max(200).optional(),
   firstName: z.string().trim().max(100).optional(),
+  // Only meaningful for a first-time sign-in on the student app: lets App
+  // Review past the invite wall. See lib/mobile-gate.
+  inviteCode: z.string().trim().max(64).optional(),
 });
 
 interface AppleJwk {
@@ -93,6 +98,8 @@ function decodeJson<T>(segment: string): T | null {
 interface AppleTokenClaims {
   sub: string;
   email: string | null;
+  /** Which app minted the token — the student app is invite-gated, Feed is not. */
+  audience: string;
 }
 
 /**
@@ -144,11 +151,12 @@ async function verifyAppleIdentityToken(token: string): Promise<AppleTokenClaims
 
   if (payload.iss !== APPLE_ISSUER) return null;
   const audiences = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
-  if (!audiences.some((aud) => typeof aud === 'string' && APPLE_AUDIENCES.includes(aud))) return null;
+  const audience = audiences.find((aud) => typeof aud === 'string' && APPLE_AUDIENCES.includes(aud));
+  if (!audience) return null;
   if (typeof payload.exp !== 'number' || payload.exp * 1000 <= Date.now()) return null;
   if (!payload.sub) return null;
 
-  return { sub: payload.sub, email: payload.email?.toLowerCase() ?? null };
+  return { sub: payload.sub, email: payload.email?.toLowerCase() ?? null, audience };
 }
 
 export async function POST(req: NextRequest) {
@@ -164,13 +172,16 @@ export async function POST(req: NextRequest) {
 async function handlePOST(req: NextRequest) {
   const parsed = await parseBody(req, AppleSignInSchema);
   if (!parsed.ok) return parsed.response;
-  const { identityToken, fullName, firstName } = parsed.data;
+  const { identityToken, fullName, firstName, inviteCode } = parsed.data;
 
   const claims = await verifyAppleIdentityToken(identityToken);
   if (!claims) {
     return NextResponse.json({ error: 'Invalid Apple identity token' }, { status: 401 });
   }
-  const { sub: appleUserId, email } = claims;
+  const { sub: appleUserId, email, audience } = claims;
+  // The Feed app is a separate, open product — it shares this route but is
+  // not invite-only.
+  const inviteGated = audience === STUDENT_APP_AUDIENCE;
 
   // ── Resolve the account: apple_user_id first, then email ──────────────────
   const userColumns = 'id, role, email, first_name, base_avatar_url, avatar_url, alien_name, apple_user_id';
@@ -214,7 +225,24 @@ async function handlePOST(req: NextRequest) {
       return NextResponse.json({ error: 'Apple token did not include an email' }, { status: 401 });
     }
     exists = false;
-    const resolvedFullName = fullName || firstName || 'Explorer';
+
+    // ── Invite gate — no child account without a consenting adult ───────────
+    let gate: GateDecision = { allow: true, via: 'reviewer' };
+    if (inviteGated) {
+      gate = await checkNewStudentAccess({ email, provider: 'apple', inviteCode, firstName });
+      if (!gate.allow) {
+        return NextResponse.json(
+          {
+            error: 'Astroli is invite-only right now. Ask a parent to set up your account.',
+            reason: 'invite_required',
+          },
+          { status: 403 },
+        );
+      }
+    }
+
+    const resolvedFullName =
+      (gate.allow && gate.via === 'invite' ? gate.childName : null) || fullName || firstName || 'Explorer';
     const resolvedFirstName = firstName || resolvedFullName.split(' ')[0] || 'Explorer';
     const { data: created, error: createError } = await supabaseAdmin
       .from('users')
@@ -232,7 +260,13 @@ async function handlePOST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to create account' }, { status: 503 });
     }
     user = created;
-    await enrollStudentInDemoClass(user.id);
+    if (gate.allow && gate.via === 'invite') {
+      // Invited child: link them to their parent and put them in the family
+      // class instead of the generic demo class.
+      await completeInvitedChildSetup(user.id, gate);
+    } else {
+      await enrollStudentInDemoClass(user.id);
+    }
     console.log(`[auth/apple] created student ${user.id} for Apple user ${appleUserId}`);
   }
 

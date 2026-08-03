@@ -22,7 +22,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { upsertAuthUserAndToken } from '@/lib/auth-token';
 import { enrollStudentInDemoClass } from '@/lib/demo-class';
-import { parseBody, AccessTokenSchema } from '@/lib/validate';
+import { checkNewStudentAccess, completeInvitedChildSetup, type GateDecision } from '@/lib/mobile-gate';
+import { parseBody, AccessTokenSchema, z } from '@/lib/validate';
+
+// AccessTokenSchema plus the optional App Review unlock. Kept local so the
+// shared schema stays untouched for its other callers.
+const IdentifySchema = AccessTokenSchema.extend({
+  inviteCode: z.string().trim().max(64).optional(),
+});
 
 export async function POST(req: NextRequest) {
   try {
@@ -35,9 +42,9 @@ export async function POST(req: NextRequest) {
 }
 
 async function handlePOST(req: NextRequest) {
-  const parsed = await parseBody(req, AccessTokenSchema);
+  const parsed = await parseBody(req, IdentifySchema);
   if (!parsed.ok) return parsed.response;
-  const { accessToken } = parsed.data;
+  const { accessToken, inviteCode } = parsed.data;
 
   // ── 1. Resolve Google identity ─────────────────────────────────────────────
   const profileRes = await fetch('https://www.googleapis.com/userinfo/v2/me', {
@@ -228,14 +235,36 @@ async function handlePOST(req: NextRequest) {
   }
 
   // ── 3b. Student path ───────────────────────────────────────────────────────
+  // Invite gate — a child only gets an account if a parent invited them (or
+  // App Review supplied the reviewer code). Existing students are untouched.
+  let gate: GateDecision = { allow: true, via: 'reviewer' };
+  if (isNewStudent) {
+    gate = await checkNewStudentAccess({
+      email,
+      provider: 'google',
+      inviteCode,
+      firstName: nameParts[0] ?? null,
+    });
+    if (!gate.allow) {
+      return NextResponse.json(
+        {
+          error: 'Astroli is invite-only right now. Ask a parent to set up your account.',
+          reason: 'invite_required',
+        },
+        { status: 403 },
+      );
+    }
+  }
+
+  const invitedName = gate.allow && gate.via === 'invite' ? gate.childName : null;
   const { data: student, error: studentError } = await supabaseAdmin
     .from('users')
     .upsert(
       {
         email,
         role:       'student',
-        full_name:  name ?? '',
-        first_name: nameParts[0] ?? '',
+        full_name:  invitedName ?? name ?? '',
+        first_name: (invitedName ?? name ?? '').split(' ')[0] || (nameParts[0] ?? ''),
       },
       { onConflict: 'email' },
     )
@@ -248,7 +277,11 @@ async function handlePOST(req: NextRequest) {
   }
 
   if (isNewStudent) {
-    await enrollStudentInDemoClass(student.id);
+    if (gate.allow && gate.via === 'invite') {
+      await completeInvitedChildSetup(student.id, gate);
+    } else {
+      await enrollStudentInDemoClass(student.id);
+    }
   }
 
   const authResult = await upsertAuthUserAndToken(email, {
