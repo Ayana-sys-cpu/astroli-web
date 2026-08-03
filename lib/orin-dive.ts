@@ -89,9 +89,28 @@ Rules for "visual" HTML:
 
 Never dump everything you know at once — you are having a conversation, not giving a lecture. Say one interesting thing, then end with a question that pulls them deeper and let them choose where to go.
 
+Hold the payoff. The most surprising fact in what you are about to say is never given away in the same breath — you set it up, let the student guess at it, and only then reveal it. A fact they guessed at first lands; a fact handed to them is skimmed.
+
+Your question at the end of a reply must have a real answer they can be wrong about — a number, a choice between two or three named options, a yes or no. Never ask an opinion question with no wrong answer ("what do you think happened", "which sounds more likely to you"): a teen shrugs at those. Give them something to commit to, then tell them if they got it.
+
 When you attach something, your text must hand it to them in the same breath — say what it is and what to do with it ("that's a strand of DNA on the right — click each letter"). Never leave something on screen the student has to guess the purpose of.
 
 If a source card is given below, it is the piece the student just read and tapped on. Use its real names, people and facts — never talk around a person whose name you have been given, and never describe them as "this real person". Do not recite the card back to them; start from it and go further.`;
+
+/**
+ * The first message decides whether a teen stays. A wall of text on an empty
+ * screen loses them, so the opening is deliberately starved: a couple of lines,
+ * a real picture beside it, and a guess they have to commit to before Orin
+ * tells them anything else.
+ */
+const OPENING = `This is the very first message of the dive. The student has just arrived and nothing is on screen yet. Special rules for this message only:
+
+- Keep it to about 40 words, and never more than 60. Two or three short lines. This is a hook, not an introduction.
+- Do not explain what the topic is, why it matters, or what the student will learn. No "let me tell you about", no greeting, no "picture this".
+- Give one concrete, strange, specific image from the topic — a thing that happened, in plain words. Withhold the names, the numbers and the point of the story; those are the reward for answering.
+- End with a guess that has a real answer: a number, or a choice between two or three named options. Make it feel like a bet.
+- Always attach something so the screen is not empty. Prefer a "media_request" for a real photograph of the actual thing, place or person. Only use a "visual" if no real photo could exist.
+- Do not reveal the answer to your own question in this message. The next message is where the payoff lands.`;
 
 const client = new Anthropic();
 
@@ -188,6 +207,9 @@ export async function askOrin({ topic, history, editMedia, source }: AskOrinOpti
     ? `\n\nSource card the student just read:\nHeadline: ${source.hook}\n${source.body}\n${source.bridge}`
     : '';
 
+  const isOpening = history.length === 0;
+  const opening = isOpening ? `\n\n${OPENING}` : '';
+
   const messages: Anthropic.MessageParam[] = history.length
     ? history.map((turn) => ({
         role: turn.role === 'student' ? ('user' as const) : ('assistant' as const),
@@ -199,7 +221,7 @@ export async function askOrin({ topic, history, editMedia, source }: AskOrinOpti
     const response = await client.messages.create({
       model: MODEL,
       max_tokens: 8000,
-      system: `${SYSTEM}\n\nTopic: ${topic}${sourceCard}${wrapUp}`,
+      system: `${SYSTEM}\n\nTopic: ${topic}${sourceCard}${opening}${wrapUp}`,
       output_config: {
         effort: 'medium',
         format: { type: 'json_schema', schema: REPLY_SCHEMA },
@@ -212,6 +234,23 @@ export async function askOrin({ topic, history, editMedia, source }: AskOrinOpti
 
     const parsed = JSON.parse(block.text) as { text?: unknown; attachment?: unknown };
     const segments = await resolveReply(parsed, editMedia);
+
+    // An opening that lands with an empty canvas is the thing this is all
+    // guarding against, so fall back to the topic itself if the search missed.
+    if (isOpening && !segments.some((s) => s.type !== 'text')) {
+      const hit = await searchWikimedia(topic);
+      if (hit) {
+        segments.push({
+          type: 'media',
+          kind: 'image',
+          url: hit.url,
+          title: hit.title,
+          credit: hit.credit,
+          source: 'wikimedia',
+        });
+      }
+    }
+
     return segments.length > 0 ? segments : null;
   } catch {
     return null;
