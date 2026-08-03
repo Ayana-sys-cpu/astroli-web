@@ -28,6 +28,10 @@ model User {
   area_of_interest            String?
   last_avatar_personalised_at DateTime?                    @db.Timestamptz(6)
   auth_user_id                String?                      @db.Uuid
+  /// This person's language ('he' or 'en') — the single source for app chrome,
+  /// Orin, parent emails, and the default a new enrollment inherits. Read it
+  /// only through lib/student-language.ts.
+  language                    String                       @default("en")
   generationJobs              GenerationJob[]
   mission_started_by_student  mission_started_by_student[]
   missionsCreated             Mission[]

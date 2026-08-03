@@ -49,6 +49,38 @@ export async function findEnrolledClassId(
   return data?.class_id ?? null;
 }
 
+/**
+ * Language of a PERSON — the answer for every surface that is not inside a
+ * specific journey: app chrome, Orin on the home screen, parent emails, and the
+ * default a new enrollment inherits.
+ *
+ * This is the ONLY permitted person-level read of `users.language`. Querying the
+ * column directly is how the enrollment-level reads below drifted in the first
+ * place.
+ *
+ * It exists because there was previously no such thing as "this person's
+ * language": language lived only on an enrollment, so anything outside a journey
+ * guessed. The guess was `journeys[0].language` — whichever journey happened to
+ * sort first — and Orin inherited it.
+ *
+ * English when the person can't be resolved. A caller that reaches this fallback
+ * has a bug: every live user was backfilled (see
+ * specs/shared/language/baseline.md) and every new user is stamped at signup or
+ * invite acceptance.
+ */
+export async function resolveUserLanguage(userId: string | null | undefined): Promise<StudentLanguage> {
+  if (!userId) return 'en';
+
+  const { data, error } = await supabaseAdmin
+    .from('users')
+    .select('language')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) console.error('[student-language] user language lookup error:', error);
+  return asLanguage(data?.language);
+}
+
 /** Language of a specific class. English when the class can't be resolved. */
 export async function resolveClassLanguage(classId: string | null | undefined): Promise<StudentLanguage> {
   if (!classId) return 'en';
