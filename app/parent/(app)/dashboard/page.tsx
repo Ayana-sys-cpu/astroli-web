@@ -7,9 +7,15 @@ import CrossJourneyInsights from '@/components/teacher/drill-down/CrossJourneyIn
 import ThisWeekView from '@/components/teacher/drill-down/ThisWeekView';
 import SetupChecklist, { type SetupStep } from './SetupChecklist';
 import InvitePendingState from './InvitePendingState';
+import WarmSummary, { type ParentHomeData } from './WarmSummary';
 import type { DrillDownResponse } from '@/lib/drill-down-types';
 
 type MainTab = 'this-week' | 'all-time';
+
+// The warm summary is the landing view; the teacher-style drill-down is still
+// here, behind "See everything <name> has learned". Kept rather than replaced —
+// it is the depth that proves the product works, just not the front page.
+type View = 'summary' | 'detail';
 
 type SetupData = {
   child: { id: string; name: string | null } | null;
@@ -22,6 +28,8 @@ export default function ParentDashboardPage() {
   const router = useRouter();
   const [setupData, setSetupData] = useState<SetupData | null>(null);
   const [progressData, setProgressData] = useState<DrillDownResponse | null>(null);
+  const [homeData, setHomeData] = useState<ParentHomeData | null>(null);
+  const [view, setView] = useState<View>('summary');
   const [loading, setLoading] = useState(true);
   const [mainTab, setMainTab] = useState<MainTab>('this-week');
   const [selectedJourneyId, setSelectedJourneyId] = useState<string>('');
@@ -43,13 +51,17 @@ export default function ParentDashboardPage() {
         // case, which we handle gracefully by showing an empty state rather
         // than redirecting).
         if (setup.familyClass) {
-          const pr = await fetch('/api/parent/student/drill-down', { signal: ctrl.signal });
+          const [pr, hr] = await Promise.all([
+            fetch('/api/parent/student/drill-down', { signal: ctrl.signal }),
+            fetch('/api/parent/home', { signal: ctrl.signal }),
+          ]);
           if (pr.status === 401) { router.replace('/'); return; }
           if (pr.status !== 403) {
             const pd: DrillDownResponse = await pr.json();
             setProgressData(pd);
             if (pd.journeys.length > 0) setSelectedJourneyId(pd.journeys[0].id);
           }
+          if (hr.ok) setHomeData(await hr.json());
           // 403 = no linked child yet — stay on empty state, do not redirect
         }
       })
@@ -127,6 +139,16 @@ export default function ParentDashboardPage() {
   const data = progressData;
   const firstName = data.student.name.split(' ')[0] || data.student.name;
 
+  // Landing view: the warm summary. The drill-down below is one tap away.
+  if (view === 'summary' && homeData) {
+    return (
+      <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'rgba(248,248,252,0.8)' }}>
+        <DrillDownHeader student={data.student} hideBackButton />
+        <WarmSummary data={homeData} onSeeEverything={() => setView('detail')} />
+      </div>
+    );
+  }
+
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'rgba(248,248,252,0.8)' }}>
       <style>{`
@@ -134,6 +156,21 @@ export default function ParentDashboardPage() {
       `}</style>
 
       <DrillDownHeader student={data.student} hideBackButton />
+
+      {homeData && (
+        <div style={{ padding: '10px 20px 0', background: 'rgba(255,255,255,0.6)', flexShrink: 0 }}>
+          <button
+            className="dd-btn"
+            onClick={() => setView('summary')}
+            style={{
+              background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+              fontSize: 13, color: '#8B00FF',
+            }}
+          >
+            ← {homeData.language === 'he' ? 'חזרה לסיכום' : 'Back to summary'}
+          </button>
+        </div>
+      )}
 
       {/* Main tabs */}
       <div style={{
