@@ -240,11 +240,63 @@ export async function searchWikimedia(query: string): Promise<WikimediaHit[]> {
   }
 }
 
-/** Google first for coverage, Wikimedia as the always-free fallback. */
+/**
+ * Openverse — the Creative-Commons image aggregator (Flickr, museums, archives;
+ * ~700M openly licensed images). Free, keyless, licence-filtered to
+ * commercial-use CC, mature content excluded. Only the search phrase is sent.
+ */
+async function searchOpenverse(query: string): Promise<WikimediaHit[]> {
+  const params = new URLSearchParams({
+    q: query,
+    license_type: 'commercial',
+    mature: 'false',
+    page_size: '8',
+  });
+
+  try {
+    const res = await fetch(`https://api.openverse.org/v1/images/?${params}`, {
+      headers: { 'User-Agent': 'Astroli/1.0 (education; contact via astroli.app)' },
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    const results = (data?.results ?? []) as Array<{
+      url?: string;
+      title?: string;
+      creator?: string;
+      license?: string;
+      source?: string;
+    }>;
+
+    return results.flatMap((r) =>
+      r.url
+        ? [{
+            url: r.url,
+            title: (r.title ?? '').slice(0, 120),
+            credit: `${r.creator || r.source || 'Unknown'} · ${(r.license ?? 'CC').toUpperCase()} · via Openverse`,
+          }]
+        : [],
+    );
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Google first if configured; otherwise Openverse and Wikimedia are searched
+ * together and their candidates pooled, so the picker chooses from the widest
+ * set — Openverse matches strictly and often returns few hits on story-like
+ * phrases, while Wikimedia matches loosely but skews to portraits.
+ */
 async function searchImages(query: string): Promise<WikimediaHit[]> {
   const google = await searchGoogleImages(query);
   if (google.length > 0) return google;
-  return searchWikimedia(query);
+  const [openverse, wikimedia] = await Promise.all([
+    searchOpenverse(query),
+    searchWikimedia(query),
+  ]);
+  return [...openverse, ...wikimedia].slice(0, 10);
 }
 
 /**
