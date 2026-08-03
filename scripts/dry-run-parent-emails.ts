@@ -23,8 +23,15 @@ async function main() {
   const params = new URLSearchParams('dry=1');
   if (at) params.set('at', at);
 
+  // The handler now fails closed, so the local run has to present the secret.
+  const secret = process.env.CRON_SECRET;
+  if (!secret) {
+    console.error('CRON_SECRET is not set locally — pull it with `vercel env pull` first.');
+    process.exit(1);
+  }
+
   const req: any = {
-    headers: { get: () => null },
+    headers: { get: (h: string) => (h.toLowerCase() === 'authorization' ? `Bearer ${secret}` : null) },
     nextUrl: { searchParams: params },
   };
 

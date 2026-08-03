@@ -37,10 +37,18 @@ const MORNING_WINDOW: readonly number[] = [5, 6, 7, 8, 9];
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export async function GET(req: NextRequest) {
-  // Vercel cron sends this header; a manual call must supply the secret.
+  // Vercel cron sends this header automatically once CRON_SECRET is set; a
+  // manual call must supply it.
+  //
+  // Fails CLOSED. An earlier version skipped the check when the secret was
+  // unset, which left the endpoint open to anyone — and its response body lists
+  // parent email addresses alongside what their children studied.
   const secret = process.env.CRON_SECRET;
-  const auth = req.headers.get('authorization');
-  if (secret && auth !== `Bearer ${secret}`) {
+  if (!secret) {
+    console.error('[cron/parent-emails] CRON_SECRET is not set — refusing to run');
+    return NextResponse.json({ error: 'Not configured' }, { status: 503 });
+  }
+  if (req.headers.get('authorization') !== `Bearer ${secret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
