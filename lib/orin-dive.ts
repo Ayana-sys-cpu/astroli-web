@@ -17,6 +17,8 @@ export const SOFT_EXCHANGE_CAP = 20;
 export type Segment =
   | { type: 'text'; text: string }
   | { type: 'visual'; title: string; html: string }
+  /** Tappable answer options for Orin's question — a bet a teen commits to with one tap. */
+  | { type: 'choices'; options: string[] }
   | {
       type: 'media';
       kind: 'image' | 'video';
@@ -42,6 +44,11 @@ const REPLY_SCHEMA = {
   required: ['text'],
   properties: {
     text: { type: 'string', maxLength: 700 },
+    choices: {
+      type: 'array',
+      items: { type: 'string', maxLength: 40 },
+      maxItems: 3,
+    },
     attachment: {
       anyOf: [
         {
@@ -76,9 +83,10 @@ You are exploring ONE topic with the student. Stay on it. If they ask about some
 
 Every reply is one short message, optionally with one thing attached:
 - "text": this is you talking. One or two short paragraphs, no more — a student is reading on a phone. Plain words only: no markdown, no asterisks, no bullet lists.
+- "choices": when your closing question is a bet between named options, put those exact options here (two or three, a few words each) so the student can answer with one tap. Leave it out for open questions.
 - "attachment" (optional, at most one):
   - "visual": a self-contained interactive explainer as a complete HTML document. Use it when seeing the thing beats reading about it — a labelled cross-section, a simple simulation the student can drag, a chart that makes a comparison obvious.
-  - "media_request": ask for a real photograph or diagram from Wikimedia Commons by giving a short search phrase (e.g. "erupting volcano lava"). Use when a real image of the actual thing helps.
+  - "media_request": ask for a real photograph or diagram from Wikimedia Commons by giving a short search phrase. Describe the SCENE or THING, never just a person's name — "children using computer kiosk in wall Delhi" beats "Sugata Mitra", because a photo of the event tells the story and a headshot tells nothing. Use when a real image of the actual thing helps.
 
 Rules for "visual" HTML:
 - One complete <html> document with all CSS and JS inline. No external scripts, stylesheets, fonts, or images — they will not load.
@@ -108,8 +116,8 @@ const OPENING = `This is the very first message of the dive. The student has jus
 - Keep it to about 40 words, and never more than 60. Two or three short lines. This is a hook, not an introduction.
 - Do not explain what the topic is, why it matters, or what the student will learn. No "let me tell you about", no greeting, no "picture this".
 - Give one concrete, strange, specific image from the topic — a thing that happened, in plain words. Withhold the names, the numbers and the point of the story; those are the reward for answering.
-- End with a guess that has a real answer: a number, or a choice between two or three named options. Make it feel like a bet.
-- Always attach something so the screen is not empty. Prefer a "media_request" for a real photograph of the actual thing, place or person. Only use a "visual" if no real photo could exist.
+- End with a guess that has a real answer: a number, or a choice between two or three named options. Make it feel like a bet, and put the options in "choices" so the student answers with one tap.
+- Always attach something so the screen is not empty. Prefer a "media_request" for a real photograph of the actual scene, thing or place — not a portrait of a person. Only use a "visual" if no real photo could exist.
 - Do not reveal the answer to your own question in this message. The next message is where the payoff lands.`;
 
 const client = new Anthropic();
@@ -122,16 +130,18 @@ interface WikimediaHit {
 
 /**
  * Curated real media, free and attributed. Wikimedia only ever sees the search
- * phrase — never the student's identity or their conversation.
+ * phrase — never the student's identity or their conversation. Returns several
+ * candidates so the caller can pick the one that actually shows the story,
+ * rather than trusting Wikimedia's first hit (often a conference headshot).
  */
-export async function searchWikimedia(query: string): Promise<WikimediaHit | null> {
+export async function searchWikimedia(query: string): Promise<WikimediaHit[]> {
   const params = new URLSearchParams({
     action: 'query',
     format: 'json',
     generator: 'search',
     gsrsearch: `filetype:bitmap ${query}`,
     gsrnamespace: '6',
-    gsrlimit: '1',
+    gsrlimit: '8',
     prop: 'imageinfo',
     iiprop: 'url|extmetadata',
     iiurlwidth: '900',
@@ -143,13 +153,14 @@ export async function searchWikimedia(query: string): Promise<WikimediaHit | nul
       headers: { 'User-Agent': 'Astroli/1.0 (education; contact via astroli.app)' },
       signal: AbortSignal.timeout(6000),
     });
-    if (!res.ok) return null;
+    if (!res.ok) return [];
 
     const data = await res.json();
     const pages = data?.query?.pages;
-    if (!pages) return null;
+    if (!pages) return [];
 
-    const page = Object.values(pages)[0] as {
+    type Page = {
+      index?: number;
       title?: string;
       imageinfo?: Array<{
         thumburl?: string;
@@ -157,22 +168,54 @@ export async function searchWikimedia(query: string): Promise<WikimediaHit | nul
         extmetadata?: Record<string, { value?: string }>;
       }>;
     };
-    const info = page?.imageinfo?.[0];
-    const url = info?.thumburl ?? info?.url;
-    if (!url) return null;
 
-    const meta = info?.extmetadata ?? {};
-    const artist = stripHtml(meta.Artist?.value ?? '') || 'Wikimedia Commons';
-    const licence = stripHtml(meta.LicenseShortName?.value ?? '') || 'see Wikimedia Commons';
+    return (Object.values(pages) as Page[])
+      .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+      .flatMap((page) => {
+        const info = page?.imageinfo?.[0];
+        const url = info?.thumburl ?? info?.url;
+        if (!url) return [];
 
-    return {
-      url,
-      title: (page.title ?? '').replace(/^File:/, '').replace(/\.[a-z0-9]+$/i, ''),
-      credit: `${artist} · ${licence} · Wikimedia Commons`,
-    };
+        const meta = info?.extmetadata ?? {};
+        const artist = stripHtml(meta.Artist?.value ?? '') || 'Wikimedia Commons';
+        const licence = stripHtml(meta.LicenseShortName?.value ?? '') || 'see Wikimedia Commons';
+
+        return [{
+          url,
+          title: (page.title ?? '').replace(/^File:/, '').replace(/\.[a-z0-9]+$/i, ''),
+          credit: `${artist} · ${licence} · Wikimedia Commons`,
+        }];
+      });
   } catch {
-    return null;
+    return [];
   }
+}
+
+/**
+ * Asks a small fast model which candidate best shows the scene the reply is
+ * about — a photo of the event beats a portrait of the person every time.
+ * Falls back to the top search result if the pick fails; never blocks a reply.
+ */
+async function pickBestImage(candidates: WikimediaHit[], context: string): Promise<WikimediaHit> {
+  if (candidates.length === 1) return candidates[0];
+  try {
+    const list = candidates.map((c, i) => `${i}. ${c.title}`).join('\n');
+    const response = await client.messages.create({
+      model: 'claude-haiku-4-5',
+      max_tokens: 8,
+      system:
+        'You pick the best illustration for a message shown to a teenage student. Prefer a photo of the actual scene, event, place or object over a portrait, logo, map or document. Reply with the number of the best option and nothing else.',
+      messages: [{ role: 'user', content: `Message: ${context}\n\nImage titles:\n${list}` }],
+    });
+    const block = response.content.find((b) => b.type === 'text');
+    const index = block && block.type === 'text' ? parseInt(block.text.trim(), 10) : NaN;
+    if (Number.isInteger(index) && index >= 0 && index < candidates.length) {
+      return candidates[index];
+    }
+  } catch {
+    // fall through to the top search result
+  }
+  return candidates[0];
 }
 
 function stripHtml(value: string): string {
@@ -232,14 +275,15 @@ export async function askOrin({ topic, history, editMedia, source }: AskOrinOpti
     const block = response.content.find((b) => b.type === 'text');
     if (!block || block.type !== 'text') return null;
 
-    const parsed = JSON.parse(block.text) as { text?: unknown; attachment?: unknown };
+    const parsed = JSON.parse(block.text) as { text?: unknown; choices?: unknown; attachment?: unknown };
     const segments = await resolveReply(parsed, editMedia);
 
     // An opening that lands with an empty canvas is the thing this is all
     // guarding against, so fall back to the topic itself if the search missed.
-    if (isOpening && !segments.some((s) => s.type !== 'text')) {
-      const hit = await searchWikimedia(topic);
-      if (hit) {
+    if (isOpening && !segments.some((s) => s.type === 'media' || s.type === 'visual')) {
+      const hits = await searchWikimedia(topic);
+      if (hits.length > 0) {
+        const hit = await pickBestImage(hits, topic);
         segments.push({
           type: 'media',
           kind: 'image',
@@ -259,13 +303,20 @@ export async function askOrin({ topic, history, editMedia, source }: AskOrinOpti
 
 /** Turns one model reply into stored segments, fetching any attached media. */
 async function resolveReply(
-  reply: { text?: unknown; attachment?: unknown },
+  reply: { text?: unknown; choices?: unknown; attachment?: unknown },
   editMedia: AskOrinOptions['editMedia'],
 ): Promise<Segment[]> {
   const out: Segment[] = [];
 
   if (typeof reply.text === 'string' && reply.text.trim()) {
     out.push({ type: 'text', text: reply.text });
+  }
+
+  const options = Array.isArray(reply.choices)
+    ? reply.choices.filter((c): c is string => typeof c === 'string' && c.trim().length > 0)
+    : [];
+  if (options.length >= 2) {
+    out.push({ type: 'choices', options: options.slice(0, 3) });
   }
 
   const attachment = reply.attachment as Record<string, unknown> | undefined;
@@ -289,8 +340,10 @@ async function resolveReply(
       });
       return out;
     }
-    const hit = await searchWikimedia(attachment.search);
-    if (hit) {
+    const hits = await searchWikimedia(attachment.search);
+    if (hits.length > 0) {
+      const context = typeof reply.text === 'string' ? reply.text : attachment.search;
+      const hit = await pickBestImage(hits, context);
       out.push({ type: 'media', kind: 'image', url: hit.url, title: hit.title, credit: hit.credit, source: 'wikimedia' });
     }
   }
@@ -304,6 +357,7 @@ function segmentsToPrompt(segments: Segment[]): string {
     .map((s) => {
       if (s.type === 'text') return s.text;
       if (s.type === 'visual') return `[showed an interactive visual: ${s.title}]`;
+      if (s.type === 'choices') return `[offered choices: ${s.options.join(' | ')}]`;
       return `[showed ${s.kind}: ${s.title}]`;
     })
     .join('\n\n');

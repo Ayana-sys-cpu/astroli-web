@@ -6,6 +6,7 @@ import StudentHeader from '@/components/StudentHeader';
 import type { DiveTurn, Segment, SourceEdit } from '@/lib/orin-dive';
 import ChatPane from './ChatPane';
 import MediaCanvas from './MediaCanvas';
+import OrinThinking from './OrinThinking';
 
 export default function DivePage() {
   const router = useRouter();
@@ -94,7 +95,7 @@ export default function DivePage() {
   }, [id]);
 
   const visuals: Segment[] = useMemo(
-    () => (turns ?? []).flatMap((t) => t.segments.filter((s) => s.type !== 'text')).reverse(),
+    () => (turns ?? []).flatMap((t) => t.segments.filter((s) => s.type === 'media' || s.type === 'visual')).reverse(),
     [turns],
   );
 
@@ -118,9 +119,9 @@ export default function DivePage() {
         </div>
 
         {turns === null ? (
-          <p className="mt-10 text-center text-[13px]" style={{ color: 'var(--master-text-muted)' }}>
-            Opening your exploration…
-          </p>
+          <div className="mt-10 flex justify-center">
+            <OrinThinking />
+          </div>
         ) : (
           <div className="grid min-h-0 flex-1 gap-5 md:grid-cols-[1fr_1.15fr]">
             <ChatPane

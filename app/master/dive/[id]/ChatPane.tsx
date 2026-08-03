@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { DiveTurn, SourceEdit } from '@/lib/orin-dive';
 import SourceCard from './SourceCard';
+import OrinThinking from './OrinThinking';
+import OrinText from './OrinText';
 
 interface ChatPaneProps {
   topic: string;
@@ -16,17 +18,28 @@ interface ChatPaneProps {
 export default function ChatPane({ topic, source = null, turns, sending, recharging, onSend }: ChatPaneProps) {
   const [draft, setDraft] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
+  // Turns present at mount are history — they render instantly; only turns
+  // that arrive live get the word-by-word reveal.
+  const preloaded = useRef(turns.length);
+
+  const scrollDown = () => endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    scrollDown();
   }, [turns.length, sending]);
 
-  const send = () => {
-    const text = draft.trim();
-    if (!text || sending) return;
+  const send = (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || sending) return;
     setDraft('');
-    onSend(text);
+    onSend(trimmed);
   };
+
+  const lastTurn = turns[turns.length - 1];
+  const choices =
+    !sending && !recharging && lastTurn?.role === 'orin'
+      ? lastTurn.segments.find((s) => s.type === 'choices')
+      : undefined;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -59,16 +72,32 @@ export default function ChatPane({ topic, source = null, turns, sending, recharg
                     : { background: 'var(--master-surface)', color: 'var(--master-text-secondary)' }
                 }
               >
-                {s.type === 'text' ? s.text : ''}
+                {s.type !== 'text' ? '' : turn.role === 'orin' ? (
+                  <OrinText text={s.text} animate={i >= preloaded.current} onGrow={scrollDown} />
+                ) : (
+                  s.text
+                )}
               </p>
             )),
         )}
 
-        {sending && (
-          <p className="m-0 text-[12px]" style={{ color: 'var(--master-text-muted)' }}>
-            Orin is thinking…
-          </p>
+        {choices?.type === 'choices' && (
+          <div className="flex flex-wrap gap-2">
+            {choices.options.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => send(option)}
+                className="rounded-full border px-4 py-1.5 text-[13px] text-white transition-colors hover:bg-white/10"
+                style={{ borderColor: 'var(--master-magenta-text)', background: '#15151B' }}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
         )}
+
+        {sending && <OrinThinking topic={topic} />}
 
         {recharging && (
           <p
@@ -90,7 +119,7 @@ export default function ChatPane({ topic, source = null, turns, sending, recharg
           type="text"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && send()}
+          onKeyDown={(e) => e.key === 'Enter' && send(draft)}
           placeholder="Ask anything…"
           aria-label="Ask Orin about this topic"
           disabled={sending}
@@ -99,7 +128,7 @@ export default function ChatPane({ topic, source = null, turns, sending, recharg
         />
         <button
           type="button"
-          onClick={send}
+          onClick={() => send(draft)}
           disabled={sending}
           aria-label="Send"
           className="shrink-0 text-[15px] leading-none disabled:opacity-40"
