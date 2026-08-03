@@ -6,7 +6,7 @@ import StudentHeader from '@/components/StudentHeader';
 import type { DiveTurn, Segment, SourceEdit } from '@/lib/orin-dive';
 import ChatPane from './ChatPane';
 import MediaCanvas from './MediaCanvas';
-import OrinThinking from './OrinThinking';
+import ConstellationLoader from '@/components/ConstellationLoader';
 
 export default function DivePage() {
   const router = useRouter();
@@ -120,9 +120,7 @@ export default function DivePage() {
         </div>
 
         {turns === null ? (
-          <div className="mt-10 flex justify-center">
-            <OrinThinking />
-          </div>
+          <ConstellationLoader message="Opening your exploration…" />
         ) : (
           <div className="grid min-h-0 flex-1 gap-5 md:grid-cols-[1fr_1.15fr]">
             <ChatPane

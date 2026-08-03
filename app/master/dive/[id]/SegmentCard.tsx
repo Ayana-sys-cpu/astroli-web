@@ -1,4 +1,5 @@
 'use client';
+import { useState } from 'react';
 import type { Segment } from '@/lib/orin-dive';
 
 /**
@@ -31,6 +32,19 @@ export function VisualCard({ segment }: { segment: Extract<Segment, { type: 'vis
 }
 
 export function MediaCard({ segment }: { segment: Extract<Segment, { type: 'media' }> }) {
+  // Many sites block other pages from displaying their images ("hotlinking").
+  // When the full image refuses to load we drop to the Google-hosted thumbnail,
+  // and if that fails too the card disappears instead of showing a broken icon.
+  const [src, setSrc] = useState(segment.url);
+  const [failed, setFailed] = useState(false);
+
+  const onError = () => {
+    if (segment.thumb && src !== segment.thumb) setSrc(segment.thumb);
+    else setFailed(true);
+  };
+
+  if (failed) return null;
+
   return (
     <figure
       className="dive-media-arrive m-0 overflow-hidden"
@@ -46,9 +60,10 @@ export function MediaCard({ segment }: { segment: Extract<Segment, { type: 'medi
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={segment.url}
+            src={src}
             alt={segment.title}
             loading="lazy"
+            onError={onError}
             className="dive-media-kenburns block max-h-[340px] w-full object-cover"
           />
         )}

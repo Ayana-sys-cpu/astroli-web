@@ -23,6 +23,8 @@ export type Segment =
       type: 'media';
       kind: 'image' | 'video';
       url: string;
+      /** Google-hosted thumbnail — the on-error fallback when a site blocks hotlinking. */
+      thumb?: string;
       title: string;
       credit: string;
       source: 'feed' | 'wikimedia';
@@ -123,6 +125,8 @@ const client = new Anthropic();
 
 interface WikimediaHit {
   url: string;
+  /** Reliable small fallback (Google-hosted) for sources that block hotlinking. */
+  thumb?: string;
   title: string;
   credit: string;
 }
@@ -263,6 +267,7 @@ async function searchSerperImages(query: string): Promise<WikimediaHit[]> {
     const data = await res.json();
     const images = (data?.images ?? []) as Array<{
       imageUrl?: string;
+      thumbnailUrl?: string;
       title?: string;
       source?: string;
       link?: string;
@@ -272,6 +277,7 @@ async function searchSerperImages(query: string): Promise<WikimediaHit[]> {
       img.imageUrl
         ? [{
             url: img.imageUrl,
+            thumb: img.thumbnailUrl,
             title: (img.title ?? '').slice(0, 120),
             credit: `${img.source || (img.link ? new URL(img.link).hostname : 'web')} · via Google Images`,
           }]
@@ -443,6 +449,7 @@ export async function askOrin({ topic, history, editMedia, source }: AskOrinOpti
           type: 'media',
           kind: 'image',
           url: hit.url,
+          thumb: hit.thumb,
           title: hit.title,
           credit: hit.credit,
           source: 'wikimedia',
@@ -499,7 +506,7 @@ async function resolveReply(
     if (hits.length > 0) {
       const context = typeof reply.text === 'string' ? reply.text : attachment.search;
       const hit = await pickBestImage(hits, context);
-      out.push({ type: 'media', kind: 'image', url: hit.url, title: hit.title, credit: hit.credit, source: 'wikimedia' });
+      out.push({ type: 'media', kind: 'image', url: hit.url, thumb: hit.thumb, title: hit.title, credit: hit.credit, source: 'wikimedia' });
     }
   }
 
