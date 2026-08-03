@@ -128,6 +128,56 @@ interface WikimediaHit {
 }
 
 /**
+ * Google Programmable Search, licence-filtered to Creative Commons / public
+ * domain and SafeSearch-locked — the same image engine behind Gemini's answers,
+ * minus anything we couldn't legally show a classroom. Google only ever sees
+ * the search phrase, never the student. Returns [] when the env keys are
+ * absent so the Wikimedia fallback quietly carries the feature.
+ */
+async function searchGoogleImages(query: string): Promise<WikimediaHit[]> {
+  const key = process.env.GOOGLE_SEARCH_API_KEY;
+  const cx = process.env.GOOGLE_SEARCH_CX;
+  if (!key || !cx) return [];
+
+  const params = new URLSearchParams({
+    key,
+    cx,
+    q: query,
+    searchType: 'image',
+    num: '8',
+    safe: 'active',
+    rights: 'cc_publicdomain,cc_attribute,cc_sharealike',
+    imgSize: 'large',
+  });
+
+  try {
+    const res = await fetch(`https://www.googleapis.com/customsearch/v1?${params}`, {
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    const items = (data?.items ?? []) as Array<{
+      link?: string;
+      title?: string;
+      displayLink?: string;
+    }>;
+
+    return items.flatMap((item) =>
+      item.link
+        ? [{
+            url: item.link,
+            title: (item.title ?? '').slice(0, 120),
+            credit: `${item.displayLink ?? 'source'} · Creative Commons`,
+          }]
+        : [],
+    );
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Curated real media, free and attributed. Wikimedia only ever sees the search
  * phrase — never the student's identity or their conversation. Returns several
  * candidates so the caller can pick the one that actually shows the story,
@@ -188,6 +238,13 @@ export async function searchWikimedia(query: string): Promise<WikimediaHit[]> {
   } catch {
     return [];
   }
+}
+
+/** Google first for coverage, Wikimedia as the always-free fallback. */
+async function searchImages(query: string): Promise<WikimediaHit[]> {
+  const google = await searchGoogleImages(query);
+  if (google.length > 0) return google;
+  return searchWikimedia(query);
 }
 
 /**
@@ -280,7 +337,7 @@ export async function askOrin({ topic, history, editMedia, source }: AskOrinOpti
     // An opening that lands with an empty canvas is the thing this is all
     // guarding against, so fall back to the topic itself if the search missed.
     if (isOpening && !segments.some((s) => s.type === 'media' || s.type === 'visual')) {
-      const hits = await searchWikimedia(topic);
+      const hits = await searchImages(topic);
       if (hits.length > 0) {
         const hit = await pickBestImage(hits, topic);
         segments.push({
@@ -339,7 +396,7 @@ async function resolveReply(
       });
       return out;
     }
-    const hits = await searchWikimedia(attachment.search);
+    const hits = await searchImages(attachment.search);
     if (hits.length > 0) {
       const context = typeof reply.text === 'string' ? reply.text : attachment.search;
       const hit = await pickBestImage(hits, context);
