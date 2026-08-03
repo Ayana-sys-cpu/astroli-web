@@ -39,7 +39,13 @@ export default function LanguageStep({ initial, onDone }: Props) {
       const res = await fetch('/api/parent/language', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ language: lang }),
+        // Timezone rides along with the language: both are "who is this
+        // person", both are known here, and the summary emails need it to know
+        // when 07:00 falls for them.
+        body: JSON.stringify({
+          language: lang,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || undefined,
+        }),
       });
       if (!res.ok) throw new Error('save failed');
       onDone(lang);

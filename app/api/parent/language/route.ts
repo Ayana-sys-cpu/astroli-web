@@ -20,6 +20,9 @@ import { z, parseBody } from '@/lib/validate';
 
 const Schema = z.object({
   language: z.enum(['en', 'he']),
+  // IANA name from the browser. Optional: an older client won't send it, and
+  // the column already defaults to Asia/Jerusalem for the pilot cohort.
+  timezone: z.string().min(1).max(64).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -33,11 +36,11 @@ export async function POST(req: NextRequest) {
 
   const parsed = await parseBody(req, Schema);
   if (!parsed.ok) return parsed.response;
-  const { language } = parsed.data;
+  const { language, timezone } = parsed.data;
 
   const { error } = await supabaseAdmin
     .from('users')
-    .update({ language })
+    .update(timezone ? { language, timezone } : { language })
     .eq('id', parentId);
 
   if (error) {

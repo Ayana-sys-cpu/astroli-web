@@ -193,7 +193,11 @@ describe('parent onboarding — language comes first', () => {
 
     const call = fetchMock.mock.calls.find(c => String(c[0]).startsWith('/api/parent/language'));
     expect(call).toBeTruthy();
-    expect(JSON.parse((call![1] as any).body)).toEqual({ language: 'he' });
+    const body = JSON.parse((call![1] as any).body);
+    expect(body.language).toBe('he');
+    // Timezone rides along — the summary emails need it to know when 07:00
+    // falls for this parent.
+    expect(typeof body.timezone === 'string' || body.timezone === undefined).toBe(true);
 
     expect(await screen.findByText('Multiple planets, one big idea')).toBeInTheDocument();
     expect(localStorage.getItem(LANG_CHOSEN_KEY)).toBe('1');

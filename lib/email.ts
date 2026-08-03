@@ -83,3 +83,26 @@ export async function sendInviteEmail(
     throw new Error(`Resend API error ${res.status}: ${JSON.stringify(body)}`);
   }
 }
+
+/**
+ * Parent summary email. Separate from sendInviteEmail so an unsubscribe can
+ * mute these without ever touching invite or account mail — a parent who mutes
+ * the weekly note must still receive the link their child needs.
+ */
+export async function sendSummaryEmail(to: string, subject: string, html: string): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) throw new Error('RESEND_API_KEY is not set');
+
+  const res = await fetch(RESEND_API, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type':  'application/json',
+    },
+    body: JSON.stringify({ from: FROM, to: [to], subject, html }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Resend failed (${res.status}): ${await res.text()}`);
+  }
+}
