@@ -23,10 +23,13 @@ import {
 } from '@/lib/family-class';
 import { z, parseBody } from '@/lib/validate';
 import { ensureJourneyTranslated } from '@/lib/translate-mission';
+import { resolveUserLanguage } from '@/lib/student-language';
 
+// `language` is deliberately absent: the class inherits the parent's language so
+// the two can never disagree. Older clients may still send it; z strips unknown
+// keys, so it is ignored rather than rejected. See specs/shared/language/spec.md.
 const Schema = z.object({
   journeyId: z.string().min(1, 'journeyId required'),
-  language:  z.enum(['en', 'he']).default('en'),
 });
 
 export async function POST(req: NextRequest) {
@@ -40,7 +43,9 @@ export async function POST(req: NextRequest) {
 
   const parsed = await parseBody(req, Schema);
   if (!parsed.ok) return parsed.response;
-  const { journeyId, language } = parsed.data;
+  const { journeyId } = parsed.data;
+
+  const language = await resolveUserLanguage(parentId);
 
   // Verify journey template exists. title_he is fetched so a Hebrew class gets
   // a Hebrew name on the student's journey card — the card renders classes.title.

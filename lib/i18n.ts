@@ -832,6 +832,66 @@ const strings = {
     en: 'Coin balance',
     he: 'יתרת מטבעות',
   },
+
+  // ── Parent onboarding ───────────────────────────────────────────────────────
+  // The language step comes first so every string below renders in the parent's
+  // own language. See specs/shared/language/spec.md.
+  onbLanguageTitle: {
+    en: 'Choose your language',
+    he: 'בחרי את השפה שלך',
+  },
+  onbLanguageSubtitle: {
+    en: "This sets the language for you and your child — the app, the journeys, and Orin. You can change it later.",
+    he: 'זה קובע את השפה עבורך ועבור ילדך — האפליקציה, המסעות ואורין. אפשר לשנות בהמשך.',
+  },
+  onbLanguageContinue: {
+    en: 'Continue',
+    he: 'המשך',
+  },
+  onbStepOf: {
+    en: 'Step {n} of 3',
+    he: 'שלב {n} מתוך 3',
+  },
+  onbEmailTitle: {
+    en: "Set up your child's account",
+    he: 'הגדרת החשבון של ילדך',
+  },
+  onbEmailSubtitle: {
+    en: "Enter your child's first name and Gmail address. You'll review your consent next — nothing is sent until you approve it.",
+    he: 'הזיני את השם הפרטי של ילדך ואת כתובת הג׳ימייל. בשלב הבא תעברי על ההסכמה — כלום לא נשלח עד שתאשרי.',
+  },
+  onbChildFirstName: {
+    en: "Child's first name",
+    he: 'השם הפרטי של הילד/ה',
+  },
+  onbChildEmail: {
+    en: "Child's Gmail address",
+    he: 'כתובת הג׳ימייל של הילד/ה',
+  },
+  onbContinue: {
+    en: 'Continue →',
+    he: '← המשך',
+  },
+  onbAlreadySetUpTitle: {
+    en: "You're already set up",
+    he: 'הכול כבר מוכן',
+  },
+  onbAlreadySetUpBody: {
+    en: "Your journey is selected and your child's invite is on its way. Head to your dashboard to see the status.",
+    he: 'המסע נבחר וההזמנה לילדך בדרך. עברי ללוח הבקרה כדי לראות את הסטטוס.',
+  },
+  onbGoToDashboard: {
+    en: 'Go to dashboard →',
+    he: '← ללוח הבקרה',
+  },
+  onbJourneyTitle: {
+    en: 'Choose a journey',
+    he: 'בחרי מסע',
+  },
+  onbNoJourneys: {
+    en: 'No journeys are available yet.',
+    he: 'אין מסעות זמינים עדיין.',
+  },
 } as const;
 
 type StringKey = keyof typeof strings;

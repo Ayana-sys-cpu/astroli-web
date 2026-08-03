@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import ConsentStep from './ConsentStep';
 import WelcomeTour from './WelcomeTour';
+import LanguageStep from './LanguageStep';
+import { t } from '@/lib/i18n';
 import { CONSENT_ITEMS } from '@/lib/consent-constants';
 import { toDisplayFirstName } from '@/lib/display-name';
 
@@ -30,18 +32,36 @@ const GRADIENT_STRIPE = (
 
 type OnboardingStatus = 'checking' | 'already_done' | 'ready';
 
-// Flow: [tour] → email (1 of 3) → consent (2 of 3, the consent click sends the
-// invite) → journey (3 of 3, invite-sent banner + picker). The tour shows once,
-// only to brand-new parents with nothing set up yet.
-type Step = 'tour' | 'email' | 'consent' | 'journey';
+// Flow: language → [tour] → email (1 of 3) → consent (2 of 3, the consent click
+// sends the invite) → journey (3 of 3, invite-sent banner + picker). The tour
+// shows once, only to brand-new parents with nothing set up yet.
+//
+// Language comes FIRST so every screen after it renders in the parent's own
+// language. It used to live on the journey step — the last one — which meant an
+// Israeli parent read the entire signup in English before they could choose
+// Hebrew. See specs/shared/language/spec.md.
+type Step = 'language' | 'tour' | 'email' | 'consent' | 'journey';
 
 const TOUR_SEEN_KEY = 'astroli_parent_tour_seen';
+const LANG_CHOSEN_KEY = 'astroli_parent_language_chosen';
 
 function tourSeen(): boolean {
   try { return localStorage.getItem(TOUR_SEEN_KEY) === '1'; } catch { return false; }
 }
 function markTourSeen(): void {
   try { localStorage.setItem(TOUR_SEEN_KEY, '1'); } catch { /* private mode — show again next time */ }
+}
+
+// Every user row already has a language (backfilled), so the column can't tell
+// us whether this parent has actually *chosen* one. Mirroring the tour's
+// localStorage flag avoids adding a column for a one-time question — and
+// re-showing the step after a cache clear is harmless, since it arrives
+// pre-filled with their current value.
+function languageChosen(): boolean {
+  try { return localStorage.getItem(LANG_CHOSEN_KEY) === '1'; } catch { return false; }
+}
+function markLanguageChosen(): void {
+  try { localStorage.setItem(LANG_CHOSEN_KEY, '1'); } catch { /* private mode — ask again next time */ }
 }
 
 export default function ParentOnboardingContent() {
@@ -95,6 +115,8 @@ export default function ParentOnboardingContent() {
       .then(data => {
         if (!data) { setStatus('ready'); setStep('email'); return; }
 
+        if (data.language === 'he' || data.language === 'en') setLanguage(data.language);
+
         const accepted = !!data.child;
         setChildAccepted(accepted);
         setChildName(data.child?.name ?? null);
@@ -111,7 +133,8 @@ export default function ParentOnboardingContent() {
           setSetupComplete(!!data.familyClass);
           if (accepted) setStep('consent');                       // email known and fixed
           else if (data.pendingInvite) setStep('email');          // re-confirm, may edit
-          else setStep(tourSeen() ? 'email' : 'tour');            // brand-new parent
+          else if (!languageChosen()) setStep('language');        // brand-new parent
+          else setStep(tourSeen() ? 'email' : 'tour');
           setStatus('ready');
           return;
         }
@@ -125,6 +148,9 @@ export default function ParentOnboardingContent() {
         } else if (data.pendingInvite) {
           // Invite already out, child hasn't accepted — Step 3 with the banner.
           setStep('journey');
+        } else if (!languageChosen()) {
+          // Ahead of the tour: everything after this renders in their language.
+          setStep('language');
         } else {
           setStep('email');
         }
@@ -151,12 +177,6 @@ export default function ParentOnboardingContent() {
     } finally {
       setJourneysLoading(false);
     }
-  }
-
-  function handleLanguageChange(lang: 'en' | 'he') {
-    if (lang === language) return;
-    setLanguage(lang);
-    setSelected(null);
   }
 
   function handleContinueToConsent(e: React.FormEvent) {
@@ -238,7 +258,9 @@ export default function ParentOnboardingContent() {
     const res  = await fetch('/api/parent/family-class', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ journeyId: selected, language }),
+      // No `language` — the API reads the parent's own, so the class can never
+      // disagree with the person who created it.
+      body:    JSON.stringify({ journeyId: selected }),
     });
     const data = await res.json();
     setLoading(false);
@@ -308,6 +330,20 @@ export default function ParentOnboardingContent() {
           </div>
         </div>
       </main>
+    );
+  }
+
+  // ── Step 0: language, before anything else ──────────────────────────────────
+  if (step === 'language') {
+    return (
+      <LanguageStep
+        initial={language}
+        onDone={lang => {
+          setLanguage(lang);
+          markLanguageChosen();
+          setStep(tourSeen() ? 'email' : 'tour');
+        }}
+      />
     );
   }
 
@@ -479,34 +515,8 @@ export default function ParentOnboardingContent() {
             </div>
           )}
 
-          {/* Language toggle */}
-          <div
-            className="flex rounded-lg overflow-hidden"
-            style={{ border: '1px solid rgba(255,255,255,0.12)', width: 'fit-content' }}
-            role="group"
-            aria-label="Journey language"
-          >
-            {(['en', 'he'] as const).map((lang) => {
-              const active = language === lang;
-              return (
-                <button
-                  key={lang}
-                  type="button"
-                  onClick={() => handleLanguageChange(lang)}
-                  className="font-space text-xs font-bold px-4 py-2 transition-colors"
-                  style={{
-                    background:  active ? '#00F5D4' : 'transparent',
-                    color:       active ? '#000'    : 'rgba(255,255,255,0.45)',
-                    border:      'none',
-                    cursor:      'pointer',
-                    letterSpacing: '0.08em',
-                  }}
-                >
-                  {lang === 'en' ? 'English' : 'עברית'}
-                </button>
-              );
-            })}
-          </div>
+          {/* The language toggle that used to sit here is gone — language is now
+              chosen on the first screen and the journey inherits it. */}
 
           {journeysLoading ? (
             <div className="space-y-2" aria-busy="true" aria-label="Loading journeys">

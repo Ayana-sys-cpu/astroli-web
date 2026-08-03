@@ -31,10 +31,11 @@ export async function GET() {
 
   const { childId, familyClass } = await getParentContext(parentId);
 
-  // Fetch parent's bot usage
+  // Fetch parent's bot usage + their language (drives the onboarding language
+  // step and, later, which language their summary emails are written in).
   const { data: parentUser } = await supabaseAdmin
     .from('users')
-    .select('bot_conversations_used, bot_conversations_limit, bot_cap_reset_at')
+    .select('bot_conversations_used, bot_conversations_limit, bot_cap_reset_at, language')
     .eq('id', parentId)
     .single();
 
@@ -190,6 +191,7 @@ export async function GET() {
     setupState,
     consentStatus,
     weeklySignals,
+    language: parentUser?.language === 'he' ? 'he' : 'en',
   });
 }
 
