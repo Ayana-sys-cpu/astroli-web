@@ -1,23 +1,29 @@
 'use client';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import StarField from '@/components/StarField';
 import StudentHeader from '@/components/StudentHeader';
 import type { DiveTurn, Segment, SourceEdit } from '@/lib/orin-dive';
 import ChatPane from './ChatPane';
 import MediaCanvas from './MediaCanvas';
-import ConstellationLoader from '@/components/ConstellationLoader';
 
-export default function DivePage() {
+function DiveScreen() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
+  // The topic rides along from Master so the screen paints complete instantly,
+  // before its own data fetch returns.
+  const initialTopic = useSearchParams().get('topic') ?? '';
 
-  const [topic, setTopic] = useState('');
+  const [topic, setTopic] = useState(initialTopic);
   const [source, setSource] = useState<SourceEdit | null>(null);
-  const [turns, setTurns] = useState<DiveTurn[] | null>(null);
+  const [turns, setTurns] = useState<DiveTurn[]>([]);
+  const [hydrated, setHydrated] = useState(false);
   const [sending, setSending] = useState(false);
   const [recharging, setRecharging] = useState(false);
   const [saved, setSaved] = useState(false);
+  // Messages that existed before this visit render instantly; only turns
+  // arriving live get the typewriter reveal.
+  const animateFrom = useRef(Number.MAX_SAFE_INTEGER);
 
   useEffect(() => {
     (async () => {
@@ -30,13 +36,15 @@ export default function DivePage() {
         setTopic(data.session?.topic ?? '');
         setSource(data.source ?? null);
         const messages: DiveTurn[] = data.messages ?? [];
+        animateFrom.current = messages.length;
         setTurns(messages);
+        setHydrated(true);
         // The dive was opened the moment it was created, so Orin may not have
         // written yet — ask for his opening here, where the student can watch
         // it arrive instead of waiting on the button they pressed.
         if (messages.length === 0) await fetchOpening();
       } catch {
-        setTurns([]);
+        router.replace('/master');
       }
     })();
   }, [id, router]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -119,24 +127,31 @@ export default function DivePage() {
           </button>
         </div>
 
-        {turns === null ? (
-          <ConstellationLoader message="Opening your exploration…" />
-        ) : (
-          <div className="grid min-h-0 flex-1 gap-5 md:grid-cols-[1fr_1.15fr]">
-            <ChatPane
-              topic={topic}
-              source={source}
-              turns={turns}
-              sending={sending}
-              recharging={recharging}
-              onSend={send}
-            />
-            <div className="min-h-0">
-              <MediaCanvas segments={visuals} />
-            </div>
+        <div className="grid min-h-0 flex-1 gap-5 md:grid-cols-[1fr_1.15fr]">
+          <ChatPane
+            topic={topic}
+            source={source}
+            turns={turns}
+            hydrating={!hydrated}
+            animateFrom={animateFrom.current}
+            sending={sending}
+            recharging={recharging}
+            onSend={send}
+          />
+          <div className="min-h-0">
+            <MediaCanvas segments={visuals} />
           </div>
-        )}
+        </div>
       </div>
     </main>
+  );
+}
+
+// useSearchParams needs a Suspense boundary in the App Router.
+export default function DivePage() {
+  return (
+    <Suspense fallback={null}>
+      <DiveScreen />
+    </Suspense>
   );
 }

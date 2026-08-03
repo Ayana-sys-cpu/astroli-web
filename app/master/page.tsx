@@ -58,7 +58,10 @@ function MasterHub() {
       });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.session?.id) {
-        router.push(`/master/dive/${data.session.id}`);
+        // Carry the topic along so the dive screen paints instantly instead of
+        // waiting on its own fetch to learn what it's about.
+        const topic = data.session.topic ? `?topic=${encodeURIComponent(data.session.topic)}` : '';
+        router.push(`/master/dive/${data.session.id}${topic}`);
         return;
       }
       setDiveError(

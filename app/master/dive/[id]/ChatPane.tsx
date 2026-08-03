@@ -4,23 +4,34 @@ import type { DiveTurn, SourceEdit } from '@/lib/orin-dive';
 import SourceCard from './SourceCard';
 import OrinThinking from './OrinThinking';
 import OrinText from './OrinText';
+import QuietLoader from '@/components/QuietLoader';
 
 interface ChatPaneProps {
   topic: string;
   /** The edit this dive came from, shown in full above the conversation. */
   source?: SourceEdit | null;
   turns: DiveTurn[];
+  /** True while the screen is still fetching what already happened in this dive. */
+  hydrating?: boolean;
+  /** Turns at or past this index arrived live and get the typewriter reveal. */
+  animateFrom?: number;
   sending: boolean;
   recharging: boolean;
   onSend: (text: string) => void;
 }
 
-export default function ChatPane({ topic, source = null, turns, sending, recharging, onSend }: ChatPaneProps) {
+export default function ChatPane({
+  topic,
+  source = null,
+  turns,
+  hydrating = false,
+  animateFrom = 0,
+  sending,
+  recharging,
+  onSend,
+}: ChatPaneProps) {
   const [draft, setDraft] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
-  // Turns present at mount are history — they render instantly; only turns
-  // that arrive live get the word-by-word reveal.
-  const preloaded = useRef(turns.length);
 
   const scrollDown = () => endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
 
@@ -73,7 +84,7 @@ export default function ChatPane({ topic, source = null, turns, sending, recharg
                 }
               >
                 {s.type !== 'text' ? '' : turn.role === 'orin' ? (
-                  <OrinText text={s.text} animate={i >= preloaded.current} onGrow={scrollDown} />
+                  <OrinText text={s.text} animate={i >= animateFrom} onGrow={scrollDown} />
                 ) : (
                   s.text
                 )}
@@ -97,6 +108,7 @@ export default function ChatPane({ topic, source = null, turns, sending, recharg
           </div>
         )}
 
+        {hydrating && <QuietLoader />}
         {sending && <OrinThinking topic={topic} />}
 
         {recharging && (
@@ -122,7 +134,7 @@ export default function ChatPane({ topic, source = null, turns, sending, recharg
           onKeyDown={(e) => e.key === 'Enter' && send(draft)}
           placeholder="Ask anything…"
           aria-label="Ask Orin about this topic"
-          disabled={sending}
+          disabled={sending || hydrating}
           maxLength={1000}
           className="min-w-0 flex-1 bg-transparent text-[13px] text-white outline-none"
         />
