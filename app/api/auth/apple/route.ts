@@ -144,7 +144,7 @@ async function verifyAppleIdentityToken(token: string): Promise<AppleTokenClaims
 
   if (payload.iss !== APPLE_ISSUER) return null;
   const audiences = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
-  if (!audiences.some((aud) => APPLE_AUDIENCES.includes(aud))) return null;
+  if (!audiences.some((aud) => typeof aud === 'string' && APPLE_AUDIENCES.includes(aud))) return null;
   if (typeof payload.exp !== 'number' || payload.exp * 1000 <= Date.now()) return null;
   if (!payload.sub) return null;
 
