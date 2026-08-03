@@ -920,6 +920,25 @@ const strings = {
     en: 'e.g. Deep sea creatures...',
     he: 'למשל: יצורי מעמקי הים...',
   },
+  // "Oura" is Orin's own greeting word — a coined name, not English, so it keeps
+  // its shape in both. Same reasoning as the bot figures' dialect tics.
+  // Split in two because the first word is separately coloured in the UI.
+  studentRevealGreetingWord: {
+    en: 'Oura',
+    he: 'אורה',
+  },
+  studentRevealGreetingRest: {
+    en: '{name}! I’m',
+    he: '{name}! אני',
+  },
+  studentRevealLaunching: {
+    en: 'LAUNCHING…',
+    he: 'ממריאים…',
+  },
+  studentRevealBegin: {
+    en: 'BEGIN YOUR JOURNEY ✦',
+    he: 'להתחיל את המסע ✦',
+  },
 } as const;
 
 type StringKey = keyof typeof strings;

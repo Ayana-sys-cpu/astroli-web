@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import StarField from '@/components/StarField';
 import { getFirstName, markOnboardingComplete, saveBaseAvatarUrl, getBaseAvatarUrl, isOnboardingComplete } from '@/lib/student-store';
 import { GUIDE_NAME } from '@/lib/guide';
+import { t, type Lang } from '@/lib/i18n';
 
 export default function RevealPage() {
   const router = useRouter();
@@ -12,6 +13,8 @@ export default function RevealPage() {
   const [showName, setShowName] = useState(false);
   const [showCTA, setShowCTA] = useState(false);
   const [saving, setSaving]   = useState(false);
+  // Inherited from the parent at invite acceptance — a child is never asked.
+  const [lang, setLang] = useState<Lang>('en');
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const firstName = getFirstName();
@@ -23,6 +26,13 @@ export default function RevealPage() {
   // Returning users (already onboarded) should never see this screen
   useEffect(() => {
     if (isOnboardingComplete()) router.replace('/landscape');
+
+    const ctrl = new AbortController();
+    fetch('/api/me/language', { signal: ctrl.signal })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (d?.language === 'he' || d?.language === 'en') setLang(d.language); })
+      .catch(() => { /* keep English rather than blocking the reveal */ });
+    return () => ctrl.abort();
   }, [router]);
 
   useEffect(() => {
@@ -147,8 +157,8 @@ export default function RevealPage() {
                 className="font-space font-bold leading-snug"
                 style={{ fontSize: 'clamp(28px, 4vw, 36px)', color: '#fff' }}
               >
-                <span style={{ color: '#FF0080' }}>Oura </span>
-                {firstName}! I&apos;m
+                <span style={{ color: '#FF0080' }}>{t('studentRevealGreetingWord', lang)} </span>
+                {t('studentRevealGreetingRest', lang).replace('{name}', firstName)}
               </p>
               <p
                 className="font-space font-black"
@@ -245,7 +255,7 @@ export default function RevealPage() {
                 {saving && (
                   <span className="inline-block w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" />
                 )}
-                {saving ? 'LAUNCHING…' : 'BEGIN YOUR JOURNEY ✦'}
+                {saving ? t('studentRevealLaunching', lang) : t('studentRevealBegin', lang)}
               </span>
             </motion.button>
 
