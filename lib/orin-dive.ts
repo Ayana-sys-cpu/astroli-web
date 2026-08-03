@@ -241,6 +241,48 @@ export async function searchWikimedia(query: string): Promise<WikimediaHit[]> {
 }
 
 /**
+ * Google Images via Serper, unfiltered by licence — founder's decision
+ * (2026-08-03) accepting copyright exposure to match the Gemini experience.
+ * SafeSearch stays on. Dormant until SERPER_API_KEY is set; when the free
+ * credits run out Serper errors and the CC fallback chain takes over, so the
+ * feature degrades instead of billing. Only the search phrase is sent.
+ */
+async function searchSerperImages(query: string): Promise<WikimediaHit[]> {
+  const key = process.env.SERPER_API_KEY;
+  if (!key) return [];
+
+  try {
+    const res = await fetch('https://google.serper.dev/images', {
+      method: 'POST',
+      headers: { 'X-API-KEY': key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ q: query, num: 8, safe: 'active' }),
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    const images = (data?.images ?? []) as Array<{
+      imageUrl?: string;
+      title?: string;
+      source?: string;
+      link?: string;
+    }>;
+
+    return images.flatMap((img) =>
+      img.imageUrl
+        ? [{
+            url: img.imageUrl,
+            title: (img.title ?? '').slice(0, 120),
+            credit: `${img.source || (img.link ? new URL(img.link).hostname : 'web')} · via Google Images`,
+          }]
+        : [],
+    );
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Openverse — the Creative-Commons image aggregator (Flickr, museums, archives;
  * ~700M openly licensed images). Free, keyless, licence-filtered to
  * commercial-use CC, mature content excluded. Only the search phrase is sent.
@@ -290,8 +332,13 @@ async function searchOpenverse(query: string): Promise<WikimediaHit[]> {
  * phrases, while Wikimedia matches loosely but skews to portraits.
  */
 async function searchImages(query: string): Promise<WikimediaHit[]> {
+  // Real Google Images first (founder-approved, unfiltered) …
+  const serper = await searchSerperImages(query);
+  if (serper.length > 0) return serper;
+  // … then the licence-filtered Google engine if ever configured …
   const google = await searchGoogleImages(query);
   if (google.length > 0) return google;
+  // … and the free CC pool as the floor that never runs out.
   const [openverse, wikimedia] = await Promise.all([
     searchOpenverse(query),
     searchWikimedia(query),
