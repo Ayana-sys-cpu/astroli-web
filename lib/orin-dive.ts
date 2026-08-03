@@ -44,11 +44,10 @@ const REPLY_SCHEMA = {
   required: ['text'],
   properties: {
     text: { type: 'string', maxLength: 700 },
-    choices: {
-      type: 'array',
-      items: { type: 'string', maxLength: 40 },
-      maxItems: 3,
-    },
+    // No array/length constraints here — structured outputs reject them
+    // (maxItems 400s the whole request). The prompt asks for 2-3 short
+    // options and resolveReply slices to 3 regardless.
+    choices: { type: 'array', items: { type: 'string' } },
     attachment: {
       anyOf: [
         {
