@@ -1,28 +1,46 @@
 'use client';
 import type { Segment } from '@/lib/orin-dive';
-import { VisualCard, MediaCard } from './SegmentCard';
+import { VisualCard } from './SegmentCard';
 
-/** Everything Orin has shown in this dive, newest first — the visual half of the split view. */
-export default function MediaCanvas({ segments }: { segments: Segment[] }) {
-  if (segments.length === 0) {
-    return (
-      <div className="flex h-full items-center justify-center px-6 text-center">
-        <p className="text-[13px]" style={{ color: 'var(--master-text-muted)' }}>
-          Visuals and photos Orin finds will appear here as you explore.
-        </p>
-      </div>
-    );
-  }
-
+/**
+ * The on-demand canvas: appears beside the chat only while an interactive
+ * visual is open, then slides away. Photos and tables live in the stream
+ * itself — this panel exists for the things a chat bubble can't hold.
+ */
+export default function MediaCanvas({
+  visual,
+  onClose,
+}: {
+  visual: Extract<Segment, { type: 'visual' }>;
+  onClose: () => void;
+}) {
   return (
-    <div className="flex h-full flex-col gap-3 overflow-y-auto pr-1">
-      {segments.map((segment, i) =>
-        segment.type === 'visual' ? (
-          <VisualCard key={i} segment={segment} />
-        ) : segment.type === 'media' ? (
-          <MediaCard key={i} segment={segment} />
-        ) : null,
-      )}
+    <div className="canvas-slide flex min-h-0 flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <span className="text-[12px]" style={{ color: 'var(--master-text-muted)' }}>
+          {visual.title}
+        </span>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close the interactive"
+          className="rounded-full border px-3 py-1 text-[12px] text-white transition-colors hover:bg-white/10"
+          style={{ borderColor: 'var(--master-hairline)' }}
+        >
+          Close ✕
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <VisualCard segment={visual} />
+      </div>
+
+      <style>{`
+        .canvas-slide { animation: canvas-in 0.35s ease-out both; }
+        @keyframes canvas-in {
+          from { opacity: 0; transform: translateX(24px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+      `}</style>
     </div>
   );
 }

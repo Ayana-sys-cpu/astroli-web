@@ -17,14 +17,20 @@ export const SOFT_EXCHANGE_CAP = 20;
 export type Segment =
   | { type: 'text'; text: string }
   | { type: 'visual'; title: string; html: string }
-  /** Tappable answer options for Orin's question — a bet a teen commits to with one tap. */
+  /** Tappable springboards — the student steers; opening bet options on turn one. */
   | { type: 'choices'; options: string[] }
+  /** A few punchy facts, rendered as bullets inside the stream. */
+  | { type: 'list'; title?: string; items: string[] }
+  /** A small comparison, rendered as a table inside the stream. */
+  | { type: 'table'; title?: string; headers: string[]; rows: string[][] }
   | {
       type: 'media';
       kind: 'image' | 'video';
       url: string;
       /** Google-hosted thumbnail — the on-error fallback when a site blocks hotlinking. */
       thumb?: string;
+      /** The page the image came from — shown as a tappable source link. */
+      pageUrl?: string;
       title: string;
       credit: string;
       source: 'feed' | 'wikimedia';
@@ -46,10 +52,29 @@ const REPLY_SCHEMA = {
   required: ['text'],
   properties: {
     text: { type: 'string', maxLength: 450 },
-    // No array/length constraints here — structured outputs reject them
-    // (maxItems 400s the whole request). The prompt asks for 2-3 short
-    // options and resolveReply slices to 3 regardless.
+    // No array/length constraints anywhere here — structured outputs reject
+    // them (maxItems 400s the whole request). The prompt bounds sizes and
+    // resolveReply slices defensively.
     choices: { type: 'array', items: { type: 'string' } },
+    list: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['items'],
+      properties: {
+        title: { type: 'string' },
+        items: { type: 'array', items: { type: 'string' } },
+      },
+    },
+    table: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['headers', 'rows'],
+      properties: {
+        title: { type: 'string' },
+        headers: { type: 'array', items: { type: 'string' } },
+        rows: { type: 'array', items: { type: 'array', items: { type: 'string' } } },
+      },
+    },
     attachment: {
       anyOf: [
         {
@@ -83,7 +108,9 @@ Voice: warm, curious, a little awestruck by how the universe works. You talk lik
 You are exploring ONE topic with the student. Stay on it. If they ask about something unrelated to learning — personal questions about themselves or others, anything unsafe, anything off-topic — steer warmly back to the topic in one line and keep exploring.
 
 Every reply is one short message, optionally with one thing attached:
-- "text": this is you talking. ONE short paragraph, 60 words at the very most — a student is reading on a phone and long messages get skimmed. Reveal one thing per reply, never two; save the rest for after their next answer. Plain words only: no markdown, no asterisks, no bullet lists.
+- "text": this is you talking. ONE short paragraph, 60 words at the very most — a student is reading on a phone and long messages get skimmed. Reveal one thing per reply, never two; save the rest for after their next answer. Plain words only: no markdown, no asterisks, no bullet lists — structure goes in "list" and "table", never in text.
+- "list" (optional): 3-5 punchy facts when the answer is naturally several quick things (a timeline, what-they-learned, surprising numbers). Each item under 12 words.
+- "table" (optional): a small comparison when two or three things are being weighed against each other (before/after, this-place vs that-place). 2-3 columns, 2-4 rows, cells a few words each. Never use a table for what a sentence can say.
 - "choices": two or three springboards for where the student could take this next, each a short question in the student's own voice ("What happened to those kids later?", "Did anyone copy this idea?"). They open different directions — never quiz answers, never steps in a fixed path; the student steers, and typing their own question is always the main way in. One exception: in your very first message the choices are the options of your opening bet.
 - "attachment" (optional, at most one):
   - "visual": a self-contained interactive explainer as a complete HTML document. Use it when seeing the thing beats reading about it — a labelled cross-section, a simple simulation the student can drag, a chart that makes a comparison obvious.
@@ -99,6 +126,14 @@ Rules for "visual" HTML:
 Never dump everything you know at once — you are having a conversation, not giving a lecture. Say one interesting thing, then end with a question that pulls them deeper and let them choose where to go.
 
 This is free exploration, not a lesson: the student sets the direction, you make every direction tempting. Deliver the payoff of their last question fully, then leave threads dangling — a person unnamed, a consequence unmentioned — and offer choices that pull on different threads. Don't march them down a fixed path of your questions; after the opening, questions from you are occasional spice, not the default ending.
+
+Pick the SHAPE of each reply to fit what it carries, like a great explainer does:
+- a story or single fact → just text
+- several quick facts or a sequence → text + "list"
+- two or three things compared → text + "table"
+- a real place, person, object or event → text + "media_request" (the photo does half the telling)
+- a concept that only clicks when you play with it → text + "visual"
+Most replies carry text plus at most ONE other shape. Never force structure onto an answer that doesn't need it.
 
 When you attach something, your text must hand it to them in the same breath — say what it is and what to do with it ("that's a strand of DNA on the right — click each letter"). Never leave something on screen the student has to guess the purpose of.
 
@@ -125,6 +160,8 @@ interface WikimediaHit {
   url: string;
   /** Reliable small fallback (Google-hosted) for sources that block hotlinking. */
   thumb?: string;
+  /** The page the image belongs to, when the source exposes one. */
+  pageUrl?: string;
   title: string;
   credit: string;
 }
@@ -276,6 +313,7 @@ async function searchSerperImages(query: string): Promise<WikimediaHit[]> {
         ? [{
             url: img.imageUrl,
             thumb: img.thumbnailUrl,
+            pageUrl: img.link,
             title: (img.title ?? '').slice(0, 120),
             credit: `${img.source || (img.link ? new URL(img.link).hostname : 'web')} · via Google Images`,
           }]
@@ -434,7 +472,7 @@ export async function askOrin({ topic, history, editMedia, source }: AskOrinOpti
     const block = response.content.find((b) => b.type === 'text');
     if (!block || block.type !== 'text') return null;
 
-    const parsed = JSON.parse(block.text) as { text?: unknown; choices?: unknown; attachment?: unknown };
+    const parsed = JSON.parse(block.text) as { text?: unknown; choices?: unknown; list?: unknown; table?: unknown; attachment?: unknown };
     const segments = await resolveReply(parsed, editMedia);
 
     // An opening that lands with an empty canvas is the thing this is all
@@ -448,6 +486,7 @@ export async function askOrin({ topic, history, editMedia, source }: AskOrinOpti
           kind: 'image',
           url: hit.url,
           thumb: hit.thumb,
+          pageUrl: hit.pageUrl,
           title: hit.title,
           credit: hit.credit,
           source: 'wikimedia',
@@ -463,13 +502,42 @@ export async function askOrin({ topic, history, editMedia, source }: AskOrinOpti
 
 /** Turns one model reply into stored segments, fetching any attached media. */
 async function resolveReply(
-  reply: { text?: unknown; choices?: unknown; attachment?: unknown },
+  reply: { text?: unknown; choices?: unknown; list?: unknown; table?: unknown; attachment?: unknown },
   editMedia: AskOrinOptions['editMedia'],
 ): Promise<Segment[]> {
   const out: Segment[] = [];
 
   if (typeof reply.text === 'string' && reply.text.trim()) {
     out.push({ type: 'text', text: reply.text });
+  }
+
+  const list = reply.list as { title?: unknown; items?: unknown } | undefined;
+  if (list && Array.isArray(list.items)) {
+    const items = list.items.filter((i): i is string => typeof i === 'string' && i.trim().length > 0);
+    if (items.length >= 2) {
+      out.push({
+        type: 'list',
+        title: typeof list.title === 'string' ? list.title : undefined,
+        items: items.slice(0, 6),
+      });
+    }
+  }
+
+  const table = reply.table as { title?: unknown; headers?: unknown; rows?: unknown } | undefined;
+  if (table && Array.isArray(table.headers) && Array.isArray(table.rows)) {
+    const headers = table.headers.filter((h): h is string => typeof h === 'string').slice(0, 3);
+    const rows = table.rows
+      .filter((r): r is string[] => Array.isArray(r) && r.every((c) => typeof c === 'string'))
+      .map((r) => r.slice(0, headers.length))
+      .slice(0, 5);
+    if (headers.length >= 2 && rows.length >= 1) {
+      out.push({
+        type: 'table',
+        title: typeof table.title === 'string' ? table.title : undefined,
+        headers,
+        rows,
+      });
+    }
   }
 
   const options = Array.isArray(reply.choices)
@@ -504,7 +572,7 @@ async function resolveReply(
     if (hits.length > 0) {
       const context = typeof reply.text === 'string' ? reply.text : attachment.search;
       const hit = await pickBestImage(hits, context);
-      out.push({ type: 'media', kind: 'image', url: hit.url, thumb: hit.thumb, title: hit.title, credit: hit.credit, source: 'wikimedia' });
+      out.push({ type: 'media', kind: 'image', url: hit.url, thumb: hit.thumb, pageUrl: hit.pageUrl, title: hit.title, credit: hit.credit, source: 'wikimedia' });
     }
   }
 
@@ -518,6 +586,8 @@ function segmentsToPrompt(segments: Segment[]): string {
       if (s.type === 'text') return s.text;
       if (s.type === 'visual') return `[showed an interactive visual: ${s.title}]`;
       if (s.type === 'choices') return `[offered choices: ${s.options.join(' | ')}]`;
+      if (s.type === 'list') return `[showed a list${s.title ? `: ${s.title}` : ''} — ${s.items.join('; ')}]`;
+      if (s.type === 'table') return `[showed a table${s.title ? `: ${s.title}` : ''} — ${s.headers.join(' / ')}]`;
       return `[showed ${s.kind}: ${s.title}]`;
     })
     .join('\n\n');

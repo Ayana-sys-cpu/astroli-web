@@ -103,10 +103,21 @@ function DiveScreen() {
     }
   }, [id]);
 
-  const visuals: Segment[] = useMemo(
-    () => (turns ?? []).flatMap((t) => t.segments.filter((s) => s.type === 'media' || s.type === 'visual')).reverse(),
-    [turns],
-  );
+  // The canvas opens on demand: automatically when Orin builds something new,
+  // or when the student taps a visual chip in the stream.
+  type VisualSegment = Extract<Segment, { type: 'visual' }>;
+  const [openVisual, setOpenVisual] = useState<VisualSegment | null>(null);
+  const lastVisual = useMemo(() => {
+    for (let i = turns.length - 1; i >= 0; i--) {
+      const v = turns[i].segments.find((s): s is VisualSegment => s.type === 'visual');
+      if (v) return { v, turn: i };
+    }
+    return null;
+  }, [turns]);
+
+  useEffect(() => {
+    if (lastVisual && lastVisual.turn >= animateFrom.current) setOpenVisual(lastVisual.v);
+  }, [lastVisual]);
 
   return (
     <main className="relative flex h-screen flex-col overflow-hidden" style={{ background: 'var(--master-ink)' }}>
@@ -127,7 +138,11 @@ function DiveScreen() {
           </button>
         </div>
 
-        <div className="grid min-h-0 flex-1 gap-5 md:grid-cols-[1fr_1.15fr]">
+        <div
+          className={`grid min-h-0 flex-1 gap-5 ${openVisual ? 'md:grid-cols-[1fr_1.15fr]' : ''} ${
+            openVisual ? '' : 'mx-auto w-full max-w-3xl'
+          }`}
+        >
           <ChatPane
             topic={topic}
             source={source}
@@ -137,11 +152,21 @@ function DiveScreen() {
             sending={sending}
             recharging={recharging}
             onSend={send}
+            onOpenVisual={setOpenVisual}
           />
-          <div className="min-h-0">
-            <MediaCanvas segments={visuals} />
-          </div>
+          {openVisual && (
+            <div className="hidden min-h-0 md:block">
+              <MediaCanvas visual={openVisual} onClose={() => setOpenVisual(null)} />
+            </div>
+          )}
         </div>
+
+        {/* On phones the interactive takes the whole screen while open. */}
+        {openVisual && (
+          <div className="fixed inset-0 z-40 flex flex-col p-4 md:hidden" style={{ background: 'var(--master-ink)' }}>
+            <MediaCanvas visual={openVisual} onClose={() => setOpenVisual(null)} />
+          </div>
+        )}
       </div>
     </main>
   );

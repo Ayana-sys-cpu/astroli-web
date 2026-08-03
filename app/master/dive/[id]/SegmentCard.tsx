@@ -70,9 +70,21 @@ export function MediaCard({ segment }: { segment: Extract<Segment, { type: 'medi
       </div>
       <figcaption className="px-3 py-2">
         <span className="block text-[12px] text-white">{segment.title}</span>
-        <span className="block text-[10px]" style={{ color: 'var(--master-text-muted)' }}>
-          {segment.credit}
-        </span>
+        {segment.pageUrl ? (
+          <a
+            href={segment.pageUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-[10px] underline-offset-2 hover:underline"
+            style={{ color: 'var(--master-text-muted)' }}
+          >
+            {segment.credit} ↗
+          </a>
+        ) : (
+          <span className="block text-[10px]" style={{ color: 'var(--master-text-muted)' }}>
+            {segment.credit}
+          </span>
+        )}
       </figcaption>
 
       {/* Images arrive like a documentary shot: slow fade-in plus a gentle drift. */}
