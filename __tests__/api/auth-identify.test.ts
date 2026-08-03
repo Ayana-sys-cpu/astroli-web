@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // ── supabaseAdmin chain mock ─────────────────────────────────────────────────
 // Each from(table) returns a chain whose reads resolve from `tableReads` and
@@ -14,7 +14,7 @@ const writes: Array<{ table: string; method: string; values: unknown }> = [];
 function makeChain(table: string) {
   const reads = () => tableReads.get(table) ?? {};
   const chain: Record<string, unknown> = {};
-  for (const method of ['select', 'eq']) {
+  for (const method of ['select', 'eq', 'is', 'gt', 'order', 'limit']) {
     chain[method] = () => chain;
   }
   for (const method of ['insert', 'upsert', 'update']) {
@@ -43,11 +43,11 @@ import { DEMO_CLASS_ID, DEMO_CLASS_JOURNEY_ID } from '@/lib/demo-class';
 
 const GOOGLE_PROFILE = { id: 'google-123', email: 'fresh.reviewer@example.com', name: 'Fresh Reviewer' };
 
-function identifyRequest(): Request {
+function identifyRequest(inviteCode?: string): Request {
   return new Request('http://localhost/api/auth/identify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ accessToken: 'google-access-token' }),
+    body: JSON.stringify({ accessToken: 'google-access-token', ...(inviteCode ? { inviteCode } : {}) }),
   });
 }
 
@@ -64,11 +64,40 @@ beforeEach(() => {
   }));
 });
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 describe('POST /api/auth/identify — new Google users', () => {
-  it('creates a student account with the demo class instead of waitlisting', async () => {
+  // The student app is invite-only: a brand-new email only becomes an account
+  // when a parent invited it, or when App Review supplies the reviewer code.
+  it('waitlists an uninvited new user instead of creating an account', async () => {
     tableReads.set('users', { single: { data: { id: 'student-uuid' }, error: null } });
 
     const res = await identifyPOST(identifyRequest() as never);
+    const body = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(body.reason).toBe('invite_required');
+
+    // No account, no auth session, no demo class — nothing but the waitlist row.
+    expect(writes.find((w) => w.table === 'users' && w.method === 'upsert')).toBeUndefined();
+    expect(writes.find((w) => w.table === 'student_classes')).toBeUndefined();
+    expect(upsertAuthUserAndToken).not.toHaveBeenCalled();
+
+    const waitlisted = writes.find((w) => w.table === 'student_waitlist' && w.method === 'upsert');
+    expect(waitlisted?.values).toEqual({
+      email: GOOGLE_PROFILE.email,
+      provider: 'google',
+      first_name: 'Fresh',
+    });
+  });
+
+  it('lets App Review through with the reviewer code, into the demo class', async () => {
+    vi.stubEnv('REVIEWER_INVITE_CODE', 'reviewer-code-123');
+    tableReads.set('users', { single: { data: { id: 'student-uuid' }, error: null } });
+
+    const res = await identifyPOST(identifyRequest('reviewer-code-123') as never);
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -83,7 +112,34 @@ describe('POST /api/auth/identify — new Google users', () => {
       class_id: DEMO_CLASS_ID,
       template_journey_id: DEMO_CLASS_JOURNEY_ID,
     });
-    expect(writes.find((w) => w.table === 'parent_waitlist')).toBeUndefined();
+    expect(writes.find((w) => w.table === 'student_waitlist')).toBeUndefined();
+  });
+
+  it('admits an invited child and links them to the inviting parent', async () => {
+    tableReads.set('users', { single: { data: { id: 'student-uuid' }, error: null } });
+    tableReads.set('child_invites', {
+      maybeSingle: {
+        data: { id: 'invite-uuid', parent_id: 'parent-uuid', child_name: 'Invited Kid' },
+        error: null,
+      },
+    });
+
+    const res = await identifyPOST(identifyRequest() as never);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.role).toBe('student');
+
+    // The invite's name wins over the Google profile name.
+    const account = writes.find((w) => w.table === 'users' && w.method === 'upsert');
+    expect(account?.values).toMatchObject({ full_name: 'Invited Kid', first_name: 'Invited' });
+
+    const link = writes.find((w) => w.table === 'parent_child_link' && w.method === 'upsert');
+    expect(link?.values).toMatchObject({ parent_id: 'parent-uuid', child_id: 'student-uuid' });
+
+    // Invited children join their family class, never the demo class.
+    expect(writes.find((w) => w.table === 'student_classes')).toBeUndefined();
+    expect(writes.find((w) => w.table === 'student_waitlist')).toBeUndefined();
   });
 
   it('signs an existing student in without re-enrolling the demo class', async () => {

@@ -5,14 +5,18 @@
 // authorized_teachers. Google Classroom API is called on the teacher path only —
 // for course syncing, not for role detection.
 //
-// Brand-new emails become student accounts enrolled in the demo journey — same
-// policy as /api/auth/apple. App Review guideline 2.2 requires the app to be
-// fully usable for any new user, so there is no mobile waitlist wall.
+// Brand-new emails are invite-gated — same policy as /api/auth/apple. An
+// account is created only when a parent invited that email (child_invites) or
+// when App Review supplies REVIEWER_INVITE_CODE, which is the path that keeps
+// guideline 2.2 satisfied by landing the reviewer in the demo journey.
+// Everyone else is recorded on student_waitlist and turned away. Existing
+// accounts of every role are unaffected.
 //
 // Error contract:
 //   400 — missing/invalid body
 //   401 — Google token invalid or no email returned
-//   403 — the email belongs to a parent account (mobile app is students-only)
+//   403 — the email belongs to a parent account (mobile app is students-only),
+//         or a brand-new email arrived with no invite ('invite_required')
 //   503 — Supabase error (whitelist check or upsert) — never falls to student silently
 //
 // Request:  POST { accessToken: string }
