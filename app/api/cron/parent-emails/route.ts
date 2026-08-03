@@ -1,8 +1,19 @@
 // GET /api/cron/parent-emails
 //
-// Runs hourly. Sends to parents whose LOCAL time has just reached 07:00 — the
-// pilot spans Israel and the US, so a single UTC hour would reach one cohort at
-// breakfast and the other in the middle of the night.
+// Runs ONCE DAILY at 04:00 UTC. The design wanted hourly, so that every parent
+// is reached at 07:00 in their own local time — the pilot spans Israel and the
+// US, and a single UTC hour is breakfast for one cohort and the middle of the
+// night for the other. Vercel's Hobby plan permits only one cron run per day,
+// so this compromises: 04:00 UTC is 07:00 in Israel (IDT, UTC+3), where the
+// entire current cohort lives.
+//
+// Rather than pin the exact hour — which would silently send to nobody in
+// winter, when Israel shifts to UTC+2 — a parent is emailed if their local time
+// falls anywhere in the MORNING_WINDOW. That degrades honestly: a US parent
+// added tomorrow simply receives nothing until the schedule can run hourly.
+//
+// To restore per-timezone 07:00 delivery: upgrade Vercel to Pro and change the
+// cron in vercel.json back to "0 * * * *". Nothing else here needs to change.
 //
 // ?dry=1 resolves every recipient and renders every body WITHOUT sending or
 // logging. These emails quote a minor's own words, and one sent to the wrong
@@ -19,7 +30,10 @@ import { createUnsubscribeToken } from '@/lib/parent-unsubscribe-token';
 import { sendSummaryEmail } from '@/lib/email';
 import { hasCurrentConsent } from '@/lib/consent';
 
-const SEND_HOUR = 7;
+// The window a parent's local time must fall in. Wider than the 07:00 the
+// design wanted, because the cron runs daily rather than hourly — but narrow
+// enough that nobody is ever emailed at night.
+const MORNING_WINDOW: readonly number[] = [5, 6, 7, 8, 9];
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export async function GET(req: NextRequest) {
@@ -50,7 +64,7 @@ export async function GET(req: NextRequest) {
   for (const parent of parents ?? []) {
     const tz = (parent as any).timezone || 'Asia/Jerusalem';
 
-    if (localHour(now, tz) !== SEND_HOUR) { skip('not_their_7am'); continue; }
+    if (!MORNING_WINDOW.includes(localHour(now, tz))) { skip('not_their_morning'); continue; }
 
     // FR: a parent without current-version consent receives nothing.
     if (!(await hasCurrentConsent(parent.id))) { skip('no_consent'); continue; }
@@ -64,7 +78,8 @@ export async function GET(req: NextRequest) {
     if (!link?.child_id) { skip('no_child'); continue; }
 
     const childId = link.child_id;
-    const localToday = localDate(now, tz);
+    // The email is ABOUT yesterday, and the log is keyed on that local date so a
+    // parent near midnight can't be sent twice.
     const localYesterday = localDate(new Date(now.getTime() - DAY_MS), tz);
 
     const facts = await gatherFacts(childId, tz, now);
@@ -133,8 +148,6 @@ export async function GET(req: NextRequest) {
         .eq('sent_for_date', localYesterday);
       skip('send_failed');
     }
-
-    void localToday;
   }
 
   return NextResponse.json({
