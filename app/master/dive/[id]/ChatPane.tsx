@@ -76,8 +76,10 @@ export default function ChatPane({
               return (
                 <p
                   key={key}
-                  className={`m-0 max-w-[85%] rounded-xl px-3 py-2 text-[13px] leading-relaxed ${
-                    turn.role === 'student' ? 'ml-auto text-white' : ''
+                  className={`m-0 max-w-[85%] rounded-xl ${
+                    turn.role === 'student'
+                      ? 'ml-auto px-3 py-2 text-[13px] leading-relaxed text-white'
+                      : 'px-4 py-3 text-[14px] leading-[1.75]'
                   }`}
                   style={
                     turn.role === 'student'

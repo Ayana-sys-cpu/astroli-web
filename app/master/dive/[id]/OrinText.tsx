@@ -1,11 +1,26 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 
+interface Token {
+  word: string;
+  highlighted: boolean;
+}
+
 /**
- * Orin's words arrive word by word, so a reveal reads like a reveal instead of
- * a wall of text landing at once. Only newly-arrived messages animate — history
- * renders instantly on reload.
+ * Orin's words, revealed word by word, with his **marked** names and numbers
+ * rendered as teal highlights — the hooks a skimming teen's eye lands on.
  */
+function tokenize(text: string): Token[] {
+  const tokens: Token[] = [];
+  text.split('**').forEach((part, i) => {
+    const highlighted = i % 2 === 1;
+    for (const word of part.split(' ')) {
+      if (word.length > 0) tokens.push({ word, highlighted });
+    }
+  });
+  return tokens;
+}
+
 export default function OrinText({
   text,
   animate,
@@ -16,15 +31,15 @@ export default function OrinText({
   /** Called as the bubble grows so the chat can keep itself scrolled down. */
   onGrow?: () => void;
 }) {
-  const words = useRef(text.split(' '));
-  const [shown, setShown] = useState(animate ? 0 : words.current.length);
+  const tokens = useRef(tokenize(text));
+  const [shown, setShown] = useState(animate ? 0 : tokens.current.length);
 
   useEffect(() => {
-    if (!animate || shown >= words.current.length) return;
+    if (!animate || shown >= tokens.current.length) return;
     const id = setInterval(() => {
       setShown((s) => {
-        const next = Math.min(s + 2, words.current.length);
-        if (next >= words.current.length) clearInterval(id);
+        const next = Math.min(s + 2, tokens.current.length);
+        if (next >= tokens.current.length) clearInterval(id);
         return next;
       });
       onGrow?.();
@@ -33,5 +48,14 @@ export default function OrinText({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [animate]);
 
-  return <>{words.current.slice(0, shown).join(' ')}</>;
+  return (
+    <>
+      {tokens.current.slice(0, shown).map((t, i) => (
+        <span key={i} style={t.highlighted ? { color: '#00F5D4', fontWeight: 600 } : undefined}>
+          {t.word}
+          {i < shown - 1 ? ' ' : ''}
+        </span>
+      ))}
+    </>
+  );
 }
