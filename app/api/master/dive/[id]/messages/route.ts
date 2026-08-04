@@ -86,7 +86,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .insert({ session_id: session.id, role: 'orin', segments: reply.segments });
 
   // ── Verdict counting and the payout ───────────────────────────────────────
-  console.log('[dive-quiz]', JSON.stringify({ sid: session.id, wantsQuiz, active: session.quiz_active, ctx: quizContext, modelQuiz: reply.quiz }));
   let reward: { amount: number; correct: number; total: number; newBalance: number } | null = null;
   if (quizContext) {
     // On the start turn (answered 0) there is no answer yet — a verdict the
