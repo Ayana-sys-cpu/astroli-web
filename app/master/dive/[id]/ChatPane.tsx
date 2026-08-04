@@ -6,7 +6,7 @@ import OrinThinking from './OrinThinking';
 import OrinText from './OrinText';
 import QuietLoader from '@/components/QuietLoader';
 import { MediaCard } from './SegmentCard';
-import { ListBlock, TableBlock } from './StructuredBlocks';
+import { CalloutBlock, ListBlock, TableBlock } from './StructuredBlocks';
 import DepthMeter from './DepthMeter';
 
 interface ChatPaneProps {
@@ -106,6 +106,7 @@ export default function ChatPane({
             }
             if (s.type === 'list') return <ListBlock key={key} segment={s} />;
             if (s.type === 'table') return <TableBlock key={key} segment={s} />;
+            if (s.type === 'callout') return <CalloutBlock key={key} segment={s} />;
             if (s.type === 'media') {
               return (
                 <div key={key} className="max-w-[92%]">
@@ -134,20 +135,34 @@ export default function ChatPane({
             }
             if (s.type === 'choices' && turn.role === 'orin' && isLastTurn(i) && !sending && !recharging) {
               return (
-                <div key={key} className="mt-1">
-                  <p className="m-0 mb-2 text-[12px]" style={{ color: 'var(--master-text-muted)' }}>
-                    Where do you want to go next?
+                <div key={key} className="mt-2">
+                  <p
+                    className="m-0 mb-2 text-[10px] font-bold uppercase tracking-widest"
+                    style={{ color: 'var(--master-text-muted)' }}
+                  >
+                    Where next?
                   </p>
-                  <div className="flex flex-wrap gap-2">
-                    {s.options.map((option) => (
+                  <div className="flex flex-col gap-2">
+                    {s.options.map((option, idx) => (
                       <button
                         key={option}
                         type="button"
                         onClick={() => send(option)}
-                        className="rounded-xl border px-4 py-2.5 text-left text-[13px] text-white transition-colors hover:bg-white/10"
-                        style={{ borderColor: 'var(--master-hairline)', background: 'var(--master-surface)' }}
+                        className="flex items-center gap-3 rounded-xl px-4 py-3 text-left text-[13px] text-white transition-all duration-150 hover:brightness-110 active:scale-[0.98]"
+                        style={{
+                          background: 'linear-gradient(135deg, rgba(168,85,247,0.1), rgba(0,245,212,0.04))',
+                          border: '1px solid rgba(168,85,247,0.3)',
+                        }}
                       >
-                        {option} <span aria-hidden style={{ color: 'var(--master-magenta-text)' }}>↪</span>
+                        <span
+                          aria-hidden
+                          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
+                          style={{ background: 'rgba(168,85,247,0.2)', color: '#A855F7' }}
+                        >
+                          {idx + 1}
+                        </span>
+                        <span className="flex-1 leading-snug">{option}</span>
+                        <span aria-hidden className="shrink-0 text-[12px]" style={{ color: '#00F5D4' }}>→</span>
                       </button>
                     ))}
                   </div>

@@ -23,6 +23,8 @@ export type Segment =
   | { type: 'list'; title?: string; items: string[] }
   /** A small comparison, rendered as a table inside the stream. */
   | { type: 'table'; title?: string; headers: string[]; rows: string[][] }
+  /** A jaw-dropping stat or "did you know" fact rendered in a spotlight box. */
+  | { type: 'callout'; label?: string; text: string }
   | {
       type: 'media';
       kind: 'image' | 'video';
@@ -75,6 +77,15 @@ const REPLY_SCHEMA = {
         rows: { type: 'array', items: { type: 'array', items: { type: 'string' } } },
       },
     },
+    callout: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['text'],
+      properties: {
+        label: { type: 'string' },
+        text: { type: 'string' },
+      },
+    },
     quiz: {
       type: 'object',
       additionalProperties: false,
@@ -103,6 +114,7 @@ const REPLY_SCHEMA = {
           properties: {
             type: { type: 'string', enum: ['media_request'] },
             search: { type: 'string' },
+            kind: { type: 'string', enum: ['image', 'video'] },
           },
         },
       ],
@@ -124,10 +136,11 @@ Every reply is one short message, optionally with one thing attached:
 - "text": this is you talking. ONE short paragraph, 60 words at the very most — a student is reading on a phone and long messages get skimmed. Reveal one thing per reply, never two; save the rest for after their next answer. Wrap the 2-4 words a skimming teen must catch — names, numbers, the vivid phrase — in double asterisks like **Sugata Mitra** or **six years old**; they render highlighted. No other markdown, no bullet lists — structure goes in "list" and "table", never in text.
 - "list" (optional): 3-5 punchy facts when the answer is naturally several quick things (a timeline, what-they-learned, surprising numbers). Each item under 12 words.
 - "table" (optional): a small comparison when two or three things are being weighed against each other (before/after, this-place vs that-place). 2-3 columns, 2-4 rows, cells a few words each. Never use a table for what a sentence can say.
+- "callout" (optional): a jaw-dropping stat, record, or "did you know" fact rendered in its own spotlight box — one punchy sentence under 25 words. Use when a number or fact is so striking it deserves its own moment. Never a restatement of the text above; must add something new. "The hole in the ozone layer was larger than Antarctica." "Light takes 8 minutes to reach Earth — we always see the Sun as it was, never now."
 - "choices": exactly TWO directions for where the dive could go next, each starting with a verb ("See how the kids taught each other", "Examine the criticism it drew"), each under 8 words. They are doors into different rooms of the topic — never quiz answers, never a fixed path, and never a question back at the student; typing their own question is always the main way in.
 - "attachment" (optional, at most one):
   - "visual": a self-contained interactive explainer as a complete HTML document. Use it when seeing the thing beats reading about it — a labelled cross-section, a simple simulation the student can drag, a chart that makes a comparison obvious.
-  - "media_request": ask for a real photograph or diagram from Wikimedia Commons by giving a short search phrase. Describe the SCENE or THING, never just a person's name — "children using computer kiosk in wall Delhi" beats "Sugata Mitra", because a photo of the event tells the story and a headshot tells nothing. Use when a real image of the actual thing helps.
+  - "media_request": ask for a real photograph, diagram, or video by giving a short search phrase. Set "kind" to "video" only when motion is essential to understanding (a chemical reaction, a sports technique, a historical speech clip) — default to "image". Describe the SCENE or THING, never just a person's name — "children using computer kiosk in wall Delhi" beats "Sugata Mitra", because a photo of the event tells the story and a headshot tells nothing. Use when a real image of the actual thing helps.
 
 Rules for "visual" HTML:
 - One complete <html> document with all CSS and JS inline. No external scripts, stylesheets, fonts, or images — they will not load.
@@ -335,6 +348,49 @@ async function searchSerperImages(query: string): Promise<WikimediaHit[]> {
 }
 
 /**
+ * YouTube/web video search via Serper. Used when Orin requests kind:"video" —
+ * motion topics (chemical reactions, historical speeches, sports technique).
+ * Returns the raw video page URL; the MediaCard renders it as a native <video>
+ * when the host allows it, otherwise the link falls back to the thumb preview.
+ * Dormant until SERPER_API_KEY is set — no key, no video, graceful degradation.
+ */
+async function searchSerperVideos(query: string): Promise<WikimediaHit[]> {
+  const key = process.env.SERPER_API_KEY;
+  if (!key) return [];
+
+  try {
+    const res = await fetch('https://google.serper.dev/videos', {
+      method: 'POST',
+      headers: { 'X-API-KEY': key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ q: query, num: 4 }),
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    const videos = (data?.videos ?? []) as Array<{
+      link?: string;
+      title?: string;
+      source?: string;
+      thumbnailUrl?: string;
+    }>;
+
+    return videos.flatMap((v) =>
+      v.link
+        ? [{
+            url: v.link,
+            thumb: v.thumbnailUrl,
+            title: (v.title ?? '').slice(0, 120),
+            credit: v.source ?? new URL(v.link).hostname,
+          }]
+        : [],
+    );
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Openverse — the Creative-Commons image aggregator (Flickr, museums, archives;
  * ~700M openly licensed images). Free, keyless, licence-filtered to
  * commercial-use CC, mature content excluded. Only the search phrase is sent.
@@ -533,7 +589,7 @@ export async function askOrin({ topic, history, editMedia, source, quiz = null }
     if (!block || block.type !== 'text') return null;
 
     const parsed = JSON.parse(block.text) as {
-      text?: unknown; choices?: unknown; list?: unknown; table?: unknown; attachment?: unknown;
+      text?: unknown; choices?: unknown; list?: unknown; table?: unknown; callout?: unknown; attachment?: unknown;
       quiz?: { verdict?: unknown; done?: unknown };
     };
     const segments = await resolveReply(parsed, editMedia);
@@ -577,7 +633,7 @@ export async function askOrin({ topic, history, editMedia, source, quiz = null }
 
 /** Turns one model reply into stored segments, fetching any attached media. */
 async function resolveReply(
-  reply: { text?: unknown; choices?: unknown; list?: unknown; table?: unknown; attachment?: unknown },
+  reply: { text?: unknown; choices?: unknown; list?: unknown; table?: unknown; callout?: unknown; attachment?: unknown },
   editMedia: AskOrinOptions['editMedia'],
 ): Promise<Segment[]> {
   const out: Segment[] = [];
@@ -615,6 +671,15 @@ async function resolveReply(
     }
   }
 
+  const callout = reply.callout as { label?: unknown; text?: unknown } | undefined;
+  if (callout && typeof callout.text === 'string' && callout.text.trim()) {
+    out.push({
+      type: 'callout',
+      label: typeof callout.label === 'string' ? callout.label.slice(0, 40) : undefined,
+      text: callout.text.trim().slice(0, 140),
+    });
+  }
+
   // Built here, appended last — the two doors always render after everything
   // else in the reply, photo included.
   const options = Array.isArray(reply.choices)
@@ -648,6 +713,15 @@ async function resolveReply(
       });
       return finish(out);
     }
+    if (attachment.kind === 'video') {
+      const videos = await searchSerperVideos(attachment.search);
+      if (videos.length > 0) {
+        const v = videos[0];
+        out.push({ type: 'media', kind: 'video', url: v.url, thumb: v.thumb, title: v.title, credit: v.credit, source: 'wikimedia' });
+        return finish(out);
+      }
+      // No video found — fall through to image search rather than leaving the turn bare.
+    }
     const hits = await searchImages(attachment.search);
     if (hits.length > 0) {
       const context = typeof reply.text === 'string' ? reply.text : attachment.search;
@@ -668,6 +742,7 @@ function segmentsToPrompt(segments: Segment[]): string {
       if (s.type === 'choices') return `[offered choices: ${s.options.join(' | ')}]`;
       if (s.type === 'list') return `[showed a list${s.title ? `: ${s.title}` : ''} — ${s.items.join('; ')}]`;
       if (s.type === 'table') return `[showed a table${s.title ? `: ${s.title}` : ''} — ${s.headers.join(' / ')}]`;
+      if (s.type === 'callout') return `[callout${s.label ? `: ${s.label}` : ''} — ${s.text}]`;
       return `[showed ${s.kind}: ${s.title}]`;
     })
     .join('\n\n');

@@ -25,6 +25,32 @@ export function ListBlock({ segment }: { segment: Extract<Segment, { type: 'list
   );
 }
 
+/** A jaw-dropping stat or "did you know" rendered in its own spotlight box. */
+export function CalloutBlock({ segment }: { segment: Extract<Segment, { type: 'callout' }> }) {
+  return (
+    <div
+      className="max-w-[85%] rounded-xl px-4 py-3"
+      style={{
+        background: 'rgba(168,85,247,0.08)',
+        border: '1px solid rgba(168,85,247,0.3)',
+        borderLeft: '3px solid #A855F7',
+      }}
+    >
+      {segment.label && (
+        <p
+          className="m-0 mb-1 text-[10px] font-bold uppercase tracking-widest"
+          style={{ color: '#A855F7' }}
+        >
+          {segment.label}
+        </p>
+      )}
+      <p className="m-0 text-[14px] font-semibold leading-relaxed text-white">
+        {segment.text}
+      </p>
+    </div>
+  );
+}
+
 /** A small comparison table inside the stream — Orin's table shape. */
 export function TableBlock({ segment }: { segment: Extract<Segment, { type: 'table' }> }) {
   return (
