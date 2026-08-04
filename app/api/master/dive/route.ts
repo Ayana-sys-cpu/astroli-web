@@ -81,14 +81,14 @@ export async function POST(req: NextRequest) {
 
   if (defer) return NextResponse.json({ session }, { status: 201 });
 
-  const segments = await askOrin({ topic, history: [], editMedia: source?.media ?? null, source: source?.edit ?? null });
-  if (!segments) {
+  const reply = await askOrin({ topic, history: [], editMedia: source?.media ?? null, source: source?.edit ?? null });
+  if (!reply) {
     return NextResponse.json({ error: 'orin_recharging', session }, { status: 503 });
   }
 
   await supabaseAdmin
     .from('master_dive_messages')
-    .insert({ session_id: session.id, role: 'orin', segments });
+    .insert({ session_id: session.id, role: 'orin', segments: reply.segments });
 
-  return NextResponse.json({ session, opening: { segments } }, { status: 201 });
+  return NextResponse.json({ session, opening: { segments: reply.segments } }, { status: 201 });
 }
