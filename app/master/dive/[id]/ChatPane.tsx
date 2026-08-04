@@ -123,18 +123,23 @@ export default function ChatPane({
             }
             if (s.type === 'choices' && turn.role === 'orin' && isLastTurn(i) && !sending && !recharging) {
               return (
-                <div key={key} className="flex flex-wrap gap-2">
-                  {s.options.map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => send(option)}
-                      className="rounded-full border px-4 py-1.5 text-[13px] text-white transition-colors hover:bg-white/10"
-                      style={{ borderColor: 'var(--master-magenta-text)', background: '#15151B' }}
-                    >
-                      {option}
-                    </button>
-                  ))}
+                <div key={key} className="mt-1">
+                  <p className="m-0 mb-2 text-[12px]" style={{ color: 'var(--master-text-muted)' }}>
+                    Where do you want to go next?
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {s.options.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => send(option)}
+                        className="rounded-xl border px-4 py-2.5 text-left text-[13px] text-white transition-colors hover:bg-white/10"
+                        style={{ borderColor: 'var(--master-hairline)', background: 'var(--master-surface)' }}
+                      >
+                        {option} <span aria-hidden style={{ color: 'var(--master-magenta-text)' }}>↪</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               );
             }

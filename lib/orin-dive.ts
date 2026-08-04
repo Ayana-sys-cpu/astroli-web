@@ -49,7 +49,7 @@ export interface DiveTurn {
 const REPLY_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['text'],
+  required: ['text', 'choices'],
   properties: {
     text: { type: 'string', maxLength: 450 },
     // No array/length constraints anywhere here — structured outputs reject
@@ -537,19 +537,24 @@ async function resolveReply(
     }
   }
 
+  // Built here, appended last — the two doors always render after everything
+  // else in the reply, photo included.
   const options = Array.isArray(reply.choices)
     ? reply.choices.filter((c): c is string => typeof c === 'string' && c.trim().length > 0)
     : [];
-  if (options.length >= 2) {
-    out.push({ type: 'choices', options: options.slice(0, 3) });
-  }
+  const doors: Segment | null =
+    options.length >= 2 ? { type: 'choices', options: options.slice(0, 2) } : null;
+  const finish = (segments: Segment[]) => {
+    if (doors) segments.push(doors);
+    return segments;
+  };
 
   const attachment = reply.attachment as Record<string, unknown> | undefined;
-  if (!attachment || typeof attachment !== 'object') return out;
+  if (!attachment || typeof attachment !== 'object') return finish(out);
 
   if (attachment.type === 'visual' && typeof attachment.html === 'string' && typeof attachment.title === 'string') {
     out.push({ type: 'visual', title: attachment.title, html: attachment.html });
-    return out;
+    return finish(out);
   }
 
   if (attachment.type === 'media_request' && typeof attachment.search === 'string') {
@@ -563,7 +568,7 @@ async function resolveReply(
         credit: editMedia.credit,
         source: 'feed',
       });
-      return out;
+      return finish(out);
     }
     const hits = await searchImages(attachment.search);
     if (hits.length > 0) {
@@ -573,7 +578,7 @@ async function resolveReply(
     }
   }
 
-  return out;
+  return finish(out);
 }
 
 /** Flattens stored segments back into prompt text for the next turn. */
