@@ -89,7 +89,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   console.log('[dive-quiz]', JSON.stringify({ sid: session.id, wantsQuiz, active: session.quiz_active, ctx: quizContext, modelQuiz: reply.quiz }));
   let reward: { amount: number; correct: number; total: number; newBalance: number } | null = null;
   if (quizContext) {
-    let correct = quizContext.correctSoFar + (reply.quiz?.verdict === 'correct' ? 1 : 0);
+    // On the start turn (answered 0) there is no answer yet — a verdict the
+    // model emits there is noise and must not count.
+    const correct =
+      quizContext.correctSoFar +
+      (quizContext.answered > 0 && reply.quiz?.verdict === 'correct' ? 1 : 0);
 
     if (reply.quiz?.done) {
       let newBalance = 0;
