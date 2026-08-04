@@ -75,6 +75,15 @@ const REPLY_SCHEMA = {
         rows: { type: 'array', items: { type: 'array', items: { type: 'string' } } },
       },
     },
+    quiz: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['done'],
+      properties: {
+        verdict: { type: 'string', enum: ['correct', 'incorrect'] },
+        done: { type: 'boolean' },
+      },
+    },
     attachment: {
       anyOf: [
         {
@@ -427,6 +436,26 @@ export interface SourceEdit {
   bridge: string;
 }
 
+/** The server-side quiz state handed to Orin each quiz turn. */
+export interface QuizContext {
+  /** Question the student is currently answering (0 = quiz just requested). */
+  answered: number;
+  correctSoFar: number;
+  /** True when this dive already paid out — the quiz runs for glory only. */
+  alreadyRewarded: boolean;
+}
+
+/** Orin's verdict metadata for a quiz turn, alongside the visible segments. */
+export interface QuizResult {
+  verdict: 'correct' | 'incorrect' | null;
+  done: boolean;
+}
+
+export interface OrinReply {
+  segments: Segment[];
+  quiz: QuizResult | null;
+}
+
 interface AskOrinOptions {
   topic: string;
   history: DiveTurn[];
@@ -434,14 +463,38 @@ interface AskOrinOptions {
   editMedia?: { url: string; kind: 'image' | 'video'; credit: string; title: string } | null;
   /** Present for edit dives — without it Orin only has the headline to work from. */
   source?: SourceEdit | null;
+  /** Set while a quiz is running — switches Orin into quiz mode for this turn. */
+  quiz?: QuizContext | null;
 }
 
-/** Returns Orin's segments, or null when the AI is unreachable (callers show "recharging"). */
-export async function askOrin({ topic, history, editMedia, source }: AskOrinOptions): Promise<Segment[] | null> {
+const QUIZ_QUESTIONS = 3;
+
+function quizInstructions(quiz: QuizContext): string {
+  const judging =
+    quiz.answered > 0
+      ? `The student's latest message answers your question ${quiz.answered}. Judge it honestly in "quiz.verdict" ("correct" for a right or clearly-close answer, "incorrect" otherwise) and open your text by warmly telling them which it was, with the right answer in one line if they missed.`
+      : `The student just asked to be quizzed. Set "quiz.verdict" to null.`;
+  const next =
+    quiz.answered >= QUIZ_QUESTIONS
+      ? `That was the last question — set "quiz.done" to true. Your text celebrates their score in one line. Add a "list" titled "What you just learned" with 2-3 bullets recapping this dive. Set "choices" to exactly ["Keep exploring", "Discover something new"].`
+      : `Then ask question ${quiz.answered + 1} of ${QUIZ_QUESTIONS} — short, about something actually covered in THIS conversation, answerable in a few words. Set "quiz.done" to false. Put 2-3 short answer options in "choices" (one of them right) so they can answer with a tap.`;
+  const glory = quiz.alreadyRewarded
+    ? ` This dive already earned its coins — if this is the first question, mention cheerfully that this round is for glory only.`
+    : '';
+  return `\n\nQUIZ MODE — you are running a quick self-test (${QUIZ_QUESTIONS} questions) on what THIS dive covered. ${judging} ${next}${glory} No new topics, no attachment this turn.`;
+}
+
+/** Returns Orin's reply, or null when the AI is unreachable (callers show "recharging"). */
+export async function askOrin({ topic, history, editMedia, source, quiz = null }: AskOrinOptions): Promise<OrinReply | null> {
   const exchanges = history.filter((t) => t.role === 'student').length;
   const wrapUp =
-    exchanges >= SOFT_EXCHANGE_CAP
+    !quiz && exchanges >= SOFT_EXCHANGE_CAP
       ? '\n\nThis exploration has run long. Bring it to a satisfying close in this reply and invite them to save it or start a new dive.'
+      : '';
+  // A gentle nudge toward the self-test once they're genuinely deep.
+  const quizOffer =
+    !quiz && exchanges === 8
+      ? '\n\nThe student is 8 questions deep and has not tried the quiz. End this reply by warmly offering the "Quiz me" button — proving what they picked up earns coins.'
       : '';
 
   const sourceCard = source
@@ -450,6 +503,7 @@ export async function askOrin({ topic, history, editMedia, source }: AskOrinOpti
 
   const isOpening = history.length === 0;
   const opening = isOpening ? `\n\n${OPENING}` : '';
+  const quizMode = quiz ? quizInstructions(quiz) : '';
 
   const messages: Anthropic.MessageParam[] = history.length
     ? history.map((turn) => ({
@@ -462,7 +516,7 @@ export async function askOrin({ topic, history, editMedia, source }: AskOrinOpti
     const response = await client.messages.create({
       model: MODEL,
       max_tokens: 8000,
-      system: `${SYSTEM}\n\nTopic: ${topic}${sourceCard}${opening}${wrapUp}`,
+      system: `${SYSTEM}\n\nTopic: ${topic}${sourceCard}${opening}${wrapUp}${quizOffer}${quizMode}`,
       output_config: {
         effort: 'medium',
         format: { type: 'json_schema', schema: REPLY_SCHEMA },
@@ -473,7 +527,10 @@ export async function askOrin({ topic, history, editMedia, source }: AskOrinOpti
     const block = response.content.find((b) => b.type === 'text');
     if (!block || block.type !== 'text') return null;
 
-    const parsed = JSON.parse(block.text) as { text?: unknown; choices?: unknown; list?: unknown; table?: unknown; attachment?: unknown };
+    const parsed = JSON.parse(block.text) as {
+      text?: unknown; choices?: unknown; list?: unknown; table?: unknown; attachment?: unknown;
+      quiz?: { verdict?: unknown; done?: unknown };
+    };
     const segments = await resolveReply(parsed, editMedia);
 
     // An opening that lands with an empty canvas is the thing this is all
@@ -495,7 +552,19 @@ export async function askOrin({ topic, history, editMedia, source }: AskOrinOpti
       }
     }
 
-    return segments.length > 0 ? segments : null;
+    if (segments.length === 0) return null;
+
+    const quizResult: QuizResult | null = quiz
+      ? {
+          verdict:
+            parsed.quiz?.verdict === 'correct' || parsed.quiz?.verdict === 'incorrect'
+              ? parsed.quiz.verdict
+              : null,
+          done: parsed.quiz?.done === true,
+        }
+      : null;
+
+    return { segments, quiz: quizResult };
   } catch {
     return null;
   }

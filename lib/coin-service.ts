@@ -5,7 +5,8 @@ export type EventType =
   | 'first_vote'
   | 'planet_complete'
   | 'mission_complete'
-  | 'bonus_mission';
+  | 'bonus_mission'
+  | 'dive_quiz';
 
 export interface AwardResult {
   awarded:    boolean;
@@ -19,6 +20,9 @@ const EVENT_AMOUNTS: Record<EventType, number> = {
   planet_complete:  50,
   mission_complete: 100,
   bonus_mission:    75,
+  // Per correct quiz answer in a Master dive (max 3 per dive) — deliberately
+  // below goal_completion so free exploration never outearns missions.
+  dive_quiz:        5,
 };
 
 export const VALID_EVENT_TYPES = Object.keys(EVENT_AMOUNTS) as EventType[];

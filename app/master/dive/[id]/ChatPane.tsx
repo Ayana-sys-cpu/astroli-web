@@ -20,10 +20,17 @@ interface ChatPaneProps {
   animateFrom?: number;
   sending: boolean;
   recharging: boolean;
-  onSend: (text: string) => void;
+  onSend: (text: string, action?: 'quiz') => void;
   /** Called when the student taps an interactive visual chip — opens the canvas. */
   onOpenVisual: (segment: Extract<Segment, { type: 'visual' }>) => void;
 }
+
+/** The three pace controls pinned above the input — how to hear it, not where to go. */
+const PACE_CHIPS: Array<{ label: string; text: string; action?: 'quiz' }> = [
+  { label: 'Simpler', text: 'Make that simpler for me' },
+  { label: 'Example', text: 'Give me an example' },
+  { label: 'Quiz me', text: 'Quiz me', action: 'quiz' },
+];
 
 export default function ChatPane({
   topic,
@@ -45,11 +52,11 @@ export default function ChatPane({
     scrollDown();
   }, [turns.length, sending]);
 
-  const send = (text: string) => {
+  const send = (text: string, action?: 'quiz') => {
     const trimmed = text.trim();
     if (!trimmed || sending || hydrating) return;
     setDraft('');
-    onSend(trimmed);
+    onSend(trimmed, action);
   };
 
   const isLastTurn = (i: number) => i === turns.length - 1;
@@ -166,8 +173,23 @@ export default function ChatPane({
         <div ref={endRef} />
       </div>
 
+      <div className="mt-3 flex gap-1.5">
+        {PACE_CHIPS.map((chip) => (
+          <button
+            key={chip.label}
+            type="button"
+            onClick={() => send(chip.text, chip.action)}
+            disabled={sending || hydrating}
+            className="rounded-full border px-3 py-1 text-[11px] transition-colors hover:bg-white/10 disabled:opacity-40"
+            style={{ borderColor: 'var(--master-hairline)', color: 'var(--master-text-muted)' }}
+          >
+            {chip.label}
+          </button>
+        ))}
+      </div>
+
       <div
-        className="mt-3 flex items-center gap-2 rounded-full px-4 py-2"
+        className="mt-2 flex items-center gap-2 rounded-full px-4 py-2"
         style={{ background: 'var(--master-surface)', border: '1px solid var(--master-hairline)' }}
       >
         <input

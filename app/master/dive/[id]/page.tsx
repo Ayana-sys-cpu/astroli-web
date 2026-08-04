@@ -6,10 +6,12 @@ import StudentHeader from '@/components/StudentHeader';
 import type { DiveTurn, Segment, SourceEdit } from '@/lib/orin-dive';
 import ChatPane from './ChatPane';
 import MediaCanvas from './MediaCanvas';
+import { useCoinReward } from '@/hooks/useCoinReward';
 
 function DiveScreen() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
+  const { triggerReward } = useCoinReward();
   // The topic rides along from Master so the screen paints complete instantly,
   // before its own data fetch returns.
   const initialTopic = useSearchParams().get('topic') ?? '';
@@ -67,7 +69,9 @@ function DiveScreen() {
     }
   }, [id]);
 
-  const send = useCallback(async (text: string) => {
+  const send = useCallback(async (text: string, action?: 'quiz') => {
+    // The quiz-complete doors: one stays, one leads back to Master.
+    if (text === 'Discover something new') { router.push('/master'); return; }
     setSending(true);
     setRecharging(false);
     setTurns((prev) => [...(prev ?? []), { role: 'student', segments: [{ type: 'text', text }] }]);
@@ -75,11 +79,22 @@ function DiveScreen() {
       const res = await fetch(`/api/master/dive/${id}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, ...(action ? { action } : {}) }),
       });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.reply?.segments) {
         setTurns((prev) => [...(prev ?? []), { role: 'orin', segments: data.reply.segments }]);
+        // Coins earned on a finished quiz fire the platform's usual celebration.
+        if (data.reward?.amount > 0) {
+          triggerReward({
+            awarded: true,
+            amount: data.reward.amount,
+            newBalance: data.reward.newBalance,
+            eventType: 'dive_quiz',
+            titleOverride: `Quiz Conquered — ${data.reward.correct}/${data.reward.total}!`,
+            subtitleOverride: 'You explored it. You proved it.',
+          });
+        }
       } else {
         setRecharging(true);
       }
@@ -88,7 +103,7 @@ function DiveScreen() {
     } finally {
       setSending(false);
     }
-  }, [id]);
+  }, [id, triggerReward]);
 
   const keepDive = useCallback(async () => {
     setSaved(true);

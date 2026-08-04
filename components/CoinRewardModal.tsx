@@ -61,6 +61,10 @@ const EVENT_CONFIG: Record<EventType, { title: string; subtitle: string }> = {
     title:    'Bonus Mission Done!',
     subtitle: 'Your creativity earned extra coins.',
   },
+  dive_quiz: {
+    title:    'Quiz Conquered!',
+    subtitle: 'You explored it — and you proved it.',
+  },
 };
 
 export default function CoinRewardModal({

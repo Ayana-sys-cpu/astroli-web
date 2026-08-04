@@ -35,18 +35,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (existing) return NextResponse.json({ segments: existing.segments });
 
   const source = await loadDiveSource(session.edit_id);
-  const segments = await askOrin({
+  const reply = await askOrin({
     topic: session.topic,
     history: [],
     editMedia: source?.media ?? null,
     source: source?.edit ?? null,
   });
-  if (!segments) return NextResponse.json({ error: 'orin_recharging' }, { status: 503 });
+  if (!reply) return NextResponse.json({ error: 'orin_recharging' }, { status: 503 });
 
   await supabaseAdmin
     .from('master_dive_messages')
-    .insert({ session_id: session.id, role: 'orin', segments });
+    .insert({ session_id: session.id, role: 'orin', segments: reply.segments });
 
-  return NextResponse.json({ segments }, { status: 201 });
+  return NextResponse.json({ segments: reply.segments }, { status: 201 });
 }
 
