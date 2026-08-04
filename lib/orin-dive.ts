@@ -146,7 +146,7 @@ If a source card is given below, it is the piece the student just read and tappe
  */
 const OPENING = `This is the very first message of the dive. The student has just arrived and nothing is on screen yet. Special rules for this message only:
 
-- Two short paragraphs, about 60 words total. First paragraph: what this actually is — real names, dates and places up front, stated with confidence. Second paragraph: why it mattered — what it changed, started or proved.
+- Two short paragraphs, about 60 words total. First paragraph: what this actually is — real names, dates and places up front, stated with confidence. Second paragraph: why it mattered — what it changed, started or proved. Wrap the key names, dates and vivid phrases in double asterisks so they render highlighted.
 - No greeting, no "let's explore", no question at the end. You are laying the topic on the table; the student decides where to go.
 - Always attach a "media_request" for a real photograph of the actual scene, thing or place — not a portrait of a person. Only use a "visual" if no real photo could exist.
 - "choices": exactly TWO directions to take the dive next, each starting with a verb ("See how it was set up", "Explore what critics said"), each under 8 words. They are doors, not answers.`;
