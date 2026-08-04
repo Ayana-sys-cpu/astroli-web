@@ -45,18 +45,13 @@ export function MediaCard({ segment }: { segment: Extract<Segment, { type: 'medi
 
   if (failed) return null;
 
+  // Gemini-style presentation: the image stands on its own with big rounded
+  // corners and natural proportions; the caption sits underneath, outside any box.
   return (
-    <figure
-      className="dive-media-arrive m-0 overflow-hidden"
-      style={{
-        borderRadius: 12,
-        background: 'var(--master-surface)',
-        border: '1px solid var(--master-hairline)',
-      }}
-    >
-      <div className="overflow-hidden">
+    <figure className="dive-media-arrive m-0">
+      <div className="overflow-hidden" style={{ borderRadius: 16 }}>
         {segment.kind === 'video' ? (
-          <video src={segment.url} controls playsInline className="block max-h-[340px] w-full object-cover" />
+          <video src={segment.url} controls playsInline className="block h-auto max-h-[420px] w-full" />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -64,25 +59,25 @@ export function MediaCard({ segment }: { segment: Extract<Segment, { type: 'medi
             alt={segment.title}
             loading="lazy"
             onError={onError}
-            className="dive-media-kenburns block max-h-[340px] w-full object-cover"
+            className="dive-media-kenburns block h-auto max-h-[420px] w-full object-cover"
           />
         )}
       </div>
-      <figcaption className="px-3 py-2">
-        <span className="block text-[12px] text-white">{segment.title}</span>
+      <figcaption className="mt-2 px-1">
+        <span className="block text-[13px] font-medium text-white">{segment.title}</span>
         {segment.pageUrl ? (
           <a
             href={segment.pageUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="block text-[10px] underline-offset-2 hover:underline"
+            className="block text-[11px] italic underline-offset-2 hover:underline"
             style={{ color: 'var(--master-text-muted)' }}
           >
-            {segment.credit} ↗
+            Source: {segment.credit} ↗
           </a>
         ) : (
-          <span className="block text-[10px]" style={{ color: 'var(--master-text-muted)' }}>
-            {segment.credit}
+          <span className="block text-[11px] italic" style={{ color: 'var(--master-text-muted)' }}>
+            Source: {segment.credit}
           </span>
         )}
       </figcaption>

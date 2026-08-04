@@ -25,12 +25,33 @@ interface ChatPaneProps {
   onOpenVisual: (segment: Extract<Segment, { type: 'visual' }>) => void;
 }
 
-/** The three pace controls pinned above the input — how to hear it, not where to go. */
-const PACE_CHIPS: Array<{ label: string; text: string; action?: 'quiz' }> = [
-  { label: 'Simpler', text: 'Make that simpler for me' },
-  { label: 'Example', text: 'Give me an example' },
-  { label: 'Quiz me', text: 'Quiz me', action: 'quiz' },
+/** The pace controls pinned above the input — how to hear it, not where to go. */
+const PACE_CHIPS: Array<{ label: string; text: string; icon: React.ReactNode; action?: 'quiz' }> = [
+  { label: 'Simpler', text: 'Make that simpler for me', icon: <ChipIcon d="M12 3l1.9 5.7L19.5 12l-5.6 3.3L12 21l-1.9-5.7L4.5 12l5.6-3.3L12 3z" /> },
+  { label: 'Example', text: 'Give me an example', icon: <ChipIcon d="M9 18h6M10 21h4M12 3a6 6 0 0 1 3.6 10.8c-.7.5-1.1 1.3-1.1 2.2H9.5c0-.9-.4-1.7-1.1-2.2A6 6 0 0 1 12 3z" /> },
+  { label: 'Quiz me', text: 'Quiz me', action: 'quiz', icon: <ChipIcon d="M9.5 9a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.1 1-1.1 1.8v.5M12 17h.01M12 21a9 9 0 1 1 0-18 9 9 0 0 1 0 18z" /> },
+  { label: 'Game', text: 'Turn what we just learned into a quick mini-game I can play', icon: <ChipIcon d="M6 9h4M8 7v4M15 8h.01M17.5 10.5h.01M7 5h10a4 4 0 0 1 4 4v4a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a4 4 0 0 1 4-4z" /> },
 ];
+
+/** Tiny stroke icon for a pace chip — drawn in Orin's purple. */
+function ChipIcon({ d }: { d: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={15}
+      height={15}
+      fill="none"
+      stroke="#C060FF"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      className="shrink-0"
+    >
+      <path d={d} />
+    </svg>
+  );
+}
 
 export default function ChatPane({
   topic,
@@ -69,7 +90,10 @@ export default function ChatPane({
           style={{ background: 'radial-gradient(circle at 35% 35%, #C060FF, #8B00FF)' }}
           aria-hidden
         />
-        <h1 className="text-[13px] text-white" style={{ fontFamily: 'var(--font-space)', fontWeight: 700 }}>
+        <h1
+          className="min-w-0 text-[22px] leading-tight text-white"
+          style={{ fontFamily: 'var(--font-space)', fontWeight: 700, letterSpacing: '-0.3px' }}
+        >
           {topic} <span style={{ color: 'var(--master-purple-orin)' }}>with Orin</span>
         </h1>
         <DepthMeter depth={turns.filter((t) => t.role === 'student').length} />
@@ -79,7 +103,12 @@ export default function ChatPane({
         {source && <SourceCard source={source} />}
 
         {turns.map((turn, i) =>
-          turn.segments.map((s, j) => {
+          // Choices always render last in Orin's turn — they are the hook to keep
+          // diving, so nothing (image, list, table) may appear below them.
+          [...turn.segments]
+            .map((s, j) => ({ s, j }))
+            .sort((a, b) => Number(a.s.type === 'choices') - Number(b.s.type === 'choices'))
+            .map(({ s, j }) => {
             const key = `${i}-${j}`;
             if (s.type === 'text') {
               return (
@@ -140,7 +169,7 @@ export default function ChatPane({
                     className="m-0 mb-2 text-[10px] font-bold uppercase tracking-widest"
                     style={{ color: 'var(--master-text-muted)' }}
                   >
-                    Where next?
+                    Where do you want to go next?
                   </p>
                   <div className="flex flex-col gap-2">
                     {s.options.map((option, idx) => (
@@ -188,16 +217,17 @@ export default function ChatPane({
         <div ref={endRef} />
       </div>
 
-      <div className="mt-3 flex gap-1.5">
+      <div className="mt-3 flex flex-wrap gap-2">
         {PACE_CHIPS.map((chip) => (
           <button
             key={chip.label}
             type="button"
             onClick={() => send(chip.text, chip.action)}
             disabled={sending || hydrating}
-            className="rounded-full border px-3 py-1 text-[11px] transition-colors hover:bg-white/10 disabled:opacity-40"
-            style={{ borderColor: 'var(--master-hairline)', color: 'var(--master-text-muted)' }}
+            className="flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13px] text-white transition-colors hover:bg-white/10 disabled:opacity-40"
+            style={{ background: 'var(--master-surface)', border: '1px solid rgba(192,96,255,0.5)' }}
           >
+            {chip.icon}
             {chip.label}
           </button>
         ))}
