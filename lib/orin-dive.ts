@@ -504,6 +504,11 @@ export async function askOrin({ topic, history, editMedia, source, quiz = null }
   const isOpening = history.length === 0;
   const opening = isOpening ? `\n\n${OPENING}` : '';
   const quizMode = quiz ? quizInstructions(quiz) : '';
+  // During a quiz the verdict field is load-bearing (it drives the coin
+  // count), so it stops being optional — the model must emit it every turn.
+  const schema = quiz
+    ? { ...REPLY_SCHEMA, required: ['text', 'choices', 'quiz'] }
+    : REPLY_SCHEMA;
 
   const messages: Anthropic.MessageParam[] = history.length
     ? history.map((turn) => ({
@@ -519,7 +524,7 @@ export async function askOrin({ topic, history, editMedia, source, quiz = null }
       system: `${SYSTEM}\n\nTopic: ${topic}${sourceCard}${opening}${wrapUp}${quizOffer}${quizMode}`,
       output_config: {
         effort: 'medium',
-        format: { type: 'json_schema', schema: REPLY_SCHEMA },
+        format: { type: 'json_schema', schema },
       },
       messages,
     });
